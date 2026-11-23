@@ -135,6 +135,8 @@ PLACEHOLDERS = ("NNNN-kebab-slug", "YYYY-MM-DD", "As a <role>", "<preconditions"
 # stays on one line, so one stray backtick cannot quote the lines after it.
 FENCE_RE = re.compile(r"^[ \t]*(?P<f>(?P<c>[`~])(?P=c){2,})[^\n]*\n.*?^[ \t]*(?P=f)(?P=c)*[ \t]*$", re.M | re.S)
 CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)[^\n]+?(?<!`)\1(?!`)")
+# A task file's section heading; one inside a fenced block is quoted text, not read (`_unfenced`).
+HEADING_RE = re.compile(r"^## ", re.M)
 # §5: a measured premise in Context names the command that measured it. A number here is a figure
 # stated in prose: a run of digits that is not part of an id or a ref (`R5`, `§31.1`, `ADR-0033`,
 # `PR #89`, a date, a time, a sha), not a zero-padded id (`0000`), not a list marker and not in a
@@ -241,20 +243,34 @@ def canonical_status(status: Any) -> Any:
     return LEGACY_STATUSES.get(str(status), status) if isinstance(status, str) else status
 
 
+def _unfenced(text: str) -> str:
+    """`text` with each fenced block blanked (`_blank`): the same length and line breaks, so an offset in it is one
+    in `text`. A `## ` line inside a fence is quoted text, no heading: headings are found here."""
+    return FENCE_RE.sub(_blank, text)
+
+
+def _section_end(unfenced: str, at: int) -> int:
+    """Where the section whose body starts at offset `at` ends: the next `## ` heading outside a fence, else the
+    text's end. `unfenced` is the text as `_unfenced` gives it."""
+    nxt = HEADING_RE.search(unfenced, at)
+    return nxt.start() if nxt else len(unfenced)
+
+
 def _section_at(text: str, name: str) -> tuple[int, str] | None:
     """The body under `## <name>` (or an older name for that section), up to the next `## `
-    heading, with its offset in `text`; None when the heading is absent."""
+    heading, with its offset in `text`; None when the heading is absent. Only a heading outside a fenced
+    block counts, as the section's own or as its end; the body is sliced from `text` as written."""
     names = [name, *SECTION_ALIASES.get(name, ())]
     names += [k for k, olds in SECTION_ALIASES.items() if name in olds]
+    unfenced = _unfenced(text)
     m = None
     for n in names:
-        m = re.search(rf"^## {re.escape(n)}[ \t]*$", text, re.M)
+        m = re.search(rf"^## {re.escape(n)}[ \t]*$", unfenced, re.M)
         if m:
             break
     if not m:
         return None
-    nxt = re.search(r"^## ", text[m.end():], re.M)
-    return m.end(), (text[m.end(): m.end() + nxt.start()] if nxt else text[m.end():])
+    return m.end(), text[m.end(): _section_end(unfenced, m.end())]
 
 
 def _section(text: str, name: str) -> str | None:
@@ -952,16 +968,23 @@ def _norm(text: str) -> str:
 _RULE_CHANGES_RE = re.compile(r"^## Rule changes\b[^\n]*$", re.M)
 
 
+def _unquoted(text: str) -> str:
+    """`text` with its fenced blocks and code spans blanked (`_blank`): the same length and line breaks, so a
+    `PROPOSED:` marker is read where it is not quoted."""
+    return CODE_SPAN_RE.sub(_blank, _unfenced(text))
+
+
 def _signed_sections(text: str) -> list[tuple[int, str]]:
     """§15.2: the sections of a task file that carry signed passages, in file order, each as (its offset in
     `text`, its body from just after the heading): the Scope (`_section_at`) and every `## ` section
-    whose heading begins `Rule changes`."""
+    whose heading begins `Rule changes`. Headings are read outside fenced blocks (`_unfenced`); the bodies are
+    the text as written."""
     out = []
     if (at := _section_at(text, SEC_SCOPE)) is not None:
         out.append(at)
-    for m in _RULE_CHANGES_RE.finditer(text):
-        nxt = re.search(r"^## ", text[m.end():], re.M)
-        out.append((m.end(), text[m.end(): m.end() + nxt.start()] if nxt else text[m.end():]))
+    unfenced = _unfenced(text)
+    for m in _RULE_CHANGES_RE.finditer(unfenced):
+        out.append((m.end(), text[m.end(): _section_end(unfenced, m.end())]))
     return sorted(out)
 
 
@@ -1019,14 +1042,17 @@ def signed_blocks(text: str) -> list[tuple[int, str, str | None]]:
     whose heading begins `Rule changes` (`_signed_sections`), in file order, as (line number in the file, the
     passage with its whitespace normalised, the file its block names or None, `_block_names`): each line
     holding `PROPOSED:` followed at once by `> ` blockquote lines, the quote marks taken off (`_quoted_under`). A `PROPOSED:`
-    with no blockquote under it (one quoted inline, or the word in prose) carries none. A passage carried in
-    more than one place is listed once, at its first line."""
+    with no blockquote under it (one quoted inline, or the word in prose) carries none, and one inside a code span
+    or a fenced block is quoted, not read. A passage carried in more than one place is listed once, at its first
+    line."""
     out: list[tuple[int, str, str | None]] = []
     seen: set[str] = set()
+    unquoted = _unquoted(text)
     for start, body in _signed_sections(text):
         first = text.count("\n", 0, start) + 1  # `body` starts on the heading's line, after the heading
-        lines = body.split("\n")
-        for n, line in enumerate(lines):
+        marked = unquoted[start:start + len(body)].split("\n")  # a marker quoted in a span or a fence is not read
+        lines = body.split("\n")  # the body as written: the passage, its quotes and its file are read from it
+        for n, line in enumerate(marked):
             if not _PROPOSED_RE.search(line):
                 continue
             if (passage := _quoted_under(lines, n)) and passage not in seen:
@@ -1043,7 +1069,7 @@ def unreadable_proposed(t: dict[str, Any], rel: str) -> list[str]:
     if t.get("status") in TERMINAL:
         return []
     text = t["_text"]
-    unquoted = CODE_SPAN_RE.sub(_blank, FENCE_RE.sub(_blank, text))  # same length and line breaks as `text`
+    unquoted = _unquoted(text)
     out = []
     for start, body in _signed_sections(text):  # the sections as `signed_blocks` finds them, in the raw text
         first = text.count("\n", 0, start) + 1

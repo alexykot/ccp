@@ -1,7 +1,7 @@
 ---
 task_id: 0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text
 title: A task file's sections end only at real headings, so a fenced `## ` line neither hides a signed passage from ccp verify spec-text nor opens a signed section
-status: pending
+status: done
 kind: feature
 depends_on: ["0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes"]
 spec_refs: ["S3", "S15"]
@@ -11,7 +11,7 @@ clashes_with: ["0191-the-grace-release-ends", "0293-the-lead-s-preference-and-ho
 paths: ["ccp/tasklog.py", "tests/test_signed_sections_fences.py", "tests/test_signed_blocks_check.py"]
 adopt: "none"
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Task: 0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text
@@ -116,4 +116,25 @@ items (a) and (d). Measured at `0f44fb3` (origin/main, after 0285 merged) unless
 
 ## Implementation notes
 
+- 2026-11-23 — `ccp/tasklog.py`: `_unfenced` (the text with `FENCE_RE` blanked, same length and line breaks) and
+  `_section_end` (the next `^## ` line in it) are where a section's heading and end are found; `_section_at` and
+  `_signed_sections` match there and slice their bodies from the raw text. `_unquoted` (fences and code spans
+  blanked) is shared by `signed_blocks`, which now reads a `PROPOSED:` marker only in it, and by
+  `unreadable_proposed`, which keeps 0285's shape. `HEADING_RE` names the section heading pattern once.
+- Premises re-measured at `e13c1380`: the two probes print `[]` and a fenced `Rule changes` passage as the Context
+  says (line numbers differ with the fixture's shape); `tasklog.checks` of the dod_checks probe prints `['cmd-01']`;
+  0 of 304 task files read differently with fences blanked; `git grep -n 'heading begins' -- docs/spec` 2 lines.
+  Over every task file in the log, the old and new `signed_blocks`, `checks` ids and `unreadable_proposed` agree.
+- Tests: `tests/test_signed_sections_fences.py` (new) and 0285's two tests in `tests/test_signed_blocks_check.py`
+  as the ruling gives them; the renamed test's docstring became a comment, so `unittest -v` prints its `ok` on
+  its name's line, as `code-02`'s grep reads it.
+- `tests/test_tasks_migrate.py` broke with the fix, as it had to: its would-fail test made the converted file fail
+  through the old text's own `## dod_checks` and `## Verification notes`, which migrate keeps in a fence and the
+  checks no longer read. The test now makes the converted file fail by reusing an NNNN, keeps its other
+  assertions (not written, the dependant checked again without it, `tasks check` failing on both), and adds a file
+  whose fenced old sections convert. `ccp/taskmigrate.py` `migrate`'s docstring loses the parenthesis that gave
+  the old reading as the reason. Both are outside the task's paths; flagged in the report.
+
 ## Verification notes
+- 2026-11-23 — verifier, PR #366 head `f31d817` (squash `32c8435`): APPROVE. Passed: code-01, cmd-01, code-02, code-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text.json.
+

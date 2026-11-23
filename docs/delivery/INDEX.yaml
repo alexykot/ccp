@@ -1493,7 +1493,7 @@ tasks:
     depends_on: []
     path: tasks/0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants.md
   - id: 0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text
-    status: pending
+    status: done
     title: A task file's sections end only at real headings, so a fenced `## ` line neither hides a signed passage from ccp verify spec-text nor opens a signed section
     depends_on: [0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes]
     path: tasks/0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text.md
