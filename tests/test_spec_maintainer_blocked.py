@@ -1,18 +1,27 @@
 """§17.7 skip-ahead and the task-id check of `spec-maintainer-ask.sh`: the task log through the binding."""
 from __future__ import annotations
 
+import argparse
+import contextlib
+import io
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from ccp import tasklog
 from ccp.queue import lib
 from tests.helpers import PLANE_ROOT, Product, binding
 
 ASK = PLANE_ROOT / "scripts" / "spec-maintainer-ask.sh"
 QID = "sm-20261122T000000Z-abcd"
+
+sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
+import spec_maintainer as sm  # noqa: E402
 
 
 class SkipAhead(unittest.TestCase):
@@ -24,7 +33,7 @@ class SkipAhead(unittest.TestCase):
         self.q = Path(tmp.name)
         (self.q / "project.yaml").write_text(binding(product_root=self.prod.root))
         (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
-        self.env = {k: v for k, v in os.environ.items() if k not in ("DURABLE_DOCS", "PROJECT_YAML", "ACTOR")}
+        self.env = {k: v for k, v in os.environ.items() if k not in ("PROJECT_YAML", "ACTOR")}
         self.env["QUEUE_ROOT"] = str(self.q)
         self.prod.task("0001-a")
         self.prod.task("0002-b", deps=["0001-a"])
@@ -60,6 +69,21 @@ class SkipAhead(unittest.TestCase):
         (self.q / "tasks" / "0005-e.json").write_text(json.dumps({"task_id": "0005-e", "depends_on": ["0003-c"]}))
         self.question(QID, "open", ["0001-a"])
         self.assertEqual(self.blocked()["blocked"], ["0001-a", "0002-b", "0003-c", "0005-e"])
+
+    def test_blocked_reads_the_task_log_once_whatever_the_number_of_open_questions(self):
+        self.question(QID, "open", ["0001-a"])
+        self.question("sm-20261122T000001Z-abce", "open", ["0004-d"])
+        self.question("sm-20261122T000002Z-abcf", "escalated", ["0002-b"])
+        buf = io.StringIO()
+        with mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}), \
+                mock.patch.object(tasklog, "load", wraps=tasklog.load) as load, contextlib.redirect_stdout(buf):
+            self.assertEqual(sm.cmd_blocked(argparse.Namespace(task_id=None)), 0)
+        self.assertEqual(load.call_count, 1)
+        got = json.loads(buf.getvalue())
+        self.assertEqual(got["blocked"], ["0001-a", "0002-b", "0003-c", "0004-d"])
+        self.assertEqual({q: v["descendants"] for q, v in got["by_question"].items()},
+                         {QID: ["0002-b", "0003-c"], "sm-20261122T000001Z-abce": [],
+                          "sm-20261122T000002Z-abcf": ["0003-c"]})
 
     def test_an_escalated_question_blocks_and_an_answered_one_does_not(self):
         self.question(QID, "escalated", ["0001-a"])

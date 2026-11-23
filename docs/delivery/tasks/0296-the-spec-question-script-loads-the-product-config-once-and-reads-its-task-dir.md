@@ -74,6 +74,12 @@ except the `DURABLE_DOCS` count, which lost `scripts/queue/README.md`'s line whe
   and `sm.product_root` still resolve for `team.py`) and drops its `lock_is_stale` re-export. `architecture_review.py` imports
   `lock_is_stale`, `project_id` and `product_root` from lib and no longer imports `spec_maintainer`.
 
+### Ruling 0296-the-spec-question-script-loads-the-product-config-once-and-reads-its-task-dir-r1
+
+As the runner passed it (lead, 2026-11-23, spec question `sm-20261123T230826Z-a5c3`, spec commit b09de67577ef):
+
+> code-03 step 1 (lead, 2026-11-23): it is amended to exclude the test that proves the variable is ignored: git grep -nE 'DURABLE_DOCS|resolve_durable_docs_dir' -- ccp scripts tests ':!tests/test_spec_maintainer_task_ids.py', expecting nothing. Step 3 needs that test to name DURABLE_DOCS, so its mentions there are the check's own evidence, not a leftover reader.
+
 ## Scope
 
 - **In:** `scripts/observability/spec_maintainer.py`, `scripts/observability/architecture_review.py`, `scripts/observability/lib.py`,
@@ -121,5 +127,25 @@ except the `DURABLE_DOCS` count, which lost `scripts/queue/README.md`'s line whe
   dry run (`e13c1380`): step 1 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 6 tests`; step 2 on its log printed only `OK` (no test names `once` yet).
 
 ## Implementation notes
+
+- lib gains `product_config(root, *, strict=False)`, `project_id` and `product_root`; `_product_config` takes the
+  `strict` flag (a plane.json that exists but does not load raises; a missing one is None either way) and stays the
+  only call of `ccp.config.load` in lib and `spec_maintainer.py`. `resolve_durable_docs_dir` and `DURABLE_DOCS` are gone.
+- `spec_maintainer.py` imports `product_config`, `product_root` and `project_id` from lib (so `sm.project_id` and
+  `sm.product_root` still resolve for `team.py`), drops its `lock_is_stale` re-export and its now-unused `binding_data`
+  and `binding_str` imports. `notify_operator` calls `product_config(root, strict=True)` inside its existing
+  `try`, with the same warning text.
+- `dependency_map(root)` is new; `descendants(deps, seeds)` takes the map; `cmd_blocked` builds it once.
+- `architecture_review.py` imports `lock_is_stale`, `project_id` and `product_root` from lib, not `spec_maintainer`.
+- `docs/design/architect.md`'s "Shared helpers" bullet said the driver reuses helpers from `spec_maintainer.py`; it now names lib
+  (outside the task's Scope, one line, since the change made that sentence false).
+- A plane.json whose `task_log.dir` is `null` loads, but `Config.delivery_dir` then fails on it; the removed
+  `resolve_durable_docs_dir` defaulted it. Not changed here (`ccp.config` is out of Scope); `blocked` already read `cfg.tasks_dir`.
+- Fix round 1: the lead's ruling r1 (in Context) amends code-03 step 1 to leave `tests/test_spec_maintainer_task_ids.py`
+  out of the grep; the tests are unchanged (that module names `DURABLE_DOCS` only to prove the variable is ignored).
+  `docs/design/plugin.md`'s INDEX bullet now names `spec_maintainer.dependency_map` (not `descendants`) as the task-file reader,
+  since `descendants` only takes a map now.
+- Fix round 2: the ruling in Context is now a quoted block (each line `> `) under its ledger id, as SPEC §10.5 asks; its words
+  are unchanged. This clears `ccp tasks check`'s "states a number" warning on that line.
 
 ## Verification notes

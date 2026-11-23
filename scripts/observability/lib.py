@@ -673,22 +673,6 @@ def empty_seat() -> dict[str, Any]:
     }
 
 
-def resolve_durable_docs_dir(root: Path) -> Path | None:
-    """The product's task-log directory for the queue `root` (§8.3): the `DURABLE_DOCS` environment variable
-    when set, else `task_log.dir` of the product's plane.json (`docs/delivery` unless it sets one) under
-    the binding's `product_root`; None when there is none."""
-    env = os.environ.get("DURABLE_DOCS")
-    if env:
-        return Path(env).expanduser()
-    product_root = binding_str(binding_data(root), "product_root")
-    if not product_root:
-        return None
-    base = Path(product_root).expanduser()
-    cfg = _product_config(base)
-    rel = (cfg.task_log.get("dir") if cfg is not None else None) or _config().TASK_LOG_DEFAULTS["dir"]
-    return (base / str(rel)).resolve()
-
-
 _BINDING_LINE = re.compile(r"^([ \t]*)([^\s#:-][^:#]*?):(?:[ \t]+(.*))?$")
 
 
@@ -921,20 +905,45 @@ def runner_limits(root: Path) -> dict[str, int | None]:
             for short, key in RUNNER_LIMITS.items()}
 
 
-def _product_config(product_root: Path) -> Any:
+def _product_config(product_root: Path, *, strict: bool = False) -> Any:
     """The product's `ccp.config` Config (E16: the one reader of plane.json), or None when plane.json is missing
-    or does not load. The load's warnings are not printed, and are not marked as shown: the process's later
-    loads (`ccp.config._WARNED`) still print each once."""
+    or does not load; with `strict`, a plane.json that exists but does not load raises the load's error instead.
+    The load's warnings are not printed, and are not marked as shown: the process's later loads
+    (`ccp.config._WARNED`) still print each once."""
     cfg = _config()
     shown = set(cfg._WARNED)
     try:
         with redirect_stderr(io.StringIO()):
             return cfg.load(product_root)
     except Exception:  # noqa: BLE001  (no plane.json, invalid JSON, a ConfigError: the defaults, as before)
+        if strict and (Path(product_root) / cfg.CONFIG_REL).is_file():
+            raise
         return None
     finally:
         cfg._WARNED.clear()
         cfg._WARNED.update(shown)
+
+
+def product_config(root: Path, *, strict: bool = False) -> Any:
+    """The loaded plane.json of the product the binding names for the queue `root`, quietly (`_product_config`);
+    None with no `product_root` or no plane.json. A plane.json that exists but does not load is None too, or with
+    `strict` raises the load's error."""
+    prod = binding_str(binding_data(root), "product_root")
+    if not prod:
+        return None
+    return _product_config(Path(prod).expanduser(), strict=strict)
+
+
+def project_id(root: Path, q: dict[str, Any] | None = None) -> str:
+    """The project id: `PROJECT_ID` in the environment, else the question's, else the binding's, else the queue
+    directory's name."""
+    pid = os.environ.get("PROJECT_ID") or (q or {}).get("project_id")
+    return pid or binding_str(binding_data(root), "project_id") or root.name
+
+
+def product_root(root: Path) -> str:
+    """The binding's `product_root` for the queue `root`, or "" when it names none."""
+    return binding_str(binding_data(root), "product_root") or ""
 
 
 def runner_worktree(root: Path) -> str | None:

@@ -40,17 +40,16 @@ from lib import (  # noqa: E402
     VERIFIER,
     append_event,
     apply_event,
-    binding_data,
-    binding_str,
     die,
     events_path,
     fmt_dt,
     load_events,
-    lock_is_stale,  # noqa: F401  (re-exported: architecture_review.py's lock reads it)
     looks_like_secret,
     new_task_state,
     parse_dt,
-    resolve_durable_docs_dir,
+    product_config,
+    product_root,
+    project_id,
     read_json,
     wait_writer_cmd,
     write_json,
@@ -93,11 +92,6 @@ def where_queue_root() -> str | None:
     except (OSError, ValueError, AttributeError, subprocess.SubprocessError):
         return None
     return q if isinstance(q, str) and q else None
-
-
-def project_id(root: Path, q: dict[str, Any] | None = None) -> str:
-    pid = os.environ.get("PROJECT_ID") or (q or {}).get("project_id")
-    return pid or binding_str(binding_data(root), "project_id") or root.name
 
 
 def env_raiser() -> str | None:
@@ -258,34 +252,22 @@ def waiting_for(root: Path, q: dict[str, Any], reasons: tuple[str, ...]) -> list
             out.append(tid)
     return out
 
-def product_config(root: Path) -> Any:
-    """The product's loaded plane.json, at the product root the binding names (ccp.config); None with no
-    product root, or a plane.json that is missing or cannot be read."""
-    from ccp import config as ccp_config  # noqa: PLC0415
-    prod = product_root(root)
-    if not prod:
-        return None
-    try:
-        return ccp_config.load(Path(prod))
-    except Exception:  # noqa: BLE001  (no readable config: the caller falls back to the defaults or the queue)
-        return None
-
 
 def check_task_ids(root: Path, ids: list[str], flag: str) -> list[str]:
     """Refuse anything that is not a task id, before any write (no fragment ever becomes a task_id).
 
     Each entry must match the product's task-id shape at its width (ccp refs; the default `Ids` when no
-    plane.json can be read). When the product's task log is reachable and has tasks, it must also name an
-    existing task (docs/delivery/tasks/<id>.md) or a claimed one (QUEUE_ROOT/tasks/<id>.json).
+    plane.json can be read). When the product's config is loaded and its task directory (`tasks_dir`) has
+    tasks, it must also name an existing task (<tasks_dir>/<id>.md) or a claimed one (QUEUE_ROOT/tasks/<id>.json).
     """
-    shape = refs.ids(product_config(root))
+    cfg = product_config(root)
+    shape = refs.ids(cfg)
     bad = [i for i in ids if not shape.task_id_re.match(i)]
     if bad:
         die(f"{flag}: not task ids: {', '.join(repr(b) for b in bad)}. Give task ids only, comma-separated "
             f"({'N' * shape.task_width}-slug, e.g. {shape.format_task_number(8)}-p1-regimes); put explanations "
             "in --text or --tried.", 2)
-    docs = resolve_durable_docs_dir(root)
-    tdir = docs / "tasks" if docs else None
+    tdir = cfg.tasks_dir if cfg is not None else None
     if tdir and tdir.is_dir() and any(tdir.glob("*.md")):
         unknown = [i for i in ids if not (tdir / f"{i}.md").is_file() and not (root / "tasks" / f"{i}.json").is_file()]
         if unknown:
@@ -313,9 +295,9 @@ def notify_operator(root: Path, trigger: str, task_id: str, ident: str, actor: s
     prod = product_root(root)
     warns: list[str] = []
     cfg = None
-    if prod and (Path(prod) / ccp_config.CONFIG_REL).is_file():
+    if prod:
         try:
-            cfg = ccp_config.load(Path(prod))
+            cfg = product_config(root, strict=True)
         except Exception as e:  # noqa: BLE001  (the step happened; the notice goes to the lead's session)
             warns.append(f"notify: could not read the product's plane.json ({e}); raise the {trigger} in the "
                          "lead's session")
@@ -323,10 +305,6 @@ def notify_operator(root: Path, trigger: str, task_id: str, ident: str, actor: s
         cfg = ccp_config.Config(root=Path(prod) if prod else root, project_id=project_id(root), task_log={},
                                 package_docs=None)
     return warns + notify.fire(cfg, root, trigger, task_id=task_id, ident=ident, who=actor)[1]
-
-
-def product_root(root: Path) -> str:
-    return binding_str(binding_data(root), "product_root") or ""
 
 
 def protocol_doc_path(cfg: dict[str, str], root: Path) -> str:
@@ -571,11 +549,10 @@ def cmd_process(args: argparse.Namespace) -> int:
     return process(root, qp, actor=args.actor)
 
 
-def descendants(root: Path, seeds: list[str]) -> set[str]:
-    """§17.7: the seeds plus every task whose `depends_on` closure holds one. The dependencies are the task
-    log's (through the binding's product root) united with the queue's `tasks/*.json`; with no product root,
-    or a plane.json that cannot be read, the queue's alone."""
-    from ccp import graph, tasklog  # noqa: PLC0415
+def dependency_map(root: Path) -> dict[str, list[str]]:
+    """§17.7: each task's `depends_on`, from the task log (through the binding's product root) united with the
+    queue's `tasks/*.json`; with no product root, or a plane.json that cannot be read, the queue's alone."""
+    from ccp import tasklog  # noqa: PLC0415
     deps: dict[str, list[str]] = {}
 
     def add(tid: str, ds: Any) -> None:
@@ -599,6 +576,12 @@ def descendants(root: Path, seeds: list[str]) -> set[str]:
             log = []
         for t in log:
             add(str(t.get("task_id") or t["_file"].stem), t.get("depends_on"))
+    return deps
+
+
+def descendants(deps: dict[str, list[str]], seeds: list[str]) -> set[str]:
+    """§17.7: the seeds plus every task whose `depends_on` closure (`deps`, `dependency_map`) holds one."""
+    from ccp import graph  # noqa: PLC0415
     want = set(seeds)
     return want | {tid for tid in deps if graph.closure(deps, tid) & want}
 
@@ -608,8 +591,9 @@ def cmd_blocked(args: argparse.Namespace) -> int:
     root = root_dir()
     by_q = {}
     allb: set[str] = set()
+    deps = dependency_map(root)
     for q in open_questions(root):
-        d = descendants(root, list(q.get("blocks") or []))
+        d = descendants(deps, list(q.get("blocks") or []))
         by_q[q["question_id"]] = {"blocks": q.get("blocks"), "descendants": sorted(d - set(q.get("blocks") or []))}
         allb |= d
     obj: dict[str, Any] = {"blocked": sorted(allb), "by_question": by_q}
