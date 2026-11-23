@@ -55,6 +55,11 @@ Measured at `b09de675` (origin/main) unless a line says otherwise. Each probe ru
   text with fences blanked) printed `[]` at `b09de675`. With this task's `FENCE_RE`, a probe at `b09de675` blanking each file
   under `docs/delivery/tasks/` and `docs/delivery/reviews/` with the old and the new pattern found no file that differs
   (`python3 -B` over both globs, comparing `FENCE_RE.sub(_blank, s)` for each pattern: `[]` for both directories).
+- **A bound product's log too.** The same probe, extended to compare `strip_notes`' output today with the ruled
+  `strip_notes` (headings found in the text blanked with the new `FENCE_RE`), ran read-only over this checkout's task log
+  and over the task log of each product bound on the plane's machine, at `b09de675`:
+  `python3 -B <probe> <product root>` printed 0 blanking differences and 0 `strip_notes` differences in every log, so no stored
+  `task_hash` moves in any of them.
 - **Line endings.** `FENCE_RE`'s closer is `[ \t]*$`, so in a CRLF file no fence closes and nothing is blanked: such a
   file reads as raw text, as close reads it today. `python3 -B -c 'from ccp import tasklog as t; print(bool(t.FENCE_RE.search("a\r\n\x60\x60\x60\r\n## X\r\n\x60\x60\x60\r\n")))'`
   at `b09de675`: `False`. Close's CRLF handling stays as it is; CRLF fences are out of this task.

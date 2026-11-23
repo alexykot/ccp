@@ -52,6 +52,9 @@ The lead's priority item (a friction seen when two runners claimed at once). Mea
 - **Why not `tempfile.mkstemp`.** It creates the file with mode `0600`, and the replace keeps that mode, so plane.json
   (written by `upgrade`) and the machine file would lose their group and other read bits. The helper creates the
   temporary file with `open(..., "x")`, the process's umask applying as it does today.
+- **A killed writer.** A process killed mid-write (SIGKILL, a power cut) leaves its hidden `.<name>.<pid>.<hex>.tmp`
+  beside the file, as it leaves `<name>.tmp` today; §31.3 skips it. A sweep of old temporary files is Out: it is rare,
+  harmless (nothing reads the name), and a sweep would need an age rule of its own.
 - **No SPEC change.** `git grep -nE '\.tmp|temporary file' -- docs/spec` at `b09de675`: 1 line,
   `docs/spec/05-operations.md` (§31.3: "an atomic write's `*.tmp`" is not listed as a leftover). The new names end
   `.tmp`, so `queue.leftover_entries` and `queue.script_findings` still skip them, and a reader that globs `*.json`
@@ -67,11 +70,13 @@ The lead's priority item (a friction seen when two runners claimed at once). Mea
 
 ### Rulings for the build (the lead's)
 
-- **The helper.** `scripts/observability/lib.py` gains `def write_atomic(path: Path, text: str) -> None`. It writes
-  `text` as UTF-8 to `path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")` (same directory,
-  hidden, ending `.tmp`), opened with mode `"x"`, then `os.replace`s it onto `path`. If anything raises between the
-  open and the replace (`BaseException`), it unlinks the temporary file (`missing_ok=True`) and re-raises. It does not
-  create the directory: each caller does that, as today.
+- **The helper.** `scripts/observability/lib.py` gains `def write_atomic(path: Path, text: str) -> None`. It sets
+  `tmp = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")` (same directory, hidden, ending
+  `.tmp`), writes `text` through `open(tmp, "x", encoding="utf-8", newline="")`, then `os.replace(tmp, path)`. If
+  anything raises from the open to the replace (`BaseException`), it runs `tmp.unlink(missing_ok=True)` and re-raises.
+  It takes text only: upgrade's `write_bytes(new.encode("utf-8"))` is the same bytes as `new` written this way
+  (`newline=""` translates nothing), so no bytes path is added. It does not create the directory: each caller does that,
+  as today.
 - **The callers.** `lib.write_json` keeps its `mkdir` and calls `write_atomic(path, json.dumps(obj, indent=2) + "\n")`.
   Each of the eight other sites above writes through `lib.write_atomic` with the text it writes today (upgrade's
   `new`, not its UTF-8 bytes), through `from ccp.queue import lib` where the module has no `lib` yet (`forecast` imports
@@ -95,7 +100,8 @@ The lead's priority item (a friction seen when two runners claimed at once). Mea
   `ccp/init.py` (`_record_consent`), `ccp/suite.py` (`take_lane`), `ccp/upgrade.py` (`_record`), `ccp/verify.py`
   (`write_record`, `record_catch_up`), `tests/test_atomic_write.py` (new).
 - No SPEC change (measured in Context).
-- **Out:** the `mkstemp` writers; appends (`append_jsonl`, the ledger); shell scripts; what each file holds.
+- **Out:** the `mkstemp` writers; appends (`append_jsonl`, the ledger); shell scripts; what each file holds; a sweep of
+  the temporary files a killed writer leaves (Context).
 
 ## dod_checks
 
@@ -118,7 +124,7 @@ The lead's priority item (a friction seen when two runners claimed at once). Mea
   setup: A checkout of the PR head, in your own worktree.
   steps:
     1. Run `git grep -nE 'tmp = .*\.tmp' -- ccp scripts bin plugin`.
-    2. Run `git grep -lw write_atomic -- ccp scripts`.
+    2. Run `git grep -lw write_atomic -- ccp 'scripts/*.py'`.
   expect: step 1 prints exactly one line, in `scripts/observability/lib.py`, inside `write_atomic`; step 2 lists `ccp/board.py`, `ccp/calibrate.py`, `ccp/forecast.py`, `ccp/init.py`, `ccp/suite.py`, `ccp/upgrade.py`, `ccp/verify.py` and `scripts/observability/lib.py`, and no other file.
   dry run (`b09de675`): step 1 printed 9 lines (the sites the Context lists); step 2 printed nothing (exit 1).
 - id: `test-01`

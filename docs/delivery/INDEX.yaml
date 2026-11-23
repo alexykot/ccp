@@ -1544,6 +1544,6 @@ tasks:
     path: tasks/0313-close-and-the-estimator-find-task-sections-outside-fences-and-a-backtick-fence-s-info-string-holds-no-backtick.md
   - id: 0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report
     status: pending
-    title: The writing-tasks skill says a revert check's fixture leaves an unchanged line between the hunks it tells apart, and the implementer and runner briefs say an implementer's questions go in its report
+    title: The writing-tasks skill says a revert check's fixture leaves an unchanged line between the hunks it tells apart, and the implement prompt and the implementer and runner briefs say an implementer's questions go in its report
     depends_on: []
     path: tasks/0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report.md

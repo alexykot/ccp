@@ -1,13 +1,13 @@
 ---
 task_id: 0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report
-title: The writing-tasks skill says a revert check's fixture leaves an unchanged line between the hunks it tells apart, and the implementer and runner briefs say an implementer's questions go in its report
+title: The writing-tasks skill says a revert check's fixture leaves an unchanged line between the hunks it tells apart, and the implement prompt and the implementer and runner briefs say an implementer's questions go in its report
 status: pending
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S13", "S17"]
 rule_refs: ["E13"]
 review_point: R31
-paths: ["plugin/skills/writing-tasks/SKILL.md", "plugin/agents/delivery-implementer.md", "plugin/agents/delivery-runner.md"]
+paths: ["plugin/skills/writing-tasks/SKILL.md", "plugin/agents/delivery-implementer.md", "plugin/agents/delivery-runner.md", "templates/prompts/implement.md", "tests/test_prompt_note_env.py"]
 clashes_with: []
 adopt: "none"
 created: 2026-11-23
@@ -49,18 +49,29 @@ Measured at `b09de675` (origin/main).
   "Implementation choices are yours: answer by `SendMessage`." (`grep -n 'answer by .SendMessage' plugin/agents/delivery-runner.md` at `b09de675`: 1 line). The
   runner's own brief says "The Agent call returns when the worker ends". `plugin/agents/delivery-implementer.md` sends a
   product question to the report but says nothing about waiting on a message
-  (`grep -c 'Agent call' plugin/agents/delivery-implementer.md` at `b09de675`: 0). The implement prompt already sends a conflict or a scope question to the report
-  (`templates/prompts/implement.md`), so the prompt is not changed.
+  (`grep -c 'Agent call' plugin/agents/delivery-implementer.md` at `b09de675`: 0). The implement prompt says the opposite:
+  `templates/prompts/implement.md` reads "Questions: an implementation choice (how to build it) is the runner's." and then
+  "Send it to `{{runner}}` with SendMessage and carry on with what does not depend on the answer; if no answer has come by
+  the time you would finish, make the choice, document it and flag it."
+  (`grep -c 'with SendMessage' templates/prompts/implement.md` at `b09de675`: 1 line). Its next line, "A product or spec
+  question: stop that part and put it in your report.", already sends the rest to the report.
+- **The prompt's test.** `tests/test_prompt_note_env.py` `"def test_workers_message_the_runner_by_its_bound_name"` asserts
+  `"Send it to `runner-2` with SendMessage"`, the implement.md line that goes, beside two assertions on `_common.md`'s lines
+  (`"no messages to anyone except the runner teammate, `runner-2`."` and `"Send the runner teammate, `runner-2`, a message"`),
+  which already hold the bound name (`grep -c 'runner-2' tests/test_prompt_note_env.py` at `b09de675`: 5 lines).
 - **No SPEC change.** §17.1 says an implementation question "is answered by the runner (no source edits by it) and the
-  worker resumes"; the next round's prompt is how it resumes. `git grep -n 'SendMessage' -- docs/spec` at `b09de675`: 6
+  worker resumes"; the next round (the fix round, with the runner's choice in its `--note`) is that resumption, and an
+  implementer that takes the narrowest reading and flags it has not stopped. `git grep -n 'SendMessage' -- docs/spec` at `b09de675`: 6
   lines, each about the tool list or a worker naming its report, none about a question. `git grep -nE 'U0|hunk' -- docs/spec`
   at `b09de675` finds §20.6's revert rule, which this keeps.
 - **Pinned text.** `tests/test_plugin.py` pins tokens in both briefs (`LESSON_BRIEFS`, `PREMISE_DOCS`: "scope
   question", "changed materially", "background command stalls" among them). The edits below keep every one.
 - **Clashes.** A script over the pending tasks' `paths` at `b09de675` found: 0191 (`delivery-runner.md`: its model and
-  key lines) and 0310 (`delivery-implementer.md`: the `ccp suite affected` bullet). Neither touches that step, the question
-  bullet or the skill (`git grep -nE 'Questions from the implementer|SendMessage|open question|writing-tasks' -- <those task files>`
-  at `b09de675`: no line). So `clashes_with` is empty.
+  key lines; and `tests/` whole, for its own `tests/test_grace_ended.py`) and 0310 (`delivery-implementer.md`: the
+  `ccp suite affected` bullet). 0307 names `templates/prompts/_common.md`, not `implement.md`. None touches that step, the
+  question bullet, the skill, implement.md's question lines or `tests/test_prompt_note_env.py`
+  (`git grep -nE 'Questions from the implementer|SendMessage|open question|writing-tasks|implement\.md|test_prompt_note_env' -- <0191, 0307 and 0310's task files>` at `b09de675`: 3 lines,
+  all 0307's, naming the writing-tasks skill only to keep it in its **Out:**). So `clashes_with` is empty.
 
 ### Rulings for the build (the lead's)
 
@@ -82,15 +93,28 @@ Measured at `b09de675` (origin/main).
 
 - **The runner brief.** In `plugin/agents/delivery-runner.md`, the step **Questions from the implementer** becomes, exactly, its line breaks as here:
 
-  > 6. **Questions from the implementer** come in its report: you are inside its Agent call until it ends. Implementation
-  >    choices are yours: answer in the next round's `--note`. Spec questions go to the lead (below). Unsure: spec.
+  > 6. **Questions from the implementer** come in its report: you are inside its Agent call until it ends. On an
+  >    implementation choice the implementer takes the narrowest reading and flags it: accept it, or give your choice in
+  >    the fix round's `--note` (`ccp prompt fix`) once review has run. Spec questions go to the lead (below). Unsure: spec.
+
+- **The implement prompt.** In `templates/prompts/implement.md`, the two lines that start "Questions: an implementation
+  choice (how to build it)" and "Send it to `{{runner}}`" become, exactly, these two lines (the line after them, "A product
+  or spec question: …", goes too, since the second line below replaces it):
+
+  > Questions: an implementation choice the task leaves open is yours: take the narrowest reading and flag it in your report.
+  > A product or spec question: stop that part and put it in your report.
+
+- **The prompt's test.** In `"def test_workers_message_the_runner_by_its_bound_name"`, the assertion
+  `"Send it to `runner-2` with SendMessage"` goes; the two `_common.md` assertions on `runner-2` stay and hold the bound
+  name. No other test expectation changes.
 
 ## Scope
 
 - **In:** `plugin/skills/writing-tasks/SKILL.md` (one bullet), `plugin/agents/delivery-implementer.md` (one bullet),
-  `plugin/agents/delivery-runner.md` (the step **Questions from the implementer**).
+  `plugin/agents/delivery-runner.md` (the step **Questions from the implementer**), `templates/prompts/implement.md`
+  (the question lines), `tests/test_prompt_note_env.py` (one assertion).
 - No SPEC change (measured in Context).
-- **Out:** the implement and fix prompts; the reviewer's and verifier's briefs; `docs/cli/03-quality.md`.
+- **Out:** the fix prompt and `_common.md`; the reviewer's and verifier's briefs; `docs/cli/03-quality.md`.
 
 ## dod_checks
 
@@ -103,15 +127,16 @@ Measured at `b09de675` (origin/main).
   expect: step 1 prints three lines, in this order: the behaviour-preserving bullet's first line, one line holding `git diff -U0` (the ruled bullet's second line), the speed-check bullet's first line; step 2 prints `1`.
   dry run (`b09de675`): step 1 printed 2 lines (lines 129 and 135, the behaviour-preserving and the speed-check bullets), no `U0` line; step 2 printed `0`.
 - id: `doc-02`
-  story: As an implementer, my brief tells me to put a question in my report and not wait; as a runner, mine tells me it comes there.
+  story: As an implementer, my brief and my prompt tell me to put a question in my report and not wait; as a runner, my brief tells me it comes there.
   setup: A checkout of the PR head, in your own worktree (a delivery-verifier seat), with your open run.
   steps:
     1. Run `grep -c 'answer by .SendMessage' plugin/agents/delivery-runner.md`.
     2. Run `grep -c -e 'wait on no message' -e 'narrowest reading' plugin/agents/delivery-implementer.md`.
     3. Run `grep -n 'Questions from the implementer\*\* come in its report' plugin/agents/delivery-runner.md`.
-    4. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_plugin`.
-  expect: step 1 prints `0`; step 2 prints `2`; step 3 prints one line; step 4 exits 0.
-  dry run (`b09de675`): step 1 printed `1`; step 2 printed `0`; step 3 printed nothing (exit 1); step 4 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 34 tests`.
+    4. Run `grep -c 'with SendMessage' templates/prompts/implement.md`.
+    5. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_plugin tests.test_prompt_note_env`.
+  expect: step 1 prints `0`; step 2 prints `2`; step 3 prints one line; step 4 prints `0`; step 5 exits 0.
+  dry run (`b09de675`): step 1 printed `1`; step 2 printed `0`; step 3 printed nothing (exit 1); step 4 printed `1`; step 5 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 44 tests`.
 
 ## Implementation notes
 
