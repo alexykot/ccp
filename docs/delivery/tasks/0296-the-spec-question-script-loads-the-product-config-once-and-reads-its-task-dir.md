@@ -74,9 +74,11 @@ except the `DURABLE_DOCS` count, which lost `scripts/queue/README.md`'s line whe
   and `sm.product_root` still resolve for `team.py`) and drops its `lock_is_stale` re-export. `architecture_review.py` imports
   `lock_is_stale`, `project_id` and `product_root` from lib and no longer imports `spec_maintainer`.
 
-### Ruling 0296-r1 (sm-20261123T230826Z-a5c3, lead, 2026-11-23, spec commit b09de67577ef)
+### Ruling 0296-the-spec-question-script-loads-the-product-config-once-and-reads-its-task-dir-r1
 
-code-03 step 1 (lead, 2026-11-23): it is amended to exclude the test that proves the variable is ignored: git grep -nE 'DURABLE_DOCS|resolve_durable_docs_dir' -- ccp scripts tests ':!tests/test_spec_maintainer_task_ids.py', expecting nothing. Step 3 needs that test to name DURABLE_DOCS, so its mentions there are the check's own evidence, not a leftover reader.
+As the runner passed it (lead, 2026-11-23, spec question `sm-20261123T230826Z-a5c3`, spec commit b09de67577ef):
+
+> code-03 step 1 (lead, 2026-11-23): it is amended to exclude the test that proves the variable is ignored: git grep -nE 'DURABLE_DOCS|resolve_durable_docs_dir' -- ccp scripts tests ':!tests/test_spec_maintainer_task_ids.py', expecting nothing. Step 3 needs that test to name DURABLE_DOCS, so its mentions there are the check's own evidence, not a leftover reader.
 
 ## Scope
 
@@ -139,9 +141,11 @@ code-03 step 1 (lead, 2026-11-23): it is amended to exclude the test that proves
   (outside the task's Scope, one line, since the change made that sentence false).
 - A plane.json whose `task_log.dir` is `null` loads, but `Config.delivery_dir` then fails on it; the removed
   `resolve_durable_docs_dir` defaulted it. Not changed here (`ccp.config` is out of Scope); `blocked` already read `cfg.tasks_dir`.
-- Fix round 1: the lead's ruling 0296-r1 (in Context) amends code-03 step 1 to leave `tests/test_spec_maintainer_task_ids.py`
+- Fix round 1: the lead's ruling r1 (in Context) amends code-03 step 1 to leave `tests/test_spec_maintainer_task_ids.py`
   out of the grep; the tests are unchanged (that module names `DURABLE_DOCS` only to prove the variable is ignored).
   `docs/design/plugin.md`'s INDEX bullet now names `spec_maintainer.dependency_map` (not `descendants`) as the task-file reader,
   since `descendants` only takes a map now.
+- Fix round 2: the ruling in Context is now a quoted block (each line `> `) under its ledger id, as SPEC §10.5 asks; its words
+  are unchanged. This clears `ccp tasks check`'s "states a number" warning on that line.
 
 ## Verification notes
