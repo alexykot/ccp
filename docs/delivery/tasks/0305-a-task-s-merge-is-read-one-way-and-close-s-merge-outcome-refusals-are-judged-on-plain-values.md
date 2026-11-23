@@ -1,7 +1,7 @@
 ---
 task_id: 0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values
 title: Health, the plan and close read a task's merge only in the §10.7 form, from one pattern in ccp/refs.py, and close's three refusals on the PR host's merge outcome are judged by plain functions
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S10", "S27"]
@@ -12,7 +12,7 @@ clashes_with: ["0191-the-grace-release-ends", "0293-the-lead-s-preference-and-ho
 paths: ["ccp/refs.py", "ccp/health.py", "ccp/lifecycle.py", "docs/delivery/plane.json", "tests/test_refs.py", "tests/test_health.py", "tests/test_tasks_close.py", "tests/test_close_merge_outcome.py"]
 adopt: "a product whose task merges predate §10.7's `Task <NNNN>: ` subject loses those merges' rows from ccp health and calibration; old calibration rows age out and nothing is migrated"
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Task: 0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values
@@ -151,3 +151,5 @@ From architect pass `ar-20261122T162238Z-9098`, F01 (`incoherence`) and F08 (`te
   case-sensitivity is pinned; the review found a `re.I` mutant surviving every test.
 
 ## Verification notes
+- 2026-11-23 — verifier, PR #369 head `1ff1546` (close's catch-up of the approved `59d18b6`, gate run st-20261123T234207Z-fc2729) (squash `2520af5`): APPROVE. Passed: cmd-01, code-01, cfg-01, code-02. Gate: `ccp suite run --lane gate` exit 0, `ccp wt exec -- tasks check` exit 0, `ccp wt exec -- docs check` exit 0. Record: verification/0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values.json.
+
