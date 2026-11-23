@@ -42,7 +42,7 @@
       },
       {
         "id": "E23",
-        "cmd": "! git grep -nE '\\\\d[+{][^\"]*-\\[a-z0-9\\]' -- ccp scripts ':(exclude)ccp/refs.py'"
+        "cmd": "! git grep -nE '\\\\d[+{][^\"]*-\\[a-z0-9\\]' -- ccp scripts ':(exclude)ccp/refs.py' && ! git grep -nF 'rf\"^Task ' -- ccp scripts ':(exclude)ccp/refs.py'"
       },
       {
         "id": "E24",

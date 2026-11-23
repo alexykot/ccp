@@ -1,7 +1,7 @@
 ---
 task_id: 0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values
 title: Health, the plan and close read a task's merge only in the §10.7 form, from one pattern in ccp/refs.py, and close's three refusals on the PR host's merge outcome are judged by plain functions
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S10", "S27"]
@@ -12,7 +12,7 @@ clashes_with: ["0191-the-grace-release-ends", "0293-the-lead-s-preference-and-ho
 paths: ["ccp/refs.py", "ccp/health.py", "ccp/lifecycle.py", "docs/delivery/plane.json", "tests/test_refs.py", "tests/test_health.py", "tests/test_tasks_close.py", "tests/test_close_merge_outcome.py"]
 adopt: "a product whose task merges predate §10.7's `Task <NNNN>: ` subject loses those merges' rows from ccp health and calibration; old calibration rows age out and nothing is migrated"
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Task: 0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values
@@ -133,4 +133,23 @@ From architect pass `ar-20261122T162238Z-9098`, F01 (`incoherence`) and F08 (`te
 
 ## Implementation notes
 
+- `ccp/refs.py` `task_merge_subject_re` is §10.7 rule 1's form, `^Task (\d{w}): `, case-sensitive.
+  `ccp/health.py` loses `_written_task_re` and `merges`' `written` parameter; `merges`, `uncovered` and
+  `lifecycle._own_commit` read the one pattern. `ccp/plan.py` is unchanged and follows `health.merges`.
+- `ccp/lifecycle.py` gains `merge_refused` and `not_merged` (plain values in, the refusal text or None out);
+  close raises `QueueError(text, 1)` on each where it raised before. `not_merged` judges the state only when
+  close merged the PR now (`merged_now`, close's `not already`), then the merge commit, as before.
+- `docs/delivery/plane.json` E23's command gains the `rf"^Task ` grep, excluding `ccp/refs.py`.
+- Tests: `tests/test_close_merge_outcome.py` (new, 8 tests on plain `MergeResult` and `PrFacts`);
+  `tests/test_tasks_close.py` keeps `test_a_merge_the_host_refuses_names_the_host` for the wiring and drops the
+  other two host tests and `CloseReadsAMalformedRunnerCount`; `tests/test_refs.py` and `tests/test_health.py`
+  take the ruled subjects.
+- Measured at `b09de675`: the loose rule counts 299 merges against 297 written, the same two commits as at
+  `0f44fb3`. 0297 has merged since, so cmd-01 printed `[]` already at the base (0297's row shows its own
+  merge, with `merges` 2 and 90 lines); after the change 0297 and 0069 each show `merges` 1 (0297 51 lines).
+- Fix round 1: `tests/test_refs.py` takes the subject `task 0042: sf store` (no task), so the pattern's
+  case-sensitivity is pinned; the review found a `re.I` mutant surviving every test.
+
 ## Verification notes
+- 2026-11-23 — verifier, PR #369 head `1ff1546` (close's catch-up of the approved `59d18b6`, gate run st-20261123T234207Z-fc2729) (squash `2520af5`): APPROVE. Passed: cmd-01, code-01, cfg-01, code-02. Gate: `ccp suite run --lane gate` exit 0, `ccp wt exec -- tasks check` exit 0, `ccp wt exec -- docs check` exit 0. Record: verification/0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values.json.
+

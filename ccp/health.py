@@ -106,20 +106,12 @@ def _git(root: Path, *a: str) -> str:
     return r.stdout if r.returncode == 0 else ""
 
 
-def _written_task_re(width: int) -> re.Pattern[str]:
-    """A squash subject in the form the implement prompt asks for: `Task 0042: …` (§10.7)."""
-    return re.compile(rf"^Task (\d{{{width}}}): ")
-
-
-def merges(cfg: Config, tasks: list[dict[str, Any]] | None = None, rev: str = "HEAD",
-           written: bool = False) -> list[dict[str, Any]]:
-    """Task merges on the first-parent history of `rev` (HEAD, or a range), oldest first. With
-    `written`, a squash names its task only in the form the plane writes (`Task 0042: …`)."""
+def merges(cfg: Config, tasks: list[dict[str, Any]] | None = None, rev: str = "HEAD") -> list[dict[str, Any]]:
+    """Task merges (§10.7 rule 1) on the first-parent history of `rev` (HEAD, or a range), oldest first."""
     tasks = tasks if tasks is not None else tasklog.load(cfg)
     ids = refs.ids(cfg)
     by_num = {ids.task_number(t.get("task_id")): str(t.get("task_id")) for t in tasks}
-    merge_re = _written_task_re(ids.task_width) if written else ids.task_merge_subject_re
-    branch_re = ids.task_branch_re
+    merge_re, branch_re = ids.task_merge_subject_re, ids.task_branch_re
     out = []
     for rec in _git(cfg.root, "log", "--first-parent", "--reverse", "--format=%x01%H%x1f%P%x1f%ct%x1f%s%x1f%b",
                     rev).split("\x01")[1:]:
@@ -173,7 +165,7 @@ def uncovered(cfg: Config, since: str, tip: str) -> dict[str, Any]:
             raise ValueError(f"{ref!r} is not a commit here")
     tasks = tasklog.load(cfg)
     rng = f"{since}..{tip}"
-    merged = {m["sha"] for m in merges(cfg, tasks, rng, written=True)}
+    merged = {m["sha"] for m in merges(cfg, tasks, rng)}
     nums = {refs.ids(cfg).task_number(t.get("task_id")) for t in tasks}
     rec_re = reconcile_re(cfg)
     named, warnings = _covers(tasks)

@@ -1136,6 +1136,34 @@ def _recovery(cfg: Config, q: Path, tid: str, pr: str, merge: str, what: str, pu
         "reconciles", 1)
 
 
+def merge_refused(label: str, pr: str, tid: str, head: str, caught: bool,
+                  result: prhost.MergeResult) -> str | None:
+    """§10.5: close's refusal when the PR host (`label`) did not merge PR `pr`, or None when it did. A conflict
+    with what merged since points to `ccp prompt merge`; a head close caught up itself (`caught`) is named for
+    the re-run (§16.5 rule 4)."""
+    if result.ok:
+        return None
+    hint = (" (SPEC §16.5 rule 4: a conflict with what merged since: `ccp prompt merge` has the implementer "
+            "merge the tip in and resolve it, then verify again)") if result.conflict else ""
+    if caught:
+        hint += (f"; close's catch-up {head[:7]} is the task branch's head now, and the verification record "
+                 f"covers it: run `ccp tasks close {tid} --pr {pr}` again (SPEC §16.5 rule 4)")
+    return f"{label} did not merge PR {pr}: {result.message}{hint}"
+
+
+def not_merged(label: str, pr: str, tid: str, facts: prhost.PrFacts, merged_now: bool) -> str | None:
+    """§10.5: close's refusal when PR `pr`, as the PR host (`label`) reads it after the merge, is not merged
+    (judged only when close merged it now, `merged_now`) or names no merge commit; None when it can be
+    reconciled."""
+    if merged_now and facts.state != "merged":
+        return (f"{label} merged PR {pr} without error, but it is {facts.state.upper()} "
+                "(a merge queue or auto-merge?): "
+                f"run `ccp tasks close {tid} --pr {pr}` again once it has merged")
+    if not facts.merge_commit:
+        return f"PR {pr} is merged but {label} names no merge commit"
+    return None
+
+
 def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
     """Merge a verified PR and reconcile the task (§10.5, §15.5, §16.5)."""
     from ccp import verify  # noqa: PLC0415
@@ -1200,24 +1228,15 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
             r = prhost.merge(cfg, pr, head, tid)
         except prhost.HostUnavailable as exc:
             raise QueueError(str(exc), 2) from None
-        if not r.ok:
-            hint = (" (SPEC §16.5 rule 4: a conflict with what merged since: `ccp prompt merge` has the implementer "
-                    "merge the tip in and resolve it, then verify again)") if r.conflict else ""
-            if caught:
-                hint += (f"; close's catch-up {head[:7]} is the task branch's head now, and the verification record "
-                         f"covers it: run `ccp tasks close {tid} --pr {pr}` again (SPEC §16.5 rule 4)")
-            raise QueueError(f"{prhost.label(cfg)} did not merge PR {pr}: {r.message}{hint}", 1)
+        if refused := merge_refused(prhost.label(cfg), pr, tid, head, bool(caught), r):
+            raise QueueError(refused, 1)
         try:
             facts = prhost.confirm(cfg, pr)
         except prhost.HostError as exc:
             raise QueueError(str(exc), 2 if isinstance(exc, prhost.HostUnavailable) else 1) from None
-        if facts.state != "merged":
-            raise QueueError(f"{prhost.label(cfg)} merged PR {pr} without error, but it is {facts.state.upper()} "
-                             "(a merge queue or auto-merge?): "
-                             f"run `ccp tasks close {tid} --pr {pr}` again once it has merged", 1)
+    if refused := not_merged(prhost.label(cfg), pr, tid, facts, not already):
+        raise QueueError(refused, 1)
     merge = facts.merge_commit
-    if not merge:
-        raise QueueError(f"PR {pr} is merged but {prhost.label(cfg)} names no merge commit", 1)
     progress: dict[str, bool] = {"pushed": False}
     # §10.5: the reconcile is made in a worktree of close's own, so the checkout close runs from keeps its HEAD
     own = _merge_path(cfg, tid)
@@ -1341,7 +1360,7 @@ def _own_commit(cfg: Config, nnnn: str, subject: str, parents: str, body: str) -
     if (m := reconcile_re(cfg).match(subject)) and m.group(1) == nnnn:
         return True
     merge = len(parents.split()) > 1 or bool(health.PR_SUFFIX_RE.search(subject))
-    m = health._written_task_re(ids.task_width).match(subject) or ids.task_branch_re.search(subject + "\n" + body)
+    m = ids.task_merge_subject_re.match(subject) or ids.task_branch_re.search(subject + "\n" + body)
     return merge and bool(m) and m.group(1) == nnnn
 
 

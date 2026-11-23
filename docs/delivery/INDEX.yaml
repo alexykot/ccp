@@ -1498,7 +1498,7 @@ tasks:
     depends_on: [0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes]
     path: tasks/0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text.md
   - id: 0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values
-    status: pending
+    status: done
     title: Health, the plan and close read a task's merge only in the §10.7 form, from one pattern in ccp/refs.py, and close's three refusals on the PR host's merge outcome are judged by plain functions
     depends_on: []
     path: tasks/0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values.md

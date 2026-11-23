@@ -22,7 +22,8 @@ class Merges(unittest.TestCase):
         git(self.p.root, "init", "-q", "-b", "main")
         git(self.p.root, "add", "-A")
         commit(self.p.root, "init", T0)
-        # 0001: a squash merge; 0002: a merge commit of its task branch; 0003: a later squash of 0001's follow-up
+        # 0001: a squash merge; 0002: a merge commit of its task branch; 0003: a later squash of 0001's follow-up;
+        # then a PR that only names 0003, not in §10.7's form: no merge of 0003's
         self.p.write("app/a.py", "a\n" * 10)
         git(self.p.root, "add", "-A")
         commit(self.p.root, "Task 0001: the first thing (#1)", T0 + 3600)
@@ -36,7 +37,7 @@ class Merges(unittest.TestCase):
         git(self.p.root, "merge", "-q", "--no-ff", "-m", "Merge pull request #2 from me/task/0002-t2", "task/0002-t2",
             env={"GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp})
         for msg, at in (("spec: 0003 — a ruling", T0 + 8000), ("ADR-0004 (Proposed): a design (#3)", T0 + 9000),
-                        ("0003: spike passed (#4)", T0 + 10800)):
+                        ("Task 0003: spike passed (#4)", T0 + 10800), ("Task 0003 takes a follow-up (#5)", T0 + 11800)):
             self.p.write(f"notes/{at}.txt", "x\n")
             git(self.p.root, "add", "-A")
             commit(self.p.root, msg, at)

@@ -78,9 +78,8 @@ class Ids:
 
     @cached_property
     def task_merge_subject_re(self) -> re.Pattern[str]:
-        """A merge's subject naming a task by number at its start (`0042 …`, `task 0042 …`, any case): group 1
-        the number, not followed by another digit."""
-        return re.compile(rf"^(?:task\s+)?(\d{{{self.task_width}}})(?!\d)", re.I)
+        """A task merge's subject as §10.7 rule 1 writes it, `Task 0042: …`: group 1 the number."""
+        return re.compile(rf"^Task (\d{{{self.task_width}}}): ")
 
     @cached_property
     def task_branch_re(self) -> re.Pattern[str]:
