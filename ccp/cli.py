@@ -1509,10 +1509,9 @@ def build_parser() -> argparse.ArgumentParser:
                                       "QUEUE_ROOT)")
     p.add_argument("--run", required=True, help="the calling seat's run (<task_id>/<phase>[-n]); it must be open")
     p.add_argument("--test", required=True, action="append",
-                   help="one test id, passed whole to plane.json "
-                        "mutate.command ({test}), or, unset, after the language pack's test command; it may name a "
-                        "single method; repeat for more, each run in the order given until one fails, which kills "
-                        "the mutant")
+                   help="a test id, passed whole to plane.json mutate.command ({test}), or, unset, after the "
+                        "language pack's test command; it may name a single method; repeat for more: they run in "
+                        "the order given until one fails, and that run decides the mutant (killed, or unbuilt)")
     p.add_argument("--mutant", action="append",
                    help="<file>:<old>=><new> (the old text once in the file, relative to the worktree), or a patch "
                         "file; repeat for more")
@@ -1520,9 +1519,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="a mutant in a file: the target file's path on the first line, then a line `=== old`, the "
                         "old text, a line `=== new` and the new text, so a multi-line mutant needs no shell quoting; "
                         "repeat for more")
-    p.add_argument("--revert", action="append", metavar="PATH[:N[-M]]",
-                   help="a mutant that puts back the merge base's version of the file, or of the changes lines N-M of "
-                        "the worktree's file touch; repeat for more")
+    p.add_argument("--revert", action="append", metavar="PATH[:N[-M][,N[-M]…]]",
+                   help="a mutant that puts back the merge base's version of the file, or of the changes any of the "
+                        "comma-separated line ranges N-M of the worktree's file touches; repeat for more")
     p.add_argument("--together", action="store_true",
                    help="apply every mutant given (at least two) as one mutant, numbered 1: substitutions on one "
                         "file apply in order, each old text once in what the earlier ones leave, so a move is two "

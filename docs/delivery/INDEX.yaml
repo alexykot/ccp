@@ -1473,7 +1473,7 @@ tasks:
     depends_on: [0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits]
     path: tasks/0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log.md
   - id: 0300-mutant-file-texts-end-where-written-a-revert-takes-several-ranges-and-mutate-s-refusal-copies-go
-    status: pending
+    status: done
     title: A --mutant-file's texts end where their writer stopped, a revert takes several line ranges, mutate's end-to-end copies of its plain-value refusal tests go, and its --test help, suite-pattern read and a test's call are put right
     depends_on: [0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes]
     path: tasks/0300-mutant-file-texts-end-where-written-a-revert-takes-several-ranges-and-mutate-s-refusal-copies-go.md
