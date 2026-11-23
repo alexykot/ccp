@@ -128,5 +128,11 @@ items (a) and (d). Measured at `0f44fb3` (origin/main, after 0285 merged) unless
 - Tests: `tests/test_signed_sections_fences.py` (new) and 0285's two tests in `tests/test_signed_blocks_check.py`
   as the ruling gives them; the renamed test's docstring became a comment, so `unittest -v` prints its `ok` on
   its name's line, as `code-02`'s grep reads it.
+- `tests/test_tasks_migrate.py` broke with the fix, as it had to: its would-fail test made the converted file fail
+  through the old text's own `## dod_checks` and `## Verification notes`, which migrate keeps in a fence and the
+  checks no longer read. The test now makes the converted file fail by reusing an NNNN, keeps its other
+  assertions (not written, the dependant checked again without it, `tasks check` failing on both), and adds a file
+  whose fenced old sections convert. `ccp/taskmigrate.py` `migrate`'s docstring loses the parenthesis that gave
+  the old reading as the reason. Both are outside the task's paths; flagged in the report.
 
 ## Verification notes
