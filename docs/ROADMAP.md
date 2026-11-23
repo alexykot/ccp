@@ -58,6 +58,11 @@ All reshape phases have landed.
     `ar-20261122T055103Z-11aa` (F01) found the first trigger fired; task 0282 (R25) moves the headless
     helpers and the open-question rule out of `spec_maintainer.py`. Tasked once 0283, 0293 and 0296, which
     edit lib.py or its importers, are done (0272, 0277 and 0282 are; `ar-20261122T100027Z-dd31`).
+    It also corrects the text on the observability scripts' direction (`ar-20261122T162238Z-9098` F03, deferred
+    here by the operator, 2026-11-23): §10.6, §23.4, `docs/cli/04-observability.md` and E7 call
+    `scripts/observability/*.sh` wrappers over `ccp`, but `emit-event.sh` and `heartbeat.sh` write the ledger
+    themselves through `lib.py`, and `ccp` calls `heartbeat.sh` and `set-waiting-on.sh` as single writers that
+    share `lib.py` with it. F17 states the direction it lands on in those four places.
 - **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
   - F12: the plane's own `pregate` lane: taken up by task 0285 (R25), after architect pass
     `ar-20261122T055103Z-11aa` (F07) found it still undeclared.
