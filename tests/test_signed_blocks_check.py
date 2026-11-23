@@ -74,18 +74,16 @@ class UnreadableProposed(unittest.TestCase):
 
     def test_a_scope_holding_a_fenced_heading_line_then_an_inline_proposed_warns_on_its_line(self):
         inline = "PROPOSED: > quoted inline"
-        text = self.task("0001-fence", f"- the shape:\n\n```\n## Rule changes\n```\n\n{inline}")
+        text = self.task("0001-fence", f"- the shape:\n\n```\n## Not a heading\n```\n\n{inline}")
         warned = self.warns()
         self.assertEqual(len(warned), 1, warned)
         self.assertTrue(warned[0].startswith(f"docs/delivery/tasks/0001-fence.md:{line_of(text, inline)}: "), warned)
 
-    def test_an_inline_proposed_under_a_fenced_rule_changes_line_warns_as_spec_text_reads_it(self):
-        """A fenced `## Rule changes` line opens a section `signed_blocks` reads, wherever it sits."""
+    def test_an_inline_proposed_under_a_fenced_rule_changes_line_does_not_warn(self):
+        """A fenced `## Rule changes` line is quoted text: it opens no section `signed_blocks` reads."""
         inline = "PROPOSED: > quoted inline"
-        text = self.task("0001-notes", "- **In:** it", after=f"## Notes\n\n```\n## Rule changes\n```\n\n{inline}\n\n")
-        warned = self.warns()
-        self.assertEqual(len(warned), 1, warned)
-        self.assertTrue(warned[0].startswith(f"docs/delivery/tasks/0001-notes.md:{line_of(text, inline)}: "), warned)
+        self.task("0001-notes", "- **In:** it", after=f"## Notes\n\n```\n## Rule changes\n```\n\n{inline}\n\n")
+        self.assertEqual(self.warns(), [])
 
     def test_a_proposed_outside_the_scope_and_rule_changes_does_not_warn(self):
         self.task("0001-elsewhere", "- **In:** it", after='## Notes\n\nPROPOSED: "newer words".\n\n')
