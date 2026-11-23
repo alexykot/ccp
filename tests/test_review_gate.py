@@ -97,16 +97,15 @@ class ReviewGate(ReviewFlow, ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A)
         self.assertEqual(code, 0, out + err)
         self.fix()  # a fix pushed while the verifier ran
-        code, _, out, err = self.verdict(B)
+        code, _, out, err = self.verdict(A)
         self.assertEqual(code, 1, out + err)
         self.assertIn("fix round 0002-second/fix is newer than the last review", err)
         self.assertFalse((self.q / "verification/0002-second.json").exists())
-        code, _, out, err = self.verdict(B, "reject")
+        code, _, out, err = self.verdict(A, "reject")
         self.assertEqual(code, 0, out + err)  # a reject is never held back
 
     def test_verify_record_refuses_an_approve_of_a_head_the_review_did_not_judge(self):
-        self.review(A)
-        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A)
+        self.review(A)  # no verify run open: an open run's head is checked first (SPEC §15.4)
         code, _, out, err = self.verdict(B)
         self.assertEqual(code, 1, out + err)
         self.assertIn("the head the last review 0002-second/review judged", err)
