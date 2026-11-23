@@ -26,7 +26,7 @@ class Defaults(unittest.TestCase):
     def test_a_merge_subject_and_a_task_branch_name_the_task_number(self):
         for subject, n in (("Task 0042: sf store", "0042"), ("0042 sf store (#7)", None), ("TASK  0042-sf", None),
                            ("Task 0042 takes a follow-up (#9)", None), ("00421 too wide", None),
-                           ("Reconcile 0042", None)):
+                           ("Reconcile 0042", None), ("task 0042: sf store", None)):
             m = D.task_merge_subject_re.match(subject)
             self.assertEqual(m.group(1) if m else None, n, subject)
         for text, n in (("Merge branch 'task/0042-sf-store'", "0042"), ("origin/task/0042-sf", "0042"),

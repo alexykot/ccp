@@ -147,5 +147,7 @@ From architect pass `ar-20261122T162238Z-9098`, F01 (`incoherence`) and F08 (`te
 - Measured at `b09de675`: the loose rule counts 299 merges against 297 written, the same two commits as at
   `0f44fb3`. 0297 has merged since, so cmd-01 printed `[]` already at the base (0297's row shows its own
   merge, with `merges` 2 and 90 lines); after the change 0297 and 0069 each show `merges` 1 (0297 51 lines).
+- Fix round 1: `tests/test_refs.py` takes the subject `task 0042: sf store` (no task), so the pattern's
+  case-sensitivity is pinned; the review found a `re.I` mutant surviving every test.
 
 ## Verification notes
