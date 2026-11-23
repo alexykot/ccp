@@ -133,4 +133,19 @@ From architect pass `ar-20261122T162238Z-9098`, F01 (`incoherence`) and F08 (`te
 
 ## Implementation notes
 
+- `ccp/refs.py` `task_merge_subject_re` is §10.7 rule 1's form, `^Task (\d{w}): `, case-sensitive.
+  `ccp/health.py` loses `_written_task_re` and `merges`' `written` parameter; `merges`, `uncovered` and
+  `lifecycle._own_commit` read the one pattern. `ccp/plan.py` is unchanged and follows `health.merges`.
+- `ccp/lifecycle.py` gains `merge_refused` and `not_merged` (plain values in, the refusal text or None out);
+  close raises `QueueError(text, 1)` on each where it raised before. `not_merged` judges the state only when
+  close merged the PR now (`merged_now`, close's `not already`), then the merge commit, as before.
+- `docs/delivery/plane.json` E23's command gains the `rf"^Task ` grep, excluding `ccp/refs.py`.
+- Tests: `tests/test_close_merge_outcome.py` (new, 8 tests on plain `MergeResult` and `PrFacts`);
+  `tests/test_tasks_close.py` keeps `test_a_merge_the_host_refuses_names_the_host` for the wiring and drops the
+  other two host tests and `CloseReadsAMalformedRunnerCount`; `tests/test_refs.py` and `tests/test_health.py`
+  take the ruled subjects.
+- Measured at `b09de675`: the loose rule counts 299 merges against 297 written, the same two commits as at
+  `0f44fb3`. 0297 has merged since, so cmd-01 printed `[]` already at the base (0297's row shows its own
+  merge, with `merges` 2 and 90 lines); after the change 0297 and 0069 each show `merges` 1 (0297 51 lines).
+
 ## Verification notes
