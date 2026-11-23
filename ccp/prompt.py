@@ -4,7 +4,8 @@
 and `--note`, writes the prompt and its audit (§23.8: ids, refs, the prompt's hash and length; the full text only under a
 still-set `prompts.keep_body`; audits older than a still-set `prompts.audit_keep_days` are pruned, §29.3), opens the
 run (§11.1), moves the task's phase and prints the Agent call the runner makes. The refusals that stand between a
-request and an opened run are the `*_gate` functions (§13.2, §15.2, §15.6, §16.5, §6.7); the allowance reading and the session park are §25.1 and §25.4.
+request and an opened run are the `*_gate` functions (§13.2, §15.2, §15.6, §16.5, §6.7); the allowance reading and the
+session park are §25.1 and §25.4.
 The prompt's last line is `Prompt end: <token>`, which `ccp report` checks against the report (§13.4).
 `ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree (§13.3).
 

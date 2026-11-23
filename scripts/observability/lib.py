@@ -2,10 +2,10 @@
 """The event ledger shared by `ccp` and the observability scripts: QUEUE_ROOT/observability/events.jsonl.
 
 It validates and appends events, holds the work.json lock and the shared constants, among them the
-values only read, never written (`WAIT_READ_ONLY`, `LEGACY_EVENT_TYPES`, `LEGACY_ACTORS`: house rule E9; a test holds the contracts' enums
-to the legacy ones), and folds a
-task's events into its timers. The board (`ccp board`, SPEC §28) is the status; the older snapshot and
-its scripts are retired (SPEC §23.4).
+values only read, never written (`WAIT_READ_ONLY`, `LEGACY_EVENT_TYPES`, `LEGACY_ACTORS`: house rule E9; a test,
+`tests/test_event_registry.py`, holds the contracts' enums to the written values plus these), and folds a task's events
+into its timers. The board (`ccp board`, SPEC §28) is the status; the older snapshot and its scripts are retired
+(SPEC §23.4).
 
 The timers (`wall_hours`, `wait_hours`, `work_hours`) are SPEC §23.3's.
 """
@@ -26,7 +26,9 @@ LEAD = "design-seat"  # §2: the actor the lead's commands record as (queue.lead
 RUNNER = "task-runner"  # §2: the actor the runner's commands record as
 VERIFIER = "task-verifier"  # §2: the actor the verifier's records are written as (queue.seat_actor)
 SEAT_IDS = (RUNNER, VERIFIER, LEAD)  # §18.3
-LEGACY_ACTORS = ("delivery-watchdog",)  # the retired watchdog seat: old rows hold it, read only (E9); a test holds the contracts' actor enums to it
+# The retired watchdog seat: old rows hold it, read only (E9); a test (`tests/test_event_registry.py`) holds the
+# contracts' actor enums to the written values plus this.
+LEGACY_ACTORS = ("delivery-watchdog",)
 ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-session: §31.5 triage
 REVIEW_EVENT_TYPES = ("architecture_review", "docs_audit", "architect")
 TEAM_EVENT_TYPES = ("gate", "runner")

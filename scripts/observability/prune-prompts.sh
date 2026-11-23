@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# prune-prompts.sh — prune prompt audits on demand. Every prompt audit is kept (SPEC §23.8); this script prunes on demand.
+# prune-prompts.sh — prune prompt audits on demand. Every prompt audit is kept (SPEC §23.8) unless pruned here.
 # A product that still sets the constant plane.json prompts.audit_keep_days (SPEC §29.3) has `ccp prompt` prune by age too.
 
 set -euo pipefail
