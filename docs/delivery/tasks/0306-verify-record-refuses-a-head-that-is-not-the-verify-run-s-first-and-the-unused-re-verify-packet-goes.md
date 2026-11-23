@@ -102,4 +102,15 @@ From architect pass `ar-20261122T162238Z-9098`, F07 (`incoherence`) and F04 (`ho
 
 ## Implementation notes
 
+- `head_errors` is built as the ruling gives it, run first in `record`; a `QueueError` reading the runs gives `[]`,
+  as `review_errors` does. The §15.4 passage is the PROPOSED text, rewrapped.
+- Three tests elsewhere recorded an approve of a head other than the open verify run's to reach `review_errors`
+  through `record`, so the new check now refuses them first. They are updated so that `review_errors` still
+  decides: `tests/test_review_gate.py`'s unreviewed-fix test and `tests/test_prompt_rounds.py`'s ruling-round
+  test record at the run's head (`A`, with the fix or ruling to `B` after it), so the `since` refusal still
+  fires. The head-the-review-did-not-judge test opens no verify run, the one way `record` reaches that refusal
+  now. No expectation changed.
+- Premises re-measured at `bb102371`: the packet grep still printed 10 lines plus `2`, and `latest_open` still
+  had 3 lines in `ccp/verify.py`.
+
 ## Verification notes
