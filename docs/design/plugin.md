@@ -58,7 +58,7 @@ input's agent type is the teammate's name, not the plugin type (the idle hook ma
   worktree) and points the `ccp` symlink on PATH (`CCP_BIN_LINK`, default `~/.local/bin/ccp`) at it.
 - **INDEX.** With `task_log.index: false`, `ccp tasks check` requires no index, no command writes
   one, and the plane's readers (those in `lib.py` and `architect.py`, and
-  `spec_maintainer.descendants` through `ccp/tasklog.py`) read the task files.
+  `spec_maintainer.dependency_map` through `ccp/tasklog.py`) read the task files.
   `render_index` is documented as frozen at its five fields; the extra fields (`merge_sha`,
   `done_at`, …) go to `board.json`.
 - **The docs warning.** `ccp docs check` warns on tracked files matching
