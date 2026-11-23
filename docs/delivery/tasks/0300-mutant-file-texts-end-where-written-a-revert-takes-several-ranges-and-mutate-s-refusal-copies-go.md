@@ -1,7 +1,7 @@
 ---
 task_id: 0300-mutant-file-texts-end-where-written-a-revert-takes-several-ranges-and-mutate-s-refusal-copies-go
 title: A --mutant-file's texts end where their writer stopped, a revert takes several line ranges, mutate's end-to-end copies of its plain-value refusal tests go, and its --test help, suite-pattern read and a test's call are put right
-status: pending
+status: done
 kind: feature
 depends_on: ["0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes"]
 spec_refs: ["S20"]
@@ -12,7 +12,7 @@ paths: ["ccp/mutate.py", "ccp/suite.py", "ccp/cli.py", "docs/spec/03-quality.md"
 adopt: "none"
 sign_off: brief
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Task: 0300-mutant-file-texts-end-where-written-a-revert-takes-several-ranges-and-mutate-s-refusal-copies-go
@@ -207,3 +207,5 @@ Measured at `3368264`.
   ranges".
 
 ## Verification notes
+- 2026-11-23 — verifier, PR #367 head `975b706` (close's catch-up of the approved `ccf3b03`, gate run st-20261123T225125Z-9a96fa) (squash `ec6c068`): APPROVE. Passed: spec-01, code-01, code-02, test-01, code-03. Gate: `ccp wt exec -- suite run --lane gate` exit 0, `ccp wt exec -- tasks check` exit 0, `ccp wt exec -- docs check` exit 0. Record: verification/0300-mutant-file-texts-end-where-written-a-revert-takes-several-ranges-and-mutate-s-refusal-copies-go.json.
+
