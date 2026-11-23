@@ -24,8 +24,9 @@ class Defaults(unittest.TestCase):
         self.assertEqual(D.family("0042"), "")
 
     def test_a_merge_subject_and_a_task_branch_name_the_task_number(self):
-        for subject, n in (("0042 sf store (#7)", "0042"), ("Task 0042: sf store", "0042"),
-                           ("TASK  0042-sf", "0042"), ("00421 too wide", None), ("Reconcile 0042", None)):
+        for subject, n in (("Task 0042: sf store", "0042"), ("0042 sf store (#7)", None), ("TASK  0042-sf", None),
+                           ("Task 0042 takes a follow-up (#9)", None), ("00421 too wide", None),
+                           ("Reconcile 0042", None)):
             m = D.task_merge_subject_re.match(subject)
             self.assertEqual(m.group(1) if m else None, n, subject)
         for text, n in (("Merge branch 'task/0042-sf-store'", "0042"), ("origin/task/0042-sf", "0042"),
@@ -160,8 +161,8 @@ class NonDefaultIds(unittest.TestCase):
 
     def test_merge_subject_and_branch_patterns_read_the_width(self):
         ids = refs.ids(self.p.cfg)
-        self.assertEqual(ids.task_merge_subject_re.match("task 00042 x").group(1), "00042")
-        self.assertIsNone(ids.task_merge_subject_re.match("0042 x"))
+        self.assertEqual(ids.task_merge_subject_re.match("Task 00042: x").group(1), "00042")
+        self.assertIsNone(ids.task_merge_subject_re.match("Task 0042: x"))
         self.assertEqual(ids.task_branch_re.search("task/00042-x").group(1), "00042")
         self.assertIsNone(ids.task_branch_re.search("task/0042-x"))
 
