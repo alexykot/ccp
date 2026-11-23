@@ -175,4 +175,28 @@ Measured at `3368264`.
 
 ## Implementation notes
 
+- **Mutant-file texts.** `parse_file` takes each text through `_without_line_break`, which now returns the text
+  itself when it ends with no line break (it returned empty, which only the old hint needed). `_once`,
+  `_substitution`, the text part's dict and `together` lose `from_file`, and the line-break hint goes: a zero
+  count is the plain refusal for every source. The module docstring's two sentences on the texts and the range
+  follow §20.6.
+- **Several ranges.** `RANGES_RE` is `RANGE_RE` comma-separated; `parse_revert` matches it and hands the ranges
+  to `_ranges(spec, rel, rng, n)`, a plain function that reads them in the order given and refuses the first
+  bad one, naming it as today (`lines N-M are not a range of <file>'s n lines`). `_revert_lines` takes the list
+  and puts back a hunk when any range hits it, by today's rule per range. The digest still hashes `rng` as given,
+  so `3,8` and `8,3` give the same content and different digests.
+- **code-02's file.** Under `git diff -U0` a change at line 3 is in one hunk with a change at line 2, so no file
+  has changes at 2 and 5 and a separate change between them. `RevertLines`' `ranges` test uses changes at lines 2,
+  4 and 6 of a seven-line file: `2,6`, `6,2` (and overlapping or repeated ranges) put back 2 and 6 and leave 4,
+  `2-6` puts back all three, and a range past the end (`2,8`) or reversed is refused naming it.
+  `RevertsAsGitShows` gains one call of `parse_revert` with two ranges (no test run), for the wiring.
+- **The copies.** The five end-to-end tests go from `tests/test_mutate.py`; `tests/test_mutate_refusals.py`
+  gains a mutant file whose marker comes first, one whose markers are swapped, and
+  `test_a_mutant_file_whose_old_text_or_target_is_not_there` (old text absent, `missing.py`, `../calc.py`, an
+  absolute path). `test_each_text_is_exactly_the_bytes_between_its_markers` moves to
+  `tests/test_mutant_file_texts.py` as `test_each_text_is_what_lies_between_its_markers_less_its_last_line_break`.
+- **The rest.** `suite.section_patterns(cfg)` returns `_summary_cfg(cfg)["section_re"]`, and
+  `test_doclang_test_facts` asserts it gives the pack's pattern. The `--test` help is the ruled text; the
+  `--revert` metavar is `PATH[:N[-M][,N[-M]…]]`.
+
 ## Verification notes
