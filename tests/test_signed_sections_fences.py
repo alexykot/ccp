@@ -47,6 +47,10 @@ class SignedSections(unittest.TestCase):
         checks = "- id: `cmd-01`\n  steps:\n" + fenced("## Rule changes", "PROPOSED:", "> fenced passage")
         self.assertEqual(tasklog.signed_blocks(task_text("- **In:** it", checks)), [])
 
+    def test_a_passage_after_a_fenced_rule_changes_line_outside_the_signed_sections_is_not_read(self):
+        checks = "- id: `cmd-01`\n  steps:\n" + fenced("## Rule changes") + f"\n\n{BLOCK}"
+        self.assertEqual(tasklog.signed_blocks(task_text("- **In:** it", checks)), [])
+
     def test_a_proposed_in_a_fence_or_a_code_span_carries_no_passage(self):
         text = task_text(f"{fenced('PROPOSED:', '> fenced passage')}\n- the `PROPOSED:`\n> spanned passage")
         self.assertEqual(tasklog.signed_blocks(text), [])
