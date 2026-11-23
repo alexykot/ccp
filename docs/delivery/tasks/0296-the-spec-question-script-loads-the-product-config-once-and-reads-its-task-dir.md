@@ -1,7 +1,7 @@
 ---
 task_id: 0296-the-spec-question-script-loads-the-product-config-once-and-reads-its-task-dir
 title: The spec-question script and lib load a product's config through one quiet loader, the task-id check reads the configured task directory (DURABLE_DOCS goes), blocked builds its dependency map once, and the architect driver no longer imports the spec-question script
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S17", "S19"]
@@ -149,3 +149,5 @@ As the runner passed it (lead, 2026-11-23, spec question `sm-20261123T230826Z-a5
   are unchanged. This clears `ccp tasks check`'s "states a number" warning on that line.
 
 ## Verification notes
+- 2026-11-23 — verifier, PR #368 head `3369131` (squash `efb5ca5`): APPROVE. Passed: code-01, code-02, code-03, code-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0296-the-spec-question-script-loads-the-product-config-once-and-reads-its-task-dir.json.
+
