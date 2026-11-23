@@ -1,6 +1,8 @@
 """The one reader of a product's binding (SPEC §8.3): its parser and its two resolutions."""
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import subprocess
@@ -193,25 +195,42 @@ class ReadersTest(BindingDir):
         other = Path(self._d.name) / "none"
         self.assertEqual(sm.product_root(other), "")
 
-    def test_the_task_log_directory_is_the_products_not_the_bindings(self):
-        with mock.patch.dict(os.environ, {"DURABLE_DOCS": ""}):
-            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "docs/delivery")
-            self.binding.write_text(f"product_root: {self.product}  # the checkout\nqueue_root: {self.queue}\n"
-                                    "durable_docs_path: notes/log   # removed: nothing reads it\n"
-                                    "durable_docs: /not/read\n")
-            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "docs/delivery")
-            (self.product / "docs/delivery").mkdir(parents=True)
-            (self.product / "docs/delivery/plane.json").write_text('{"project_id": "demo", "task_log": {"dir": "notes/log"}}')
-            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "notes/log")
-            for blank in ("null", '""'):
-                (self.product / "docs/delivery/plane.json").write_text(
-                    '{"project_id": "demo", "task_log": {"dir": %s}}' % blank)
-                self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "docs/delivery", blank)
-            (self.product / "docs/delivery/plane.json").write_text('{"project_id": "demo", "task_log": {"dir": "notes/log"}}')
-            self.binding.write_text(f"queue_root: {self.queue}\n")
-            self.assertIsNone(lib.resolve_durable_docs_dir(self.queue))
-        with mock.patch.dict(os.environ, {"DURABLE_DOCS": "/abs/docs"}):
-            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), Path("/abs/docs"))
+    def write_plane(self, text: str) -> None:
+        (self.product / "docs/delivery").mkdir(parents=True, exist_ok=True)
+        (self.product / "docs/delivery/plane.json").write_text(text)
+
+    def test_the_product_config_is_the_loaded_plane_json_at_the_bindings_product_root(self):
+        self.write_plane('{"project_id": "demo", "task_log": {"dir": "notes/log"}}')
+        cfg = lib.product_config(self.queue)
+        self.assertEqual(cfg.root, self.product)
+        self.assertEqual(cfg.tasks_dir, self.product / "notes/log/tasks")
+        self.write_plane('{"project_id": "demo"}')
+        self.assertEqual(lib.product_config(self.queue).tasks_dir, self.product / "docs/delivery/tasks")
+
+    def test_the_product_config_is_none_with_no_product_root_or_no_plane_json(self):
+        self.assertIsNone(lib.product_config(self.queue))  # the product has no plane.json
+        self.assertIsNone(lib.product_config(self.queue, strict=True))  # a missing file is not a load error
+        self.write_plane('{"project_id": "demo"}')
+        self.binding.write_text(f"queue_root: {self.queue}\n")
+        self.assertIsNone(lib.product_config(self.queue))
+        self.assertIsNone(lib.product_config(self.queue, strict=True))
+
+    def test_a_plane_json_that_does_not_load_is_none_unless_strict_which_raises_its_error(self):
+        self.write_plane("{not json")
+        self.assertIsNone(lib.product_config(self.queue))
+        with self.assertRaises(Exception) as caught:
+            lib.product_config(self.queue, strict=True)
+        self.assertIn("plane.json", str(caught.exception))
+
+    def test_the_product_config_load_prints_nothing_and_leaves_the_warning_to_a_later_load(self):
+        from ccp import config  # noqa: PLC0415
+        self.write_plane('{"project_id": "demo", "mystery_key": 1}')
+        err = io.StringIO()
+        with mock.patch.object(config, "_WARNED", set()), contextlib.redirect_stderr(err):
+            self.assertIsNotNone(lib.product_config(self.queue))
+            self.assertEqual(err.getvalue(), "")
+            config.load(self.product)
+        self.assertIn("mystery_key", err.getvalue())
 
 
 class SyncReaderTest(unittest.TestCase):

@@ -741,7 +741,7 @@ class OneBinding(InitCase):
         with mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": str(self.bindings)}):
             os.environ.pop("PROJECT_YAML", None)
             self.assertEqual(lib.binding_path(self.queue), self.binding)
-            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.repo / "docs/delivery")
+            self.assertEqual(lib.product_config(self.queue).tasks_dir, self.repo / "docs/delivery/tasks")
             from ccp import verify  # noqa: PLC0415
             self.assertEqual(lib.runner_worktree(self.queue), str(self.repo / config.WORKTREES_DIR / "runner"))
             self.assertTrue(verify._ci(self.queue))

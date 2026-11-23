@@ -32,11 +32,13 @@ from lib import (  # noqa: E402
     append_event,
     die,
     fmt_dt,
+    lock_is_stale,
     looks_like_secret,
+    product_root,
+    project_id,
     read_json,
     write_json,
 )
-import spec_maintainer as sm  # noqa: E402  (lock, quota parse, Claude JSON parse, binding helpers)
 
 if str(HERE.parents[1]) not in sys.path:
     sys.path.insert(0, str(HERE.parents[1]))
@@ -168,7 +170,7 @@ def actor_of(arg: str | None) -> str:
 
 
 def emit(root: Path, actor: str, op: str, payload: dict[str, Any], kind: Kind) -> None:
-    append_event(root, {"at": fmt_dt(now_utc()), "project_id": sm.project_id(root), "task_id": "",
+    append_event(root, {"at": fmt_dt(now_utc()), "project_id": project_id(root), "task_id": "",
                         "actor": actor, "type": kind.name, "op": op, "payload": payload})
 
 
@@ -316,7 +318,7 @@ def lock_take(root: Path, actor: str, rid: str, ttl_s: int, kind: Kind) -> tuple
             fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
         except FileExistsError:
             cur = read_json(path) if path.is_file() else {}
-            if sm.lock_is_stale(cur, now_utc()):
+            if lock_is_stale(cur, now_utc()):
                 emit(root, actor, "clear", {"holder": cur.get("holder"), "reason": "stale", "review_id": cur.get("review_id")}, kind)
                 path.unlink(missing_ok=True)
                 continue
@@ -424,8 +426,8 @@ def triage(root: Path, rid: str, actor: str, kind: Kind, max_new: int, prompt_ex
         if not errs:
             return out(apply_triage(root, rid, actor, t, kind))
         return out({"outcome": "invalid_triage", "review_id": rid, "errors": errs}, 1)
-    pid = sm.project_id(root)
-    pr = _checkout(sm.product_root(root), product_dir)
+    pid = project_id(root)
+    pr = _checkout(product_root(root), product_dir)
     doc = triage_doc(pr or "")
     if not os.path.isfile(doc):
         die(f"missing {doc}: the review-triage protocol (the plugin's skill, or docs/delivery/REVIEW-TRIAGE.md)", 1)
