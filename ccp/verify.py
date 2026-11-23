@@ -1160,8 +1160,8 @@ def judge(cfg: Config, queue: Path, rec: dict[str, Any], rid: str, head: str,
             body["catch_up"] = rec["catch_up"]  # §16.5 rule 4: close's own catch-up of the approved head
         else:
             reasons.append(f"the PR head {head[:12]} is not the approved head {recorded_head[:12]} "
-                           "(the head differs from head_sha): a push after the verdict needs a new verdict "
-                           "(`ccp prompt verify --head <new>`)"
+                           "(the head differs from head_sha): a push after the verdict "
+                           "needs a new verdict (`ccp prompt verify --head <new>`)"
                            + (f"; the record's catch-up does not cover it: {why}" if why else ""))
     body["gate_runs"] = _gate_runs(rec)
     when = None
