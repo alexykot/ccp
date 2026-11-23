@@ -248,8 +248,8 @@ def check_failures(cfg: Config, rendered: dict[Path, str]) -> dict[Path, list[st
 def migrate(cfg: Config, dry_run: bool = False, drop_open: bool = False) -> dict[str, Any]:
     """Convert each task file with no frontmatter (none written with `dry_run`). Returns `files`, one row per
     such file (`path`, `result`: converted or cannot, `reason`), and `current`, how many already had one.
-    A converted file `ccp tasks check` would fail is not written (the old text it keeps can hold a heading
-    the checks read before the converted file's own); one that depends on it is checked again without it."""
+    A converted file `ccp tasks check` would fail is not written; one that depends on it is checked again
+    without it."""
     titles = index_titles(cfg)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     rows: dict[Path, dict[str, Any]] = {}

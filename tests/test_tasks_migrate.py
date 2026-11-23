@@ -115,26 +115,26 @@ class Migrate(InitCase):
         self.assertEqual(self.read("0004-notes.md"), notes)
 
     def test_a_converted_file_the_checks_would_fail_is_not_written(self):
-        # The kept old text comes first in the file, so its own `## dod_checks` and `## Verification notes`
-        # are the sections the checks read: here no check, two soft words and an empty notes section.
+        # Converted, the second file numbered 0003 reuses an NNNN, which fails the checks; the file that depends
+        # on it is checked again without it. The kept old text's own `## dod_checks` and `## Verification notes`
+        # sit in its fence, quoted, so the converted file's sections are the ones read (0003-kept converts).
         own = ("## dod_checks\n\n- The export should handle errors gracefully.\n\n"
                "## Verification notes\n\n")
-        clash = old_task("0003", "Own checks", {"Status": "done", "Created": "2025-03-03"}, extra=own)
+        kept = old_task("0003", "Kept", {"Status": "done", "Created": "2025-03-03"}, extra=own)
+        clash = old_task("0003", "Own checks", {"Status": "done", "Created": "2025-03-03"})
         after = old_task("0004", "After", {"Status": "done", "Depends on": "0003-own-checks",
                                            "Created": "2025-03-04"})
-        self.adopt({**FIXTURE, "0003-own-checks.md": clash, "0004-after.md": after})
+        self.adopt({**FIXTURE, "0003-kept.md": kept, "0003-own-checks.md": clash, "0004-after.md": after})
         run = self.ccp("tasks", "migrate")
         self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
         lines = {ln.split(":", 1)[0]: ln for ln in run.stdout.splitlines() if ln.startswith(TASKS)}
-        self.assertIn("cannot convert: converted, it would fail `ccp tasks check`: no dod_checks",
+        self.assertIn("cannot convert: converted, it would fail `ccp tasks check`: NNNN 0003 already used by",
                       lines[f"{TASKS}/0003-own-checks.md"])
-        self.assertIn("soft language 'should'", lines[f"{TASKS}/0003-own-checks.md"])
-        self.assertIn("status is done with no verification notes", lines[f"{TASKS}/0003-own-checks.md"])
         self.assertIn("cannot convert: converted, it would fail `ccp tasks check`: depends_on `0003-own-checks`",
                       lines[f"{TASKS}/0004-after.md"])
         self.assertEqual(self.read("0003-own-checks.md"), clash)
         self.assertEqual(self.read("0004-after.md"), after)
-        for n in ("0001-ledger-store.md", "0002-export-ledger.md"):
+        for n in ("0001-ledger-store.md", "0002-export-ledger.md", "0003-kept.md"):
             self.assertIn("converted (done)", lines[f"{TASKS}/{n}"])
         check = self.ccp("tasks", "check")
         self.assertEqual(check.returncode, 1, check.stdout + check.stderr)
