@@ -1522,3 +1522,13 @@ tasks:
     title: ccp tasks check's bare-runner warning reads past the options of an env, time or timeout prefix and loses its dead ccp guard, and E4's import check skips a tracked test file it cannot read and says so
     depends_on: []
     path: tasks/0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read.md
+  - id: 0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log
+    status: pending
+    title: Worker briefs name ccp suite run --affected in place of the suite affected hand-off, the log texts follow §14.4's pruning of every suite-run log, the full-log test closes its pipe, and lib names its retired review event types
+    depends_on: []
+    path: tasks/0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log.md
+  - id: 0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared
+    status: pending
+    title: ccp suite affected names, and ccp suite run --affected runs, a part lane declared with stages as declared, instead of a language command that lane refuses
+    depends_on: []
+    path: tasks/0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared.md

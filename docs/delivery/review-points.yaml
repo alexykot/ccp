@@ -166,3 +166,8 @@ review_points:
     goal: "The open follow-ups of 0301: the bare-runner warning reading past the options of an env or timeout prefix with its dead ccp guard removed, and E4's import check skipping, and naming, a tracked test file it cannot read."
     status: planned
     opened: "2026-11-22"
+  - id: R30
+    name: follow-ups of 0299 and 0308
+    goal: "The open worker follow-ups of 0299 and 0308: worker briefs naming ccp suite run --affected in place of the suite affected hand-off, the log texts following §14.4's pruning of every suite-run log, the full-log test closing its pipe and lib naming its retired review event types; and ccp suite affected and suite run --affected running a part lane declared with stages as declared, with its signed §14.7 sentence."
+    status: planned
+    opened: "2026-11-23"
