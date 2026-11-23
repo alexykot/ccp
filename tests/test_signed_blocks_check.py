@@ -80,7 +80,7 @@ class UnreadableProposed(unittest.TestCase):
         self.assertTrue(warned[0].startswith(f"docs/delivery/tasks/0001-fence.md:{line_of(text, inline)}: "), warned)
 
     def test_an_inline_proposed_under_a_fenced_rule_changes_line_does_not_warn(self):
-        """A fenced `## Rule changes` line is quoted text: it opens no section `signed_blocks` reads."""
+        # A fenced `## Rule changes` line is quoted text: it opens no section `signed_blocks` reads.
         inline = "PROPOSED: > quoted inline"
         self.task("0001-notes", "- **In:** it", after=f"## Notes\n\n```\n## Rule changes\n```\n\n{inline}\n\n")
         self.assertEqual(self.warns(), [])
