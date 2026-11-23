@@ -1044,9 +1044,10 @@ reviewer's only with `review: true`; without the setting the verify prompt is un
 The verifier writes `verification/<task_id>.json` only through `ccp verify record <file>`, which
 refuses, writing nothing, a record that fails the contract (a verdict other than `approve` or
 `reject`, an extra key, a finding that is not a string, a check with no evidence), a `checked_at`
-later than the write, a check marked not run that has a `pass` or names no `rests_on`, and an
+later than the write, a check marked not run that has a `pass` or names no `rests_on`, an
 `approve` that `merge-ok` would refuse (a failed check it ran, no `head_sha`, or no `gate` whose runs
-all exited 0). A valid example is `contracts/verification.example.json`. `checked_at` is the clock
+all exited 0), and a `head_sha` that is not the head of the task's open verify run, which it refuses
+before anything else, naming both heads. A valid example is `contracts/verification.example.json`. `checked_at` is the clock
 time the verdict was reached; `record` stamps it when absent. A check the verifier did not run itself
 is `ran: false`, `pass: null`, and `rests_on` names what it rests on, in one of the three forms below:
 neither a pass nor a fail. Under `adr.strict`, `ccp verify record` also refuses an approve of a head

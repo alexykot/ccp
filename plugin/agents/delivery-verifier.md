@@ -63,9 +63,6 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   `record` refuses what breaks the rule. Record it so, not only as a caveat in
   `findings`: `ccp tasks close` lists it for the lead. Without such a ruling, it is a check you
   can't prove.
-- A re-verify after a fix-up, or after that head moved, uses `contracts/reverify_packet.schema.json`
-  (example `contracts/reverify_packet.example.json`). Judge the packet's `head_sha` and write it
-  on the new verdict.
 - When the runner's note says the head moved only by an integration merge (SPEC §15.6 rule 3),
   this is not a reject case: run the gate at the new head the way your prompt says, record each
   `dod_check` you do not rerun as `ran: false`, `pass: null`, `rests_on: "approve at <old head>"`, put

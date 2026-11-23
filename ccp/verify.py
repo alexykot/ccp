@@ -343,6 +343,28 @@ def _latest_verify(queue: Path, task_id: str) -> str:
     return str(max(found, key=lambda r: runs.parse_id(str(r["run_id"]))[2])["run_id"]) if found else ""
 
 
+def head_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
+    """§15.4: a record whose `head_sha` is not the head of the task's open verify run is refused before
+    anything else, naming both heads. Nothing for a PR that is not a task's, a record with no `head_sha`,
+    or no open verify run with a head."""
+    from ccp import runs  # noqa: PLC0415
+    from ccp.queue import QueueError  # noqa: PLC0415
+
+    tid = str(rec.get("task_id") or "")
+    judged = str(rec.get("head_sha") or "").strip()
+    if not tid or tid.startswith("pr-") or not judged:
+        return []
+    try:
+        run = runs.latest_open(queue, tid, "verify")
+    except QueueError:
+        return []
+    head = str(run.get("head") or "").strip() if run else ""
+    if not run or not head or heads_match(head, judged):
+        return []
+    return [f"head_sha {judged[:12]} is not {head[:12]}, the head of the open verify run {run['run_id']}: "
+            "record the verdict of the head that run judges"]
+
+
 def fill_gate(queue: Path, rec: dict[str, Any]) -> list[str]:
     """§14.1: each `gate.runs` entry with a `suite_id` is filled from that recorded suite run: its
     exit code, tests, skips, seconds and units ran and cached, and a `command` naming it when the
@@ -1139,7 +1161,7 @@ def judge(cfg: Config, queue: Path, rec: dict[str, Any], rid: str, head: str,
         else:
             reasons.append(f"the PR head {head[:12]} is not the approved head {recorded_head[:12]} "
                            "(the head differs from head_sha): a push after the verdict needs a new verdict "
-                           "(re-verify packet)"
+                           "(`ccp prompt verify --head <new>`)"
                            + (f"; the record's catch-up does not cover it: {why}" if why else ""))
     body["gate_runs"] = _gate_runs(rec)
     when = None
@@ -1610,7 +1632,8 @@ def main(cfg: Config, a: Any) -> int:
         except (OSError, json.JSONDecodeError) as exc:
             print(f"ccp verify record: {exc}", file=sys.stderr)
             return 2
-        errs = fill_gate(queue, rec) if isinstance(rec, dict) else []
+        errs = head_errors(queue, rec) if isinstance(rec, dict) else []
+        errs = errs or (fill_gate(queue, rec) if isinstance(rec, dict) else [])
         errs = errs or (cache_errors(cfg, rec) if isinstance(rec, dict) else [])
         errs = errs or (review_errors(queue, rec) if isinstance(rec, dict) else [])
         errs = errs or (resolution_errors(queue, rec) if isinstance(rec, dict) else [])
