@@ -59,21 +59,21 @@ class TextMutants(PlainFiles):
         self.assertIn("2 times", self.refused(mutate._once, "m", "calc.py", CALC.encode(), b"return", False))
         mutate._once("m", "calc.py", CALC.encode(), b"a + b", False)  # once: no refusal
 
-    def test_a_mutant_file_part_of_a_line_names_its_line_break_and_a_mutant_does_not(self):
-        msg = self.refused(mutate.parse_file, self.root, self.mfile("    return a +\n", "    return a -\n"), self.root)
-        self.assertIn("line break", msg)
-        self.assertIn("--mutant", msg)
-        msg = self.refused(mutate.parse, self.root, "calc.py:return a +\n=>return a -\n", self.root)
-        self.assertIn("0 times", msg)
-        self.assertNotIn("line break", msg)
-
     def test_a_mutant_that_is_no_file_or_leaves_the_worktree(self):
         for spec in ("no-such.patch", "../calc.py:a + b=>a - b", "missing.py:a=>b", "/etc/hosts:a=>b",
                      "calc.py=>x", "calc.py:=>x"):
             self.refused(mutate.parse, self.root, spec, self.root)
 
+    def test_a_mutant_file_whose_old_text_or_target_is_not_there(self):
+        for text in ("calc.py\n=== old\nreturn a / b\n=== new\nx\n", "missing.py\n=== old\na + b\n=== new\nx\n",
+                     "../calc.py\n=== old\na + b\n=== new\nx\n", "/etc/hosts\n=== old\na + b\n=== new\nx\n"):
+            (self.root / "m.txt").write_text(text)
+            self.refused(mutate.parse_file, self.root, "m.txt", self.root)
+
     def test_a_mutant_file_with_a_part_missing(self):
         for text in ("calc.py\n=== old\n    return a + b\n", "calc.py\n=== new\nx\n", "\n=== old\na\n=== new\nb\n",
+                     "=== old\n    return a + b\n=== new\nx\n",  # no file, the marker first
+                     "calc.py\n=== new\nx\n=== old\n    return a + b\n",  # the markers swapped
                      "calc.py\n=== old\n=== new\nx\n", ""):
             (self.root / "m.txt").write_text(text)
             self.refused(mutate.parse_file, self.root, "m.txt", self.root)

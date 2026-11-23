@@ -496,6 +496,12 @@ def _summary_cfg(cfg: Config | None) -> dict[str, Any]:
     return out
 
 
+def section_patterns(cfg: Config | None) -> list[re.Pattern[str]]:
+    """The `section_re` patterns `_summary_cfg` resolves: the lines that start a failing test's section, as
+    `ccp suite run` reads them (§14.2)."""
+    return _summary_cfg(cfg)["section_re"]
+
+
 def _field_patterns(scfg: dict[str, Any]) -> dict[str, list[re.Pattern[bytes]]]:
     return {f: [re.compile(p.pattern.encode()) for p in scfg[f"{f}_re"]] for f in SUMMARY_FIELDS}
 

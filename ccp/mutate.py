@@ -7,12 +7,13 @@ its own run, in the order given. A mutant is `<file>:<old>=><new>` (the text `ol
 file, relative to the worktree's root, becomes `new`, which must differ from it) or the path of a patch `git apply`
 takes. A `--mutant-file` holds the same substitution without shell quoting, for a mutant that spans
 lines: the file's path on its first line, then a line `=== old`, the old text, a line `=== new` and the new
-text, each text exactly what lies between its marker line and the next (or the file's end); a part missing
-refuses the call. A `--revert` mutant puts back the merge base's version (HEAD's merge base with the
-integration branch) of a file, or of every change from it that a range of the worktree file's lines overlaps
-or borders, the changes being the hunks `git diff -U0` shows between the two; in a shallow worktree (§12.1)
-the merge base is the one its record holds, and with none the call is refused. The `--mutant`s come first,
-then the `--mutant-file`s, then the `--revert`s, each in the order given.
+text, each text what lies between its marker line and the next (or the file's end), less the one line break
+that ends it; a part missing refuses the call. A `--revert` mutant puts back the merge base's version (HEAD's
+merge base with the integration branch) of a file, or of every change from it that one of its ranges of the
+worktree file's lines (comma-separated) overlaps or borders, the changes being the hunks `git diff -U0` shows
+between the two; in a shallow worktree (§12.1) the merge base is the one its record holds, and with none the
+call is refused. The `--mutant`s come first, then the `--mutant-file`s, then the `--revert`s, each in the
+order given.
 
 `--together` makes them one mutant: its parts are applied in order under one snapshot of all their files, and
 a part that does not apply restores the tree and refuses the call. Parts on different files are each checked
@@ -66,7 +67,8 @@ SEP = "=>"
 OUTPUT_AT = "_output_at"  # `_test`'s offset in the log where the run's own output starts; never recorded
 OLD_MARK, NEW_MARK = b"=== old", b"=== new"  # a --mutant-file's part separators, each a line of its own
 WORKTREE_KINDS = ("impl", "mut", "rev", "ver")  # the seats' worktrees a call may run in (§20.6)
-RANGE_RE = re.compile(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?")
+RANGE_RE = re.compile(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?")  # one range of `--revert <path>:<ranges>`
+RANGES_RE = re.compile(rf"{RANGE_RE.pattern}(?:,{RANGE_RE.pattern})*")  # the comma-separated ranges, in any order
 MAX_FAILED = 20  # the failing test ids a mutation row keeps
 HUNK_RE = re.compile(rb"^@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@", re.M)  # a `git diff` hunk header
 
@@ -103,11 +105,10 @@ def parse(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str, Any
             "digest": hashlib.sha256(patch.read_bytes()).hexdigest()[:12]}
 
 
-def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes, count: bool = True,
-                  from_file: bool = False) -> dict[str, Any]:
+def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes, count: bool = True) -> dict[str, Any]:
     """A text mutant: `old`, found exactly once in the worktree file `rel`, becomes `new`; one whose `new` is
     `old`, byte for byte, changes nothing and is refused (exit 2). Checked against the unmutated tree (the
-    count only with `count`); nothing is written. `from_file`: it came from a `--mutant-file` (`_once`)."""
+    count only with `count`); nothing is written."""
     if old == new:
         raise QueueError(f"{label}: the new text is the old text, so the mutant changes nothing", 2)
     if Path(rel).is_absolute() or ".." in Path(rel).parts:
@@ -116,41 +117,32 @@ def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes, coun
     if not path.is_file() or not _inside(root, path.resolve()):
         raise QueueError(f"{label}: {rel} is not a file in the worktree", 2)
     if count:
-        _once(label, rel, path.read_bytes(), old, False, from_file)
+        _once(label, rel, path.read_bytes(), old, False)
     digest = hashlib.sha256(b"\0".join((rel.encode(), old, new))).hexdigest()[:12]
-    return {"kind": "text", "files": [rel], "old": old, "new": new, "digest": digest, "label": label,
-            "from_file": from_file}
+    return {"kind": "text", "files": [rel], "old": old, "new": new, "digest": digest, "label": label}
 
 
-def _once(label: str, rel: str, text: bytes, old: bytes, after: bool, from_file: bool = False) -> None:
-    """Refuse (exit 2) unless `old` is in `text` exactly once; `after`: `text` is what earlier parts left.
-    `from_file`: `old` came from a `--mutant-file`, so it ends with the line break before `=== new`; found
-    0 times but found without that line break, the refusal says so, and that a substitution inside one line
-    goes in `--mutant`."""
+def _once(label: str, rel: str, text: bytes, old: bytes, after: bool) -> None:
+    """Refuse (exit 2) unless `old` is in `text` exactly once; `after`: `text` is what earlier parts left."""
     n = text.count(old)
     if n != 1:
         where = f"{rel} as the earlier parts on it leave it" if after else rel
-        bare = _without_line_break(old) if from_file and n == 0 else b""
-        if bare and (k := text.count(bare)):
-            raise QueueError(f"{label}: the old text is in {where} 0 times: it ends with the line break before "
-                             f"=== new, and without it it is in {where} {k} times; end the old text at a line end "
-                             "(the old text includes its last line's line break), or put a substitution inside one "
-                             "line in --mutant", 2)
         raise QueueError(f"{label}: the old text is in {where} {n} times; a mutant names one place", 2)
 
 
 def _without_line_break(text: bytes) -> bytes:
-    """`text` less the one line break it ends with (`\r\n`, `\n` or `\r`); empty when it ends with none."""
+    """`text` less the one line break it ends with (`\r\n`, `\n` or `\r`); `text` itself when it ends with none."""
     for eol in (b"\r\n", b"\n", b"\r"):
         if text.endswith(eol):
             return text[:-len(eol)]
-    return b""
+    return text
 
 
 def parse_file(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str, Any]:
     """One `--mutant-file`: the target file's path on the first line, then a line `=== old`, the old text,
-    a line `=== new` and the new text (§20.6). Each text is exactly the bytes between its marker line and
-    the next marker line or the file's end, so a mutant spanning lines needs no shell quoting. A part
+    a line `=== new` and the new text (§20.6). Each text is the bytes between its marker line and the next
+    marker line or the file's end, less the one line break that ends it, so a text ends where its writer
+    stopped and a mutant spanning lines needs no shell quoting. A part
     missing (the path, either marker, or the old text) refuses the call (exit 2). Checked against the
     unmutated tree (the old text's count only with `count`); nothing is written."""
     label = f"mutant file {spec!r}"
@@ -171,10 +163,10 @@ def parse_file(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str
     j = marks.index(NEW_MARK, i + 1)
     if NEW_MARK in marks[1:i]:
         raise QueueError(f"{label}: `=== new` comes before `=== old`", 2)
-    old, new = b"".join(lines[i + 1:j]), b"".join(lines[j + 1:])
+    old, new = _without_line_break(b"".join(lines[i + 1:j])), _without_line_break(b"".join(lines[j + 1:]))
     if not old:
         raise QueueError(f"{label}: the old text between `=== old` and `=== new` is empty", 2)
-    return _substitution(root, label, rel, old, new, count, from_file=True)
+    return _substitution(root, label, rel, old, new, count)
 
 
 def _key(rel: str) -> str:
@@ -204,7 +196,7 @@ def together(parts: list[dict[str, Any]], texts: dict[str, bytes]) -> dict[str, 
             continue
         text = texts[rel]
         for k, i in enumerate(idx):
-            _once(parts[i]["label"], rel, text, parts[i]["old"], k > 0, parts[i].get("from_file", False))
+            _once(parts[i]["label"], rel, text, parts[i]["old"], k > 0)
             text = text.replace(parts[i]["old"], parts[i]["new"], 1)
     digest = hashlib.sha256("\0".join(p["digest"] for p in parts).encode()).hexdigest()[:12]
     return {"kind": "together", "parts": [p["kind"] for p in parts], "files": list(on), "digest": digest,
@@ -262,15 +254,29 @@ def _hunks(was: bytes, now: bytes, cwd: Path | None = None) -> list[tuple[int, i
     return out
 
 
-def _revert_lines(now: bytes, was: bytes, first: int, last: int, cwd: Path | None = None) -> bytes:
-    """`now` with every change from `was` put back whose lines in `now` overlap lines first..last
-    (1-based, inclusive), a deletion inside the range or next to it included. The changes are the
-    hunks `git diff -U0` shows (`_hunks`)."""
+def _ranges(spec: str, rel: str, rng: str, n: int) -> list[tuple[int, int]]:
+    """The `(first, last)` line ranges `rng` (`RANGES_RE`, already matched) names, in the order given, each
+    checked against the file's `n` lines; a range that is not one of them refuses the call (exit 2), naming it."""
+    out = []
+    for part in rng.split(","):
+        m = RANGE_RE.fullmatch(part)
+        assert m is not None
+        first, last = int(m.group(1)), int(m.group(2) or m.group(1))
+        if last < first or last > n:
+            raise QueueError(f"revert {spec!r}: lines {first}-{last} are not a range of {rel}'s {n} lines", 2)
+        out.append((first, last))
+    return out
+
+
+def _revert_lines(now: bytes, was: bytes, ranges: list[tuple[int, int]], cwd: Path | None = None) -> bytes:
+    """`now` with every change from `was` put back whose lines in `now` overlap one of `ranges`, each
+    `(first, last)` 1-based and inclusive, in any order, overlapping allowed; a deletion inside a range or
+    next to one included. The changes are the hunks `git diff -U0` shows (`_hunks`)."""
     a, b = _lines(was), _lines(now)
     out: list[bytes] = []
     at = 0
     for i1, i2, j1, j2 in _hunks(was, now, cwd):
-        hit = first - 1 <= j1 <= last if j1 == j2 else j1 < last and j2 > first - 1
+        hit = any(first - 1 <= j1 <= last if j1 == j2 else j1 < last and j2 > first - 1 for first, last in ranges)
         out.extend(b[at:j1])
         out.extend(a[i1:i2] if hit else b[j1:j2])
         at = j2
@@ -279,10 +285,10 @@ def _revert_lines(now: bytes, was: bytes, first: int, last: int, cwd: Path | Non
 
 
 def parse_revert(root: Path, spec: str, base: str) -> dict[str, Any]:
-    """One `--revert PATH[:N[-M]]`: the merge base's version of the file, or of the changes the line
-    range touches, as a mutant. Checked against the unmutated tree; nothing is written."""
+    """One `--revert PATH[:N[-M][,N[-M]…]]`: the merge base's version of the file, or of the changes the
+    line ranges touch, as a mutant. Checked against the unmutated tree; nothing is written."""
     rel, colon, rng = spec.rpartition(":")
-    m = RANGE_RE.fullmatch(rng) if colon else None
+    m = RANGES_RE.fullmatch(rng) if colon else None
     if m is None:
         rel, rng = spec, ""
     path = _relpath(root, spec, rel)
@@ -295,13 +301,9 @@ def parse_revert(root: Path, spec: str, base: str) -> dict[str, Any]:
             raise QueueError(f"revert {spec!r}: {rel} is neither in the worktree nor at the merge base", 2)
         content = was
     else:
-        first, last = int(m.group(1)), int(m.group(2) or m.group(1))
         if now is None:
             raise QueueError(f"revert {spec!r}: {rel} is not a file in the worktree; a line range needs one", 2)
-        n = len(_lines(now))
-        if last < first or last > n:
-            raise QueueError(f"revert {spec!r}: lines {first}-{last} are not a range of {rel}'s {n} lines", 2)
-        content = _revert_lines(now, was or b"", first, last, root)
+        content = _revert_lines(now, was or b"", _ranges(spec, rel, rng, len(_lines(now))), root)
     if content == now:
         what = f"lines {rng} of {rel} touch no change" if rng else f"{rel} does not differ"
         raise QueueError(f"revert {spec!r}: {what} from the merge base; the revert changes nothing", 2)
@@ -630,7 +632,7 @@ def _run(cfg: Config, q: Path, run_id: str, tests: list[str], mutants: list[str]
     unbuilt = _unbuilt_patterns(mu, pack)
     from ccp import suite  # noqa: PLC0415
 
-    sections = suite._summary_cfg(cfg)["section_re"]  # noqa: SLF001  (the patterns `ccp suite run` reads, §14.2)
+    sections = suite.section_patterns(cfg)
     log = log_path(q, run_id)
     out: dict[str, Any] = {"ok": True, "run_id": run_id, "worktree": st["name"], "tests": tests, "log": str(log),
                            "baseline": []}

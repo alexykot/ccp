@@ -104,6 +104,7 @@ class Readers(unittest.TestCase):
         scfg = suite._summary_cfg(tests_cfg("python"))
         self.assertEqual([p.pattern for p in scfg["failed_re"]], py_pack.SUMMARY["failed_re"])
         self.assertEqual([p.pattern for p in scfg["section_re"]], [py_pack.SUMMARY["section_re"]])
+        self.assertEqual([p.pattern for p in suite.section_patterns(tests_cfg("python"))], [py_pack.SUMMARY["section_re"]])
         mine = suite._summary_cfg(tests_cfg("python", {"suite": {"summary": {"failed_re": r"(\d+) failed"}}}))
         self.assertEqual([p.pattern for p in mine["failed_re"]], [r"(\d+) failed"])
         self.assertEqual([p.pattern for p in mine["skipped_re"]], [py_pack.SUMMARY["skipped_re"]])
@@ -139,7 +140,7 @@ class Readers(unittest.TestCase):
 
     def test_a_language_with_no_runner_is_refused(self):
         with self.assertRaises(QueueError) as cm:
-            mutate._run(tests_cfg("none"), Path("."), "x", "t", ["a:b=>c"], [], None, None)
+            mutate._run(tests_cfg("none"), Path("."), "x", ["t"], ["a:b=>c"], [], None, None)
         self.assertEqual(cm.exception.code, 2)
         for named in ("mutate.command", "{test}", "sh {test}"):  # what to set, a whole-script test's form too
             self.assertIn(named, str(cm.exception))
