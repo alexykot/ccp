@@ -1532,3 +1532,18 @@ tasks:
     title: ccp suite affected names, and ccp suite run --affected runs, a part lane declared with stages as declared, instead of a language command that lane refuses
     depends_on: []
     path: tasks/0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared.md
+  - id: 0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails
+    status: pending
+    title: Every atomic write goes through one helper that takes a unique temporary name beside the file and removes it when the write fails, so two concurrent writers of one file both succeed
+    depends_on: []
+    path: tasks/0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails.md
+  - id: 0313-close-and-the-estimator-find-task-sections-outside-fences-and-a-backtick-fence-s-info-string-holds-no-backtick
+    status: pending
+    title: Close's notes edit and the estimator's task text find section headings outside fenced blocks, a backtick fence's info string holds no backtick, and the placeholder check reads the unquoted text through the shared helper
+    depends_on: []
+    path: tasks/0313-close-and-the-estimator-find-task-sections-outside-fences-and-a-backtick-fence-s-info-string-holds-no-backtick.md
+  - id: 0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report
+    status: pending
+    title: The writing-tasks skill says a revert check's fixture leaves an unchanged line between the hunks it tells apart, and the implement prompt and the implementer and runner briefs say an implementer's questions go in its report
+    depends_on: []
+    path: tasks/0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report.md
