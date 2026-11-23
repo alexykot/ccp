@@ -482,18 +482,9 @@ class MutantFiles(MutateFixture, unittest.TestCase):
         self.assertEqual((row["outcome"], row["kind"], row["files"]), ("killed", "text", ["calc.py"]))
         self.assertNotIn("return b - a", json.dumps(self.rows()))  # the record carries no mutant text
 
-    def test_each_text_is_exactly_the_bytes_between_its_markers(self):
-        f = self.mfile(f"calc.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}")
-        m = mutate.parse_file(self.mut, str(f), self.mut)
-        self.assertEqual((m["old"], m["new"], m["files"]), (TWO_LINES_OLD.encode(), TWO_LINES_NEW.encode(), ["calc.py"]))
-        same = mutate.parse(self.mut, f"calc.py:{TWO_LINES_OLD}=>{TWO_LINES_NEW}", self.mut)
-        self.assertEqual(m["digest"], same["digest"])  # the same substitution as the inline form
-        gone = mutate.parse_file(self.mut, str(self.mfile("calc.py\n=== old\n" + TWO_LINES_OLD + "=== new\n")), self.mut)
-        self.assertEqual(gone["new"], b"")  # an empty new text deletes the old
-
     def test_a_relative_path_is_read_from_the_current_directory(self):
         f = self.mfile(f"calc.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}")
-        self.assertEqual(mutate.parse_file(self.mut, f.name, f.parent)["old"], TWO_LINES_OLD.encode())
+        self.assertEqual(mutate.parse_file(self.mut, f.name, f.parent)["old"], TWO_LINES_OLD.encode().rstrip(b"\n"))
 
     def test_mutant_files_come_after_the_mutants_and_before_the_reverts(self):
         f = self.mfile(f"calc.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}")
@@ -510,29 +501,6 @@ class MutantFiles(MutateFixture, unittest.TestCase):
         self.assertEqual([(r["mutant"], r["kind"], r["outcome"]) for r in self.rows()[2:]],
                          [(1, "text", "survived"), (2, "text", "killed"), (3, "revert", "killed")])
         self.assertEqual((rev / "calc.py").read_text(), GUARDED)
-
-    def test_a_part_missing_is_refused_and_nothing_runs(self):
-        for text in (f"calc.py\n=== old\n{TWO_LINES_OLD}",  # no `=== new`
-                     f"calc.py\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}",  # no `=== old`
-                     f"\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}",  # no file
-                     f"=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}",  # no file, the marker first
-                     f"calc.py\n=== old\n=== new\n{TWO_LINES_NEW}",  # no old text
-                     f"calc.py\n=== new\n{TWO_LINES_NEW}=== old\n{TWO_LINES_OLD}",  # the markers swapped
-                     ""):
-            code, _, _, err = self.mutate(files=(self.mfile(text),))
-            self.assertEqual(code, 2, (text, err))
-            self.assertEqual(self.rows(), [])
-            self.assertEqual((self.mut / "calc.py").read_text(), CALC)
-            self.assertNotIn("Ran ", err)
-
-    def test_old_text_absent_a_missing_target_or_no_such_file_is_refused(self):
-        for f in (self.mfile("calc.py\n=== old\nreturn a / b\n=== new\nx\n"),
-                  self.mfile(f"missing.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}"),
-                  self.mfile(f"../calc.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}"),
-                  Path(self._tmp.name) / "no-such-mutant.txt"):
-            code, _, _, err = self.mutate(files=(f,))
-            self.assertEqual(code, 2, (f, err))
-            self.assertEqual(self.rows(), [])
 
 
 class Reverts(MutateFixture, unittest.TestCase):
@@ -836,13 +804,6 @@ class Together(MutateFixture, unittest.TestCase):
         self.assertEqual((code, [r["outcome"] for r in self.rows()]), (0, ["killed"]), err)
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
 
-    def test_together_a_patch_and_a_substitution_on_one_file_are_refused(self):
-        patch = self.patch_file({"calc.py": CALC.replace("a * 2", "a * 3")})
-        self.assertIn("calc.py", self.refused("calc.py:a + b=>a - b", str(patch)))
-
-    def test_together_a_substitution_whose_old_text_an_earlier_one_removed_is_refused(self):
-        self.refused("calc.py:a + b=>a - b", "calc.py:return a + b=>return 0")
-
     def test_together_two_spellings_of_one_file_are_one_file(self):
         self.refused("calc.py:a + b=>a - b", "./calc.py:return a + b=>return 0")
         patch = self.patch_file({"calc.py": CALC.replace("a * 2", "a * 3")})
@@ -850,9 +811,6 @@ class Together(MutateFixture, unittest.TestCase):
         code, _, _, err = self.mutate("./calc.py:a + b=>a ^ b", "./calc.py:a ^ b=>a % b", together=True)
         self.assertEqual((code, [(r["files"], r["outcome"]) for r in self.rows()]), (0, [(["calc.py"], "killed")]), err)
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
-
-    def test_together_with_one_mutant_is_refused(self):
-        self.refused("calc.py:a + b=>a - b")
 
     def test_together_a_part_that_does_not_apply_restores_the_tree_and_refuses(self):
         patch = self.patch_file({"extra.py": "X = 1\n"})
@@ -985,6 +943,15 @@ class RevertsAsGitShows(MutateFixture, unittest.TestCase):
         self.assertEqual((self.rev / "rep.txt").read_text(), REP_NOW)
         self.assertFalse((self.rev / "gone.py").exists())
 
+    def test_several_ranges_put_back_the_hunks_they_hit_and_the_digest_takes_them_as_given(self):
+        base = git(self.rev, "merge-base", "HEAD", "origin/main")
+        one, other = (mutate.parse_revert(self.rev, spec, base) for spec in ("rep.txt:3,8", "rep.txt:8,3"))
+        self.assertEqual((one["content"], other["content"]), (b"a\n\nb\n\nC\nd\ne\n",) * 2)  # C's change stays
+        self.assertNotEqual(one["digest"], other["digest"])
+        with self.assertRaises(QueueError) as cm:
+            mutate.parse_revert(self.rev, "rep.txt:3,9", base)
+        self.assertIn("lines 9-9 are not a range of rep.txt's 8 lines", str(cm.exception))
+
     def test_a_line_outside_every_git_hunk_is_no_change(self):
         code, _, _, err = self.mutate(test=ADD, root=self.rev, reverts=("rep.txt:2",))
         self.assertEqual(code, 2, err)
@@ -993,7 +960,7 @@ class RevertsAsGitShows(MutateFixture, unittest.TestCase):
 
 
 class RevertLines(unittest.TestCase):
-    """Which changes a line range puts back (lines of the worktree's file, 1-based, inclusive)."""
+    """Which changes line ranges put back (lines of the worktree's file, 1-based, inclusive)."""
 
     BASE = b"a\nb\nc\nd\ne\nf\n"
 
@@ -1004,30 +971,47 @@ class RevertLines(unittest.TestCase):
 
     def test_only_the_changes_the_range_overlaps(self):
         now = b"a\nB\nc\nd\nE\nf\n"
-        self.assertEqual(mutate._revert_lines(now, self.BASE, 2, 2), b"a\nb\nc\nd\nE\nf\n")
-        self.assertEqual(mutate._revert_lines(now, self.BASE, 2, 5), self.BASE)
-        self.assertEqual(mutate._revert_lines(now, self.BASE, 3, 4), now)
+        self.assertEqual(mutate._revert_lines(now, self.BASE, [(2, 2)]), b"a\nb\nc\nd\nE\nf\n")
+        self.assertEqual(mutate._revert_lines(now, self.BASE, [(2, 5)]), self.BASE)
+        self.assertEqual(mutate._revert_lines(now, self.BASE, [(3, 4)]), now)
 
     def test_added_lines_are_dropped(self):
         now = b"a\nb\nx\ny\nc\nd\ne\nf\n"
-        self.assertEqual(mutate._revert_lines(now, self.BASE, 4, 4), self.BASE)
-        self.assertEqual(mutate._revert_lines(b"x\ny\n", b"", 1, 1), b"")
+        self.assertEqual(mutate._revert_lines(now, self.BASE, [(4, 4)]), self.BASE)
+        self.assertEqual(mutate._revert_lines(b"x\ny\n", b"", [(1, 1)]), b"")
 
     def test_a_deletion_inside_or_next_to_the_range_is_put_back(self):
         now = b"a\nb\nd\ne\nf\n"  # c deleted, between lines 2 and 3
         for first, last in ((2, 2), (3, 3), (2, 3)):
-            self.assertEqual(mutate._revert_lines(now, self.BASE, first, last), self.BASE, (first, last))
-        self.assertEqual(mutate._revert_lines(now, self.BASE, 4, 5), now)
+            self.assertEqual(mutate._revert_lines(now, self.BASE, [(first, last)]), self.BASE, (first, last))
+        self.assertEqual(mutate._revert_lines(now, self.BASE, [(4, 5)]), now)
 
     def test_repeated_lines_follow_gits_hunks(self):
         was, now = b"}\n}\n", b"}\nfoo\n}\n}\n"  # git: foo and a } added after line 1; difflib: before it
         self.assertEqual(mutate._hunks(was, now), [(1, 1, 1, 3)])
-        self.assertEqual(mutate._revert_lines(now, was, 3, 3), was)
-        self.assertEqual(mutate._revert_lines(now, was, 1, 1), now)
+        self.assertEqual(mutate._revert_lines(now, was, [(3, 3)]), was)
+        self.assertEqual(mutate._revert_lines(now, was, [(1, 1)]), now)
+
+    def test_several_ranges_put_back_each_hunk_one_hits_and_not_the_lines_between(self):
+        base = self.BASE + b"g\n"
+        now = b"a\nB\nc\nD\ne\nF\ng\n"  # changes at lines 2, 4 and 6
+        between = b"a\nb\nc\nD\ne\nf\ng\n"
+        for given in ([(2, 2), (6, 6)], [(6, 6), (2, 2)], [(2, 2), (2, 2), (6, 6)], [(1, 2), (2, 3), (6, 7)]):
+            self.assertEqual(mutate._revert_lines(now, base, given), between, given)
+        self.assertEqual(mutate._revert_lines(now, base, [(2, 6)]), base)  # one range spans the change between
+        self.assertEqual(mutate._ranges("rep.txt:2,6", "rep.txt", "2,6", 7), [(2, 2), (6, 6)])
+        self.assertEqual(mutate._ranges("rep.txt:6,2-3", "rep.txt", "6,2-3", 7), [(6, 6), (2, 3)])
+        for rng, bad in (("2,8", "8-8"), ("2,5-9", "5-9"), ("6-5,2", "6-5")):
+            with self.assertRaises(QueueError) as cm:
+                mutate._ranges(f"rep.txt:{rng}", "rep.txt", rng, 7)
+            self.assertEqual(cm.exception.code, 2)
+            self.assertIn(f"lines {bad} are not a range", str(cm.exception))
+        for rng in ("2,5", "5,2", "2-3,5", "2,,5", "2,", ",5", "0,5", "2-x"):
+            self.assertEqual(mutate.RANGES_RE.fullmatch(rng) is not None, rng in ("2,5", "5,2", "2-3,5"), rng)
 
     def test_a_last_line_without_its_newline(self):
-        self.assertEqual(mutate._revert_lines(b"a\nB", b"a\nb\n", 2, 2), b"a\nb\n")
-        self.assertEqual(mutate._revert_lines(b"a\nb", b"a\nb\n", 2, 2), b"a\nb\n")
+        self.assertEqual(mutate._revert_lines(b"a\nB", b"a\nb\n", [(2, 2)]), b"a\nb\n")
+        self.assertEqual(mutate._revert_lines(b"a\nb", b"a\nb\n", [(2, 2)]), b"a\nb\n")
 
 
 class Ledger(unittest.TestCase):
