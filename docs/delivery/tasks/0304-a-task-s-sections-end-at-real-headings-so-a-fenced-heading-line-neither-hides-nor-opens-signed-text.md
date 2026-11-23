@@ -1,7 +1,7 @@
 ---
 task_id: 0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text
 title: A task file's sections end only at real headings, so a fenced `## ` line neither hides a signed passage from ccp verify spec-text nor opens a signed section
-status: pending
+status: done
 kind: feature
 depends_on: ["0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes"]
 spec_refs: ["S3", "S15"]
@@ -11,7 +11,7 @@ clashes_with: ["0191-the-grace-release-ends", "0293-the-lead-s-preference-and-ho
 paths: ["ccp/tasklog.py", "tests/test_signed_sections_fences.py", "tests/test_signed_blocks_check.py"]
 adopt: "none"
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-23
 ---
 
 # Task: 0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text
@@ -136,3 +136,5 @@ items (a) and (d). Measured at `0f44fb3` (origin/main, after 0285 merged) unless
   the old reading as the reason. Both are outside the task's paths; flagged in the report.
 
 ## Verification notes
+- 2026-11-23 — verifier, PR #366 head `f31d817` (squash `32c8435`): APPROVE. Passed: code-01, cmd-01, code-02, code-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text.json.
+
