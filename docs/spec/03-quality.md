@@ -453,15 +453,16 @@ nothing else.
   to the worktree's root, inside it) replaced by `new`, or the path of a patch `git apply` takes. A
   value with no `=>` is a patch. `--mutant-file <path>` is the same substitution without shell
   quoting, for a mutant that spans lines: the file holds `file` on its first line, then the old text
-  and the new text, separated by lines `=== old` and `=== new`, each text exactly what lies between
-  its marker line and the next (or the file's end); a file without the path, either marker or the
-  old text refuses the call (exit 2). Every mutant is checked before any test runs; one that does not
+  and the new text, separated by lines `=== old` and `=== new`, each text what lies between its
+  marker line and the next (or the file's end), less the one line break that ends it, so a text ends
+  where its writer stopped and one that must end with a line break is followed by an empty line; a
+  file without the path, either marker or the old text refuses the call (exit 2). Every mutant is checked before any test runs; one that does not
   apply, or a substitution whose new text is its old text, refuses the call (exit 2), nothing run.
-- **A revert** (`--revert <path>[:<n>[-<m>]]`) is a mutant that puts back the merge base's version
-  of the file (the merge base of HEAD and `origin/<integration>`, §12.1; a file the change added is
-  removed). With a line range (1-based, inclusive, lines of the worktree's file) it puts back only
-  the changes from the merge base those lines overlap, and a deletion inside the range or next to
-  it; the changes are the hunks `git diff -U0` shows between the merge base's version and the
+- **A revert** (`--revert <path>[:<n>[-<m>][,<n>[-<m>]…]]`) is a mutant that puts back the merge
+  base's version of the file (the merge base of HEAD and `origin/<integration>`, §12.1; a file the
+  change added is removed). With line ranges (1-based, inclusive, lines of the worktree's file,
+  separated by commas, in any order) it puts back only the changes from the merge base any of them
+  overlaps, and a deletion inside a range or next to one; the changes are the hunks `git diff -U0` shows between the merge base's version and the
   worktree's. A revert that changes nothing, or a range outside the file, refuses the call (exit 2). The
   call takes at least one mutant; the `--mutant`s are numbered first, then the `--mutant-file`s, then
   the `--revert`s, each in the order given.
