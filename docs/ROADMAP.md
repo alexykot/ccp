@@ -56,8 +56,8 @@ All reshape phases have landed.
     `ccp` imports nothing from `scripts/`. The move also amends E7 ("`ccp` imports nothing from scripts/", with a
     command check; operator, 2026-11-22). Architect pass
     `ar-20261122T055103Z-11aa` (F01) found the first trigger fired; task 0282 (R25) moves the headless
-    helpers and the open-question rule out of `spec_maintainer.py`. Tasked once 0283, 0293 and 0296, which
-    edit lib.py or its importers, are done (0272, 0277 and 0282 are; `ar-20261122T100027Z-dd31`).
+    helpers and the open-question rule out of `spec_maintainer.py`. Tasked once 0296, which edits lib.py and
+    its importers, is done (0272, 0277, 0282, 0283 and 0293 are; `ar-20261122T100027Z-dd31`).
     It also corrects the text on the observability scripts' direction (`ar-20261122T162238Z-9098` F03, deferred
     here by the operator, 2026-11-23): §10.6, §23.4, `docs/cli/04-observability.md` and E7 call
     `scripts/observability/*.sh` wrappers over `ccp`, but `emit-event.sh` and `heartbeat.sh` write the ledger
@@ -84,6 +84,7 @@ All reshape phases have landed.
     unchanged" with one command at base and head. Tasked if the seats of R24's 0276, the next template
     refactor, note the same scratch render-and-compare work.
 - **Deferred from architect pass `ar-20261122T162238Z-9098`** (record in `docs/delivery/reviews/`):
+  - F03: the observability scripts called wrappers over `ccp`; with F17 above (operator, 2026-11-23).
   - F09 and F11: `tests/helpers.py` is imported by most test modules, so an edit to it makes the part lane
     nearly the whole suite, and tests keep private git runners (the shared one strips its output) beside it.
     Split `tests/helpers.py` by concern and give it one git runner with a raw-output option, by one refactor

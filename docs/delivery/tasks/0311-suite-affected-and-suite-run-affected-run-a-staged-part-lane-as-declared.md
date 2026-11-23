@@ -46,8 +46,9 @@ Covers the open follow-up `0299-the-pre-gate-and-review-run-what-the-branch-touc
   it is not chosen. §14.7 already says "A declared part lane … always get[s] the part-lane line"; the share rule stays for the
   language's command only.
 - **SPEC.** §14.7's sentence on `<command>` names the argv and the language's command and nothing for stages, so the rule is
-  new text: one sentence, signed below. `awk '/^### 14.7/{f=1;next} f&&/^##/{exit} f' docs/spec/02-delivery.md | grep -c stages` at `e13c1380`: 0.
-  The sentence before it ("`ccp suite run --affected` … runs … what the stderr line below names") stays true and is not changed.
+  new text: one sentence, signed below, with the earlier sentence that lists what `--affected` runs. `awk '/^### 14.7/{f=1;next} f&&/^##/{exit} f' docs/spec/02-delivery.md | grep -c stages` at `e13c1380`: 0.
+  The earlier sentence ("`ccp suite run --affected` … runs … what the stderr line below names: the part lane with the modules, or
+  the full lane …") lists the two runs there are today, so it gains the third, signed below as the second passage.
 - **Other tasks.** A script over the pending tasks' `paths` at `e13c1380` (0191, 0296, 0300, 0303, 0304, 0305, 0306, 0307, 0309,
   0310): 0191 names `ccp/cli.py`, `docs/spec/02-delivery.md` and `tests/`, recorded as a clash. 0300 names `ccp/cli.py` (mutate's
   `--test` help and `--revert` metavar) and `ccp/suite.py` (a new `section_patterns`), 0303 names `ccp/cli.py`
@@ -61,7 +62,8 @@ Covers the open follow-up `0299-the-pre-gate-and-review-run-what-the-branch-touc
   `ccp suite affected: the part lane has stages and takes no modules: run it with: ccp suite run --lane part` (the part role's
   lane name in place of `part`). `affected_run` prints `ccp suite run --affected: <n> test module(s): running ccp suite run --lane part,
   the lane as declared` and runs it, recorded as any run. The full-lane line and run for the language's command past the share are
-  unchanged.
+  unchanged. `affected_modules` skips the pack's `suite_size` count whenever plane.json declares the part role's lane at all (an
+  argv or stages), not only for an argv: the count is read only by the share rule, which a declared part lane never reaches.
 - `--affected`'s help in `ccp/cli.py` becomes "run what `ccp suite affected` names on stderr: the part lane with the test modules
   the change touches, the part lane as declared when it has stages, or the full lane when it says so; no --lane and no command
   after `--` (SPEC §14.7)".
@@ -74,17 +76,23 @@ Covers the open follow-up `0299-the-pre-gate-and-review-run-what-the-branch-touc
 
 ## Scope
 
-- **In:** `ccp/suite.py` (`affected_plan`, `affected_hint`, `affected_run`), `ccp/cli.py` (`--affected`'s help),
+- **In:** `ccp/suite.py` (`affected_modules`, `affected_plan`, `affected_hint`, `affected_run`), `ccp/cli.py` (`--affected`'s help),
   `tests/test_suite_affected.py`, `tests/test_suite_run_affected.py`, `docs/spec/02-delivery.md`, `docs/cli/02-delivery.md`.
-- **SPEC, signed before the claim (`sign_off: brief`):** one passage in `docs/spec/02-delivery.md`.
+- **SPEC, signed before the claim (`sign_off: brief`):** two passages in `docs/spec/02-delivery.md`, both in §14.7.
 
-    CURRENT (`docs/spec/02-delivery.md` at `e13c1380`), §14.7, the paragraph that starts "After the list it prints":
+    CURRENT (`docs/spec/02-delivery.md` at `e13c1380`), §14.7, the first paragraph, its third sentence:
+    > `ccp suite run --affected [--since <ref>]` takes the same change and runs, recorded as any run (§14.4), what the stderr line below names: the part lane with the modules, or the full lane when the line says so.
+
+    PROPOSED:
+    > `ccp suite run --affected [--since <ref>]` takes the same change and runs, recorded as any run (§14.4), what the stderr line below names: the part lane with the modules, the part lane as declared when it has stages, or the full lane when the line says so.
+
+    CURRENT (`docs/spec/02-delivery.md` at `e13c1380`), §14.7, the paragraph that starts "After the list it prints", its second sentence:
     > The `<command>` is the argv plane.json `suite.lanes` gives the part role's lane, when it gives one as an argv, which then takes the module names as its last arguments; else the language's command, for a language whose command it names (Python: `python3 -m unittest`); stdout keeps the list alone.
 
     PROPOSED:
     > The `<command>` is the argv plane.json `suite.lanes` gives the part role's lane, when it gives one as an argv, which then takes the module names as its last arguments; else the language's command, for a language whose command it names (Python: `python3 -m unittest`); stdout keeps the list alone. When plane.json gives the part role's lane stages, which take no command (§14.2), the line is `ccp suite run --lane <part lane>`, the lane as declared, whatever the list holds.
 
-  No other sentence is retired.
+  No sentence is retired: the first passage gains a clause, the second a sentence.
 - **Out:** how a staged lane runs (§14.2); the share rule for the language's command; the briefs (0310).
 
 ## dod_checks
@@ -120,8 +128,8 @@ Covers the open follow-up `0299-the-pre-gate-and-review-run-what-the-branch-touc
   setup: A checkout of the PR head.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0311`.
-  expect: exit 0, the one PROPOSED passage found.
-  dry run: n/a — the passage lands with the build; the CURRENT sentence is found once in `docs/spec/02-delivery.md` at `e13c1380` (whitespace-normalised, a `python3 -c` search).
+  expect: exit 0, both PROPOSED passages found.
+  dry run: n/a — the passages land with the build; each CURRENT sentence is found once in `docs/spec/02-delivery.md` at `e13c1380` (whitespace-normalised, a `python3 -c` search).
 
 ## Implementation notes
 
