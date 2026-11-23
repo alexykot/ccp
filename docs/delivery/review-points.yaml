@@ -171,3 +171,8 @@ review_points:
     goal: "The open worker follow-ups of 0299 and 0308: worker briefs naming ccp suite run --affected in place of the suite affected hand-off, the log texts following §14.4's pruning of every suite-run log, the full-log test closing its pipe and lib naming its retired review event types; and ccp suite affected and suite run --affected running a part lane declared with stages as declared, with its signed §14.7 sentence."
     status: planned
     opened: "2026-11-23"
+  - id: R31
+    name: follow-ups of 0300 and 0304
+    goal: "The open worker follow-ups of 0300 and 0304 and the lead's notes on them: every atomic write through one helper with a unique temporary name, so two concurrent writers of one file both succeed and a failed write leaves no temporary file; close's notes edit and the estimator's task text finding section headings outside fenced blocks, with a backtick fence's info string holding no backtick; and the task-writing guidance on a revert check's hunks, with an implementer's questions going in its report."
+    status: planned
+    opened: "2026-11-23"
