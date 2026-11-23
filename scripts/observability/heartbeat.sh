@@ -81,7 +81,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get("PYTHONPATH", ".").split(":")[0])
-from lib import append_event, die, fmt_dt, write_json
+from lib import append_event, die, fmt_dt, validate_event, write_json
 
 root = Path(os.environ["QUEUE_ROOT"]).expanduser()
 seat_id = os.environ["SEAT_ID"]
@@ -108,16 +108,7 @@ project_id = (
 )
 actor = os.environ.get("ACTOR_IN") or seat_id
 
-seat = {
-    "seat_id": seat_id,
-    "last_wake_at": now_s,
-    "wake_kind": wake_kind,
-    "last_action": action,
-    "updated_at": now_s,
-}
-write_json(root / "observability" / "seats" / f"{seat_id}.json", seat)
-
-ev = append_event(root, {
+event = {
     "at": now_s,
     "project_id": project_id,
     "task_id": task_id,
@@ -129,6 +120,20 @@ ev = append_event(root, {
         "wake_kind": wake_kind,
         "action_summary": action,
     },
-})
+}
+errors = validate_event(event)  # before the seat file: a refused event leaves nothing behind
+if errors:
+    die("invalid event: " + "; ".join(errors))
+
+seat = {
+    "seat_id": seat_id,
+    "last_wake_at": now_s,
+    "wake_kind": wake_kind,
+    "last_action": action,
+    "updated_at": now_s,
+}
+write_json(root / "observability" / "seats" / f"{seat_id}.json", seat)
+
+ev = append_event(root, event)
 print(json.dumps({"ok": True, "seat": seat, "event": ev}, separators=(",", ":")))
 PY

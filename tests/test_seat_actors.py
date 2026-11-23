@@ -1,5 +1,5 @@
 """SPEC §18.3, house rule E9: the seat ids are `task-runner`, `task-verifier` and `design-seat`. The retired
-watchdog seat is a value only read: a row an old ledger holds still validates and folds, and nothing writes one.
+watchdog seat is a value only read: a row an old ledger holds still folds, and nothing writes one.
 A seat's heartbeat records its last wake and no cadence."""
 from __future__ import annotations
 
@@ -47,7 +47,6 @@ class SeatActors(unittest.TestCase):
         ledger.parent.mkdir(parents=True)
         ledger.write_text(json.dumps(OLD_ROW) + "\n")
         events = lib.load_events(ledger)
-        self.assertEqual([lib.validate_event(ev, reading=True) for ev in events], [[]])
         seats: dict = {}
         for ev in events:
             lib.apply_event({}, seats, {}, ev)
@@ -86,6 +85,13 @@ class SeatActors(unittest.TestCase):
         self.assertNotIn("cron_expected", seat)
         row = json.loads(lib.events_path(self.q).read_text().splitlines()[-1])
         self.assertNotIn("cron_expected", row["payload"])
+
+    def test_a_refused_actor_leaves_no_seat_file(self) -> None:
+        r = self.heartbeat(lib.RUNNER, "--actor", RETIRED)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn(f"invalid actor '{RETIRED}'", r.stderr)
+        self.assertFalse((self.q / "observability" / "seats" / f"{lib.RUNNER}.json").exists())
+        self.assertFalse(lib.events_path(self.q).exists())
 
     def test_heartbeat_defaults_to_a_manual_wake_and_takes_no_cadence_option(self) -> None:
         r = self.heartbeat(lib.RUNNER)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# prune-prompts.sh — prune prompt audits on demand. Retention by age is plane.json
-# prompts.audit_keep_days, applied by `ccp prompt` (SPEC §23.8); this script is the manual tool.
+# prune-prompts.sh — prune prompt audits on demand. Every prompt audit is kept (SPEC §23.8); this script prunes on demand.
+# A product that still sets the constant plane.json prompts.audit_keep_days (SPEC §29.3) has `ccp prompt` prune by age too.
 
 set -euo pipefail
 
@@ -11,8 +11,8 @@ usage() {
 Usage:
   prune-prompts.sh [--older-than-days N] [--keep-last N] [--apply]
 
-Retention by age is plane.json prompts.audit_keep_days, applied by `ccp prompt`
-each time it writes an audit (SPEC §23.8). This script prunes on demand.
+Every prompt audit is kept (SPEC §23.8); this script prunes on demand.
+A product that still sets the constant plane.json prompts.audit_keep_days (SPEC §29.3) has `ccp prompt` prune by age too.
 
 Safety:
   - Refuses to delete unless PRUNE_PROMPTS=1 AND --apply
@@ -59,7 +59,7 @@ if [[ ! -d "$PROMPT_ROOT" ]]; then
 fi
 
 if [[ -z "$OLDER" && -z "$KEEP" ]]; then
-  echo "prune-prompts: nothing selected (retention by age is plane.json prompts.audit_keep_days)."
+  echo "prune-prompts: nothing selected (every audit is kept unless pruned here: SPEC §23.8)."
   echo "prune-prompts: pass --older-than-days N and/or --keep-last N to list candidates."
   echo "prune-prompts: deletion requires PRUNE_PROMPTS=1 and --apply."
   exit 0

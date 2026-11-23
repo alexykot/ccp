@@ -865,6 +865,8 @@ def cmd_tasks_estimate(cfg: config.Config, a: argparse.Namespace) -> int:
 def _tasks_estimate_agent(cfg: config.Config, q: Path, a: argparse.Namespace, args: list[str]) -> int:
     """§26.3 phase B: the estimator seat (ccp/estimator.py). Advisory rows only."""
     from ccp import estimator  # noqa: PLC0415
+    from ccp.queue import lib  # noqa: PLC0415
+    who = a.actor if a.actor in lib.ACTORS else "system"  # an actor the audit and the ledger would refuse falls back
     if a.print_prompt:
         if len(args) != 1:
             print("ccp tasks estimate --print-prompt: give one task id", file=sys.stderr)
@@ -885,11 +887,11 @@ def _tasks_estimate_agent(cfg: config.Config, q: Path, a: argparse.Namespace, ar
         if estimator.running(q):
             print("ccp tasks estimate: an estimator batch is already running", file=sys.stderr)
             return 3
-        body = estimator.spawn(cfg, q, a.max, a.actor or "system")
+        body = estimator.spawn(cfg, q, a.max, who)
         print(json.dumps(body, indent=2) if a.json else f"started {body['run_id']} in the background; log {body['log']}")
         return 0
     try:
-        body = estimator.run(cfg, q, None if a.all else args, a.max, a.dry_run, a.force, a.actor or "system", a.run_id)
+        body = estimator.run(cfg, q, None if a.all else args, a.max, a.dry_run, a.force, who, a.run_id)
     except QueueError as e:
         print(f"ccp tasks estimate: {e}", file=sys.stderr)
         return e.code
