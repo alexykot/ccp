@@ -122,7 +122,7 @@ items (a) and (d). Measured at `0f44fb3` (origin/main, after 0285 merged) unless
   blanked) is shared by `signed_blocks`, which now reads a `PROPOSED:` marker only in it, and by
   `unreadable_proposed`, which keeps 0285's shape. `HEADING_RE` names the section heading pattern once.
 - Premises re-measured at `e13c1380`: the two probes print `[]` and a fenced `Rule changes` passage as the Context
-  says (line numbers differ with the fixture's shape); `tasks.checks` of the dod_checks probe prints `['cmd-01']`;
+  says (line numbers differ with the fixture's shape); `tasklog.checks` of the dod_checks probe prints `['cmd-01']`;
   0 of 304 task files read differently with fences blanked; `git grep -n 'heading begins' -- docs/spec` 2 lines.
   Over every task file in the log, the old and new `signed_blocks`, `checks` ids and `unreadable_proposed` agree.
 - Tests: `tests/test_signed_sections_fences.py` (new) and 0285's two tests in `tests/test_signed_blocks_check.py`
