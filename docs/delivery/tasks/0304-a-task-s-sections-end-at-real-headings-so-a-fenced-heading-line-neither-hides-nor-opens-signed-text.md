@@ -116,4 +116,17 @@ items (a) and (d). Measured at `0f44fb3` (origin/main, after 0285 merged) unless
 
 ## Implementation notes
 
+- 2026-11-23 — `ccp/tasklog.py`: `_unfenced` (the text with `FENCE_RE` blanked, same length and line breaks) and
+  `_section_end` (the next `^## ` line in it) are where a section's heading and end are found; `_section_at` and
+  `_signed_sections` match there and slice their bodies from the raw text. `_unquoted` (fences and code spans
+  blanked) is shared by `signed_blocks`, which now reads a `PROPOSED:` marker only in it, and by
+  `unreadable_proposed`, which keeps 0285's shape. `HEADING_RE` names the section heading pattern once.
+- Premises re-measured at `e13c1380`: the two probes print `[]` and a fenced `Rule changes` passage as the Context
+  says (line numbers differ with the fixture's shape); `tasks.checks` of the dod_checks probe prints `['cmd-01']`;
+  0 of 304 task files read differently with fences blanked; `git grep -n 'heading begins' -- docs/spec` 2 lines.
+  Over every task file in the log, the old and new `signed_blocks`, `checks` ids and `unreadable_proposed` agree.
+- Tests: `tests/test_signed_sections_fences.py` (new) and 0285's two tests in `tests/test_signed_blocks_check.py`
+  as the ruling gives them; the renamed test's docstring became a comment, so `unittest -v` prints its `ok` on
+  its name's line, as `code-02`'s grep reads it.
+
 ## Verification notes
