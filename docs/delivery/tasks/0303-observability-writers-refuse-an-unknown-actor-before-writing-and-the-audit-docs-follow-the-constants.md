@@ -182,4 +182,9 @@ Measured at `7a2993b` (origin/main).
 
 ## Implementation notes
 
+- Built as the rulings give it. Premises re-measured at 506bfca1: `reading` at 4 lines in `lib.py` and `tests/test_seat_actors.py`, `validate_event`'s callers as stated, the emit example's 2 lines, the design doc's 3 lines and `prune-prompts.sh`'s 2 lines: all as the task states.
+- The task places "(the full text only under a still-set `prompts.keep_body`; audits older than a still-set `prompts.audit_keep_days` are pruned, §29.3)" in `ccp/prompt.py`'s module docstring, but that docstring held no such sentence (it says "writes the prompt and its audit (§23.8)"); the stale text sat in `tests/test_prompt_audit.py`'s docstring. Both now carry the wording: `ccp/prompt.py`'s as a parenthetical after "its audit (§23.8", the test's as a rewrite of its own sentence.
+- `write-prompt-audit.sh`'s usage line for `--actor` adds that an actor the ledger refuses is refused; `lib.py`'s module docstring says a test holds the contracts' enums to the legacy lists.
+- `tests/test_prompt_audit.py`'s `Writer` gains `run_writer` (the subprocess call `write` made), so the refusal test reads the exit code and stderr.
+
 ## Verification notes
