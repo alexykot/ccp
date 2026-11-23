@@ -10,9 +10,10 @@ lines: the file's path on its first line, then a line `=== old`, the old text, a
 text, each text what lies between its marker line and the next (or the file's end), less the one line break
 that ends it; a part missing refuses the call. A `--revert` mutant puts back the merge base's version (HEAD's
 merge base with the integration branch) of a file, or of every change from it that one of its ranges of the
-worktree file's lines (comma-separated) overlaps or borders, the changes being the hunks `git diff -U0` shows between the two; in a shallow worktree (§12.1)
-the merge base is the one its record holds, and with none the call is refused. The `--mutant`s come first,
-then the `--mutant-file`s, then the `--revert`s, each in the order given.
+worktree file's lines (comma-separated) overlaps or borders, the changes being the hunks `git diff -U0` shows
+between the two; in a shallow worktree (§12.1) the merge base is the one its record holds, and with none the
+call is refused. The `--mutant`s come first, then the `--mutant-file`s, then the `--revert`s, each in the
+order given.
 
 `--together` makes them one mutant: its parts are applied in order under one snapshot of all their files, and
 a part that does not apply restores the tree and refuses the call. Parts on different files are each checked

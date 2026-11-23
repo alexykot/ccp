@@ -198,5 +198,12 @@ Measured at `3368264`.
 - **The rest.** `suite.section_patterns(cfg)` returns `_summary_cfg(cfg)["section_re"]`, and
   `test_doclang_test_facts` asserts it gives the pack's pattern. The `--test` help is the ruled text; the
   `--revert` metavar is `PATH[:N[-M][,N[-M]…]]`.
+- **Fix round 1.** `Reverts.test_a_revert_that_changes_nothing_or_names_no_file_is_refused` drops
+  `calc.py:5-99` and `calc.py:6-5`: a range past the end or reversed is `_ranges`' branch, held on plain values
+  by `RevertLines`' ranges test and wired by `RevertsAsGitShows`' `rep.txt:3,9`. It keeps `calc.py:15`: line 15
+  of the 15-line `GUARDED` is in the file and unchanged, so that spec is the ranged changes-nothing refusal, not
+  a range refusal. The module docstring and the two §20.6 bullets are re-wrapped (`verify spec-text` still
+  finds all three passages), and the `ccp mutate` row in `docs/cli/03-quality.md` says "a file or of line
+  ranges".
 
 ## Verification notes

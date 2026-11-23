@@ -545,8 +545,8 @@ class Reverts(MutateFixture, unittest.TestCase):
                          [(1, "text", "survived"), (2, "revert", "killed")])
 
     def test_a_revert_that_changes_nothing_or_names_no_file_is_refused(self):
-        for spec in ("calc.py:15", "calc.py:5-99", "calc.py:6-5", "docs/delivery/plane.json", "nope.py",
-                     "nope.py:1", "../calc.py", "/etc/hosts", "docs"):
+        for spec in ("calc.py:15", "docs/delivery/plane.json", "nope.py", "nope.py:1", "../calc.py", "/etc/hosts",
+                     "docs"):
             code, _, _, err = self.mutate(test=GUARD, root=self.rev, reverts=(spec,))
             self.assertEqual(code, 2, (spec, err))
             self.assertEqual(self.rows(), [], spec)
