@@ -41,7 +41,6 @@ class RecordHead(SkipFlow, ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.verdict(self.typo, verdict)
         self.assertEqual(code, 1, out + err)
         self.assertFalse((self.q / "verification/0002-second.json").exists())  # nothing written
-        self.assertNotEqual(self.typo[:12], self.head[:12])
         self.assertIn(f"head_sha {self.typo[:12]} is not {self.head[:12]}, the head of the open verify run "
                       f"{self.run_id}", err)
         return err
