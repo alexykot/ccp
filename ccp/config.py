@@ -1414,6 +1414,9 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
             and all(isinstance(v.get(x, []), list) and all(isinstance(i, str) for i in v.get(x, []))
                     for x in ("refs_any", "forbid")) for k, v in kinds.items()):
         bad.append("task_log.kinds must map each kind to {refs_any: [lists], forbid: [lists]}")
+    td = raw.get("task_log", {}).get("dir", TASK_LOG_DEFAULTS["dir"])
+    if not (isinstance(td, str) and td.strip()):
+        bad.append("task_log.dir must be a path relative to the product root; delete the key to take the constant")
     rd = raw.get("task_log", {}).get("reviews_dir", "reviews")
     if not (isinstance(rd, str) and rd.strip()) or rd.startswith("/") or ".." in Path(rd).parts:
         bad.append("task_log.reviews_dir must be a path relative to task_log.dir")
