@@ -1,14 +1,16 @@
 """`ccp suite run --affected [--since <ref>]` (SPEC §14.7): it works out the test modules as `ccp suite affected`
 does and runs what that command's stderr line names, recorded as any run; with nothing touched it runs and records
 nothing; with modules and nothing to run them, or with `--lane`, a command after `--`, or `--since` alone, it exits 2
-with nothing run."""
+with nothing run (those flag rules are judged on the parsed flags)."""
 from __future__ import annotations
 
+import argparse
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
+from ccp import suite
 from tests.helpers import Product, repo_git as git
 from tests.suite_fixture import PY, ccp_proc
 
@@ -100,16 +102,35 @@ class RunAffected(AffectedProduct, unittest.TestCase):
         self.assertIn(b"ccp suite run --affected: no test module touched", r.stderr)
         self.assertEqual((self.rows("started"), self.part_args()), ([], None))
 
-    def test_affected_with_a_lane_a_command_or_since_alone_exits_2_with_nothing_run(self):
+    def test_affected_with_a_lane_exits_2_with_nothing_run(self):
         self.p.write("pkg/a.py", "X = 3\n")
-        touch = [PY, "-c", "open('ran', 'w').write('x')"]
-        for args in (["--affected", "--lane", "part"], ["--affected", "--", *touch], ["--since", "HEAD", "--", *touch],
-                     ["--since", "HEAD", "--lane", "part"]):
-            r = self.ccp("suite", "run", "--summary", *args)
-            self.assertEqual(r.returncode, 2, args)
+        r = self.ccp("suite", "run", "--summary", "--affected", "--lane", "part")
+        self.assertEqual(r.returncode, 2, r.stderr)
         self.assertEqual(self.rows("started"), [])
-        self.assertFalse((self.p.root / "ran").exists())
         self.assertIsNone(self.part_args())
+
+
+class AffectedUsage(unittest.TestCase):
+    """`--affected` and `--since` against the other flags, on the parsed values (`suite.affected_usage`)."""
+
+    @staticmethod
+    def ns(**flags) -> argparse.Namespace:
+        return argparse.Namespace(**{"affected": False, "since": None, "lane": None, **flags})
+
+    def test_since_without_affected_is_refused_by_name(self):
+        self.assertIn("--since", suite.affected_usage(self.ns(since="HEAD"), ["true"]))
+        self.assertIn("--since", suite.affected_usage(self.ns(since="HEAD", lane="part"), None))
+
+    def test_affected_with_a_lane_is_refused_by_name(self):
+        self.assertIn("--lane", suite.affected_usage(self.ns(affected=True, lane="part"), None))
+
+    def test_affected_with_a_command_is_refused_by_name(self):
+        self.assertIn("`--`", suite.affected_usage(self.ns(affected=True), ["true"]))
+
+    def test_affected_alone_and_neither_flag_pass(self):
+        self.assertIsNone(suite.affected_usage(self.ns(affected=True), None))
+        self.assertIsNone(suite.affected_usage(self.ns(affected=True, since="HEAD"), None))
+        self.assertIsNone(suite.affected_usage(self.ns(lane="part"), ["true"]))
 
 
 class RunAffectedWithTheLanguagesCommand(AffectedProduct, unittest.TestCase):
