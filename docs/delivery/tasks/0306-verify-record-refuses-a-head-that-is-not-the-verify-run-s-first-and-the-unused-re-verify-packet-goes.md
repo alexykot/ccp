@@ -119,5 +119,9 @@ From architect pass `ar-20261122T162238Z-9098`, F07 (`incoherence`) and F04 (`ho
   still tested.
 - Premises re-measured at `bb102371`: the packet grep still printed 10 lines plus `2`, and `latest_open` still
   had 3 lines in `ccp/verify.py`.
+- Fix round 1 (review MINOR-1, NIT-1): `tests/test_verify_record_head.py` gains a test that a reject with no
+  `head_sha`, recorded while the verify run is open, passes, so the guard that skips such a record is pinned.
+  The head refusal is now asserted by its tokens (both 12-character heads and the run id), not by its prose,
+  in that module and in the two skip tests (E4); the skip tests take the run id from the verify they open.
 
 ## Verification notes
