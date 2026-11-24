@@ -88,5 +88,10 @@ Measured at `cd3a6bf5`:
 - Tests: `Correction.test_a_corrected_review_keeps_the_head_and_pr_it_was_opened_with`, `PhaseKeys` (plain values),
   `Rounds.test_a_merge_round_after_a_corrected_review_needs_no_new_review` (`ccp prompt verify` and
   `ccp verify record` after a clean review, its correction and a merge round that left the change alone).
+- Fix round 1 (review MINOR-1, NIT-1): `Resolution.test_a_correction_with_no_resolution_line_drops_the_earlier_one`
+  corrects a contained resolution review to `Outcome: blocked` and checks the run keeps no `resolution` or
+  `affected_checks`, so `submit` must pass the run's mode to `phase_keys`. The Correction test's `unreviewed_fix`
+  assertion now asks about another head and expects the refusal to name the kept head, which passes only when the
+  correction kept it.
 
 ## Verification notes
