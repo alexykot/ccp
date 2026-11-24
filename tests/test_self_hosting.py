@@ -111,13 +111,20 @@ class TestModulesImportNoTestModule(unittest.TestCase):
 
 
 class LongLiteralCount(unittest.TestCase):
-    def run_part(self, source: str, figure: int) -> subprocess.CompletedProcess:
+    def run_part(self, source: str, figure: int, bad: bool = False) -> subprocess.CompletedProcess:
         part, n = re.subn(r"figure = \d+", f"figure = {figure}", e4_part("long-literal"))
         self.assertEqual(n, 1)
         with tempfile.TemporaryDirectory() as d:
             scratch = Path(d) / "scratch.py"
             scratch.write_text(source)
-            return subprocess.run(["bash", "-c", f"{part} {scratch}"], capture_output=True, text=True)
+            files = str(scratch)
+            if bad:
+                broken = Path(d) / "broken.py"
+                broken.write_text("def (:\n")
+                files += f" {broken}"
+            r = subprocess.run(["bash", "-c", f"{part} {files}"], capture_output=True, text=True)
+            r.broken = str(broken) if bad else ""
+            return r
 
     def test_the_long_literal_count_reads_every_assert_form_and_names_its_figure(self):
         long = "a" * 50
@@ -125,16 +132,24 @@ class LongLiteralCount(unittest.TestCase):
             f'self.assertIn("{long}", x)',
             f'self.assertIn(f"{long}{{y}}", x)',
             f'self.assertEqual(x, "{long}")',
-            f'self.assertTrue("{"a" * 25}" "{"a" * 25}")',
+            f'self.assertTrue("{"a" * 20}" "{"a" * 20}")',
+            f'self.assertTrue(x, msg="{long}")',
+            f'self.assertIn("{"a" * 39}", x)',
             'self.assertIn("abc", x)',
+            f'x.append("{long}")',
         ])
-        over = self.run_part(source, 3)
+        over = self.run_part(source, 4)
         self.assertEqual(over.returncode, 1, over.stdout + over.stderr)
-        self.assertEqual(over.stdout, "E4 long-literal asserts: 4 > 3\n")
-        at = self.run_part(source, 4)
+        self.assertEqual(over.stdout, "E4 long-literal asserts: 5 > 4\n")
+        at = self.run_part(source, 5)
         self.assertEqual((at.returncode, at.stdout), (0, ""), at.stderr)
         plus = self.run_part(f'self.assertEqual(x, "{"a" * 25}" + "{"a" * 25}")', 0)
         self.assertEqual(plus.stdout, "E4 long-literal asserts: 1 > 0\n")
+
+    def test_the_long_literal_count_skips_a_file_it_cannot_parse(self):
+        r = self.run_part(f'self.assertIn("{"a" * 50}", x)', 1, bad=True)
+        self.assertEqual((r.returncode, r.stdout), (0, ""), r.stderr)
+        self.assertIn(f"E4: skipped {r.broken}: ", r.stderr)
 
 
 if __name__ == "__main__":
