@@ -1035,6 +1035,7 @@ def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list
     """Validate `rec` and write it to verification/<task_id>.json. Nothing is written on an error. A
     refusal for a key the contract does not know adds a line: a head with a newer contract records with its
     own `ccp` (§15.4)."""
+    from ccp.queue import lib  # noqa: PLC0415
     if isinstance(rec, dict) and "checked_at" not in rec:
         rec = {**rec, "checked_at": _iso(now)}
     if isinstance(rec, dict):
@@ -1061,9 +1062,7 @@ def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list
         return [f"task_id {rec['task_id']!r} is not a file name"], None
     path = queue / "verification" / f"{rec['task_id']}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(rec, indent=2, ensure_ascii=False) + "\n")
-    tmp.replace(path)
+    lib.write_atomic(path, json.dumps(rec, indent=2, ensure_ascii=False) + "\n")
     return [], path
 
 
@@ -1236,6 +1235,7 @@ def record_catch_up(queue: Path, task_id: str, catch_up: dict[str, Any]) -> Path
     """§16.5 rule 4: `ccp tasks close` adds its catch-up to the task's approve record, stamped with this
     reader's version (the key is version 2's). Raises ValueError, writing nothing, when the record is not
     an approve or the result breaks the contract."""
+    from ccp.queue import lib  # noqa: PLC0415
     path = queue / "verification" / f"{task_id}.json"
     rec = _load(path)
     if isinstance(rec, str):
@@ -1247,9 +1247,7 @@ def record_catch_up(queue: Path, task_id: str, catch_up: dict[str, Any]) -> Path
     errs = record_errors(rec)
     if errs:
         raise ValueError("; ".join(errs))
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(rec, indent=2, ensure_ascii=False) + "\n")
-    tmp.replace(path)
+    lib.write_atomic(path, json.dumps(rec, indent=2, ensure_ascii=False) + "\n")
     return path
 
 

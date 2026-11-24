@@ -9,7 +9,6 @@ warning (§31.3's); the binding, the one source of truth every reader resolves t
 from __future__ import annotations
 
 import json
-import os
 import re
 import shlex
 import subprocess
@@ -432,9 +431,7 @@ def _record_consent(value: str) -> None:
     p = lib.machine_path()
     data = {**lib.read_machine(), "telemetry": value}
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_name(p.name + ".tmp")
-    tmp.write_text(json.dumps(data, indent=2) + "\n")
-    os.replace(tmp, p)
+    lib.write_atomic(p, json.dumps(data, indent=2) + "\n")
 
 
 def _macos() -> bool:

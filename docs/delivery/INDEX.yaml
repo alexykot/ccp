@@ -1533,7 +1533,7 @@ tasks:
     depends_on: []
     path: tasks/0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared.md
   - id: 0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails
-    status: pending
+    status: done
     title: Every atomic write goes through one helper that takes a unique temporary name beside the file and removes it when the write fails, so two concurrent writers of one file both succeed
     depends_on: []
     path: tasks/0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails.md

@@ -16,6 +16,7 @@ import io
 import json
 import os
 import re
+import secrets
 import sys
 from contextlib import contextmanager, redirect_stderr
 from datetime import datetime, timezone
@@ -303,11 +304,23 @@ def work_lock(root: Path):
             fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 
+def write_atomic(path: Path, text: str) -> None:
+    """The one atomic write: `text` into a temporary file beside `path`, under a name no other writer
+    (process or thread) takes, then replaced onto `path`; a write that fails removes its temporary file.
+    The directory must exist."""
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
+    try:
+        with open(tmp, "x", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 def write_json(path: Path, obj: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(obj, indent=2) + "\n")
-    tmp.replace(path)
+    write_atomic(path, json.dumps(obj, indent=2) + "\n")
 
 
 def load_events(path: Path) -> list[dict[str, Any]]:
