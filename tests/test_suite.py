@@ -873,9 +873,9 @@ class GateFromSuite(SuiteFixture, unittest.TestCase):
         code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", "a" * 40)
         self.assertEqual(code, 0, out + err)
 
-    def record(self, gate_runs: list[dict]):
+    def record(self, gate_runs: list[dict], head: str = "a" * 40):
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
-        rec.update(task_id="0002-second", project_id="demo", head_sha="a" * 40)
+        rec.update(task_id="0002-second", project_id="demo", head_sha=head)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
                           "produced_by": "verifier"}]
@@ -927,11 +927,11 @@ class GateFromSuite(SuiteFixture, unittest.TestCase):
         code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", "b" * 40,
                                      "--note", "a second round with no fix since")
         self.assertEqual(code, 0, out + err)
-        code, _, _, err = self.record([{"suite_id": old}])
+        code, _, _, err = self.record([{"suite_id": old}], "b" * 40)
         self.assertEqual(code, 1)
         self.assertIn("an earlier verify round; 0002-second's latest verify run is 0002-second/verify-2", err)
         self.run_suite("--run", "0002-second/verify-2", "--lane", "gate", "--", PY, "-c", "print('Ran 1 test in 0s')")
-        code, _, out, err = self.record([{"suite_id": self.rows()[-1]["suite_id"]}])
+        code, _, out, err = self.record([{"suite_id": self.rows()[-1]["suite_id"]}], "b" * 40)
         self.assertEqual(code, 0, out + err)
 
     def test_another_phases_suite_run_is_refused(self):

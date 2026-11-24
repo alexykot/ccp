@@ -1,7 +1,7 @@
 ---
 task_id: 0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes
 title: ccp verify record refuses, first and by name, a head_sha that is not its open verify run's head, and the re-verify packet contract nothing writes or reads goes with the brief line and refusal text that name it
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15"]
@@ -13,7 +13,7 @@ paths: ["ccp/verify.py", "docs/spec/02-delivery.md", "contracts/reverify_packet.
 adopt: "none"
 sign_off: brief
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-24
 ---
 
 # Task: 0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes
@@ -102,4 +102,28 @@ From architect pass `ar-20261122T162238Z-9098`, F07 (`incoherence`) and F04 (`ho
 
 ## Implementation notes
 
+- `head_errors` is built as the ruling gives it, run first in `record`; a `QueueError` reading the runs gives `[]`,
+  as `review_errors` does. The §15.4 passage is the PROPOSED text, rewrapped.
+- Three tests elsewhere recorded an approve of a head other than the open verify run's to reach `review_errors`
+  through `record`, so the new check now refuses them first. They are updated so that `review_errors` still
+  decides: `tests/test_review_gate.py`'s unreviewed-fix test and `tests/test_prompt_rounds.py`'s ruling-round
+  test record at the run's head (`A`, with the fix or ruling to `B` after it), so the `since` refusal still
+  fires. The head-the-review-did-not-judge test opens no verify run, the one way `record` reaches that refusal
+  now. No expectation changed.
+- The full gate showed four more of these. `tests/test_suite.py`'s earlier-round gate test now records at
+  verify-2's head (`b`). `tests/test_sign_off.py`'s stale-sign-off test now opens its second verify round with
+  `--supersede` and asserts that it opened; before, it was refused and the verdict went onto the first run.
+  `tests/test_review_skip.py`'s proven-head test and `tests/test_review_skip_clean.py`'s run-head test hold an
+  approve of another head. `record` now refuses that approve as a head mismatch, and both tests assert that
+  refusal. They also call `verify.review_errors` on the same record, so its skip exemptions' head comparison is
+  still tested.
+- Premises re-measured at `bb102371`: the packet grep still printed 10 lines plus `2`, and `latest_open` still
+  had 3 lines in `ccp/verify.py`.
+- Fix round 1 (review MINOR-1, NIT-1): `tests/test_verify_record_head.py` gains a test that a reject with no
+  `head_sha`, recorded while the verify run is open, passes, so the guard that skips such a record is pinned.
+  The head refusal is now asserted by its tokens (both 12-character heads and the run id), not by its prose,
+  in that module and in the two skip tests (E4); the skip tests take the run id from the verify they open.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #373 head `f018669` (squash `7e28497`): APPROVE. Passed: spec-01, code-01, code-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes.json.
+
