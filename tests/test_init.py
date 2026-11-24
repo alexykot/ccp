@@ -146,6 +146,14 @@ class Adopt(InitCase):
         self.assertNotIn(keep, res["written"])
         self.assertEqual(sorted(p.name for p in (self.repo / "docs/delivery/tasks").iterdir()), [".gitkeep"])
 
+    def test_a_task_log_holding_only_an_empty_subdirectory_gets_a_gitkeep(self):
+        tasks = self.repo / "docs/delivery/tasks"
+        (tasks / "sub").mkdir(parents=True)  # git drops it, so a clone would lose the task log
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertEqual((tasks / ".gitkeep").read_text(), "")
+        self.assertIn("docs/delivery/tasks/.gitkeep", res["written"])
+
     def test_a_task_log_holding_a_file_gets_none(self):
         tasks = self.repo / "docs/delivery/tasks"
         tasks.mkdir(parents=True)

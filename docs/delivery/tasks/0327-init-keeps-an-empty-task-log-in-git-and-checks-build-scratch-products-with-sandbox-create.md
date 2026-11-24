@@ -129,5 +129,8 @@ Measured at `cd3a6bf5`:
 - `--force` does not rewrite an existing `.gitkeep`: the ruling writes nothing more once a file is there.
 - SPEC §4.5 gains the PROPOSED bullet after the adoption-point bullet; the writing-tasks skill gains the ruled bullet
   word for word after the bullet on a check of a `ccp` command.
+- Fix round 1 (review MINOR 1): `Adopt` gains a case for a task log holding only an empty subdirectory, which git
+  drops: init writes and lists `.gitkeep`. It pins the "a file directly in it" reading, which no test pinned
+  before; a mutant that counts any entry survived `Adopt` and is now killed.
 
 ## Verification notes
