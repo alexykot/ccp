@@ -175,20 +175,16 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
 - **A claim about the code cites its proof** (a probe or dry run), re-measured at the brief's commit,
   never copied from a report. A task that renames something lists in Scope every file a search for
   the old name finds.
-- **A measured premise names its measurement.** Any count, size, list of sites or "X already
-  happens" / "X never happens" claim in a brief names, in Context and on the same line, the command
+- **A premise that sets scope names its measurement.** A premise sets scope when it is the list of
+  sites the task edits or the figure a check holds. It names, in Context and on the same line, the command
   that measured it, in backticks, and the commit it ran at: `` `git grep -c foo -- src/` at `abc1234`:
   2 call sites ``. The implementer re-runs it at its base before building and, if the figure changed
-  materially, stops with a scope question. `ccp tasks check` warns, without failing, about a task not
-  yet `done` or `dropped` whose Context states a number with no backticked command (a code span of
-  two words or more) on its line. A stated limit (the number right after `at most`, `at least`,
-  `up to`, `no more than`, `no less than`, `within` or `under`) and a protocol code (right after
-  `status`, `status code`, `HTTP`, `exit`, `exits` or `exit code`) are not measurements and are skipped.
+  materially, stops with a scope question. Any other figure in Context needs no command.
 - **Copy into Context what workers cannot reach**: data only the live system, a session or the
   operator holds.
 - **A ruling or sign-off is in git before anyone acts on it**: in the task's notes or a commit,
-  verbatim where it sets SPEC text. A ruling written into Context goes in as a quoted block (`> `),
-  which the number warning skips (plane SPEC §10.5). A PR comment is not a record.
+  verbatim where it sets SPEC text. A ruling written into Context goes in as a quoted block (`> `)
+  (plane SPEC §10.5). A PR comment is not a record.
 - **The docs a task touches follow the package-doc convention** (plane SPEC §21.3), which
   `ccp docs check` enforces; a brief does not restate it.
 - **Follow-ups are bundled by area.** Every task pays a fixed cost (claim, worker start-up, review,
@@ -213,7 +209,8 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
 - **A prerequisite** is never written as prose ("gated on 0197"): it goes in `depends_on`, whatever
   its number. `ccp tasks check` warns on such a sentence naming a later task.
 - **Before a task is preferred**, reread its checks against these rules, refresh any check anchored
-  at a commit older than what has merged since, and re-measure the counts its Context states.
+  at a commit older than what has merged since, and, when `ccp tasks check --stale` names it,
+  re-measure the premises that set its scope.
 - **Before you ask the operator to sign a brief**, re-read it against the commits
   `ccp tasks check --stale` names for it; `ccp tasks sign-off` prints them again as it records.
 - **A new task that changes logic a pending brief rules on** names it in `clashes_with` and says in

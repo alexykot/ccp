@@ -1598,7 +1598,7 @@ tasks:
     depends_on: []
     path: tasks/0324-tests-helpers-splits-by-concern-and-the-tests-share-one-git-runner-with-a-raw-output-option.md
   - id: 0325-a-measured-premise-is-one-that-sets-scope-and-tasks-check-stops-warning-on-context-numbers
-    status: pending
+    status: done
     title: A measured premise is one that sets a task's scope (the sites it edits, a figure a check holds), and only it carries a command and commit and is re-run by the implementer; the lead re-measures only the briefs ccp tasks check --stale names; and ccp tasks check stops warning on any number in Context
     depends_on: []
     path: tasks/0325-a-measured-premise-is-one-that-sets-scope-and-tasks-check-stops-warning-on-context-numbers.md

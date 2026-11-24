@@ -1,7 +1,7 @@
 ---
 task_id: 0325-a-measured-premise-is-one-that-sets-scope-and-tasks-check-stops-warning-on-context-numbers
 title: A measured premise is one that sets a task's scope (the sites it edits, a figure a check holds), and only it carries a command and commit and is re-run by the implementer; the lead re-measures only the briefs ccp tasks check --stale names; and ccp tasks check stops warning on any number in Context
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S21"]
@@ -155,4 +155,19 @@ Measured at `146cae57` (origin/main after R28, R29 and R31 closed):
 
 ## Implementation notes
 
+- `ccp/tasklog.py`: `unmeasured_numbers`, its call in `warnings`, and `CONTEXT_NUMBER_RE`, `NOT_MEASURED_RE`,
+  `LIST_MARKER_RE`, `WORD_DATE_RE`, `QUOTED_RE`, `_MONTH`, `_NUM`, `_UNIT` with the comments above them removed;
+  `_blank`, `CODE_SPAN_RE`, `FENCE_RE` and `unfence` kept.
+- Tests: the four number-warning tests in `tests/test_tasklog.py` replaced by
+  `test_a_number_in_context_without_a_command_raises_no_warning`; `QuotedRulings` removed from
+  `tests/test_tasklog_context_checks.py` (its module docstring now names only the stale-Context warning);
+  `tests/test_stale_context_audience.py`'s `TasksCheck` fixture gives `0003-c` the line `- gated on 0004` and adds
+  pending `0004-d`, and asserts the other warning by `names 0004-d`, as ruled.
+- Docs: the writing-tasks skill's three bullets, the implementer brief's and prompt's "Before you build" parenthesis,
+  and `PREMISE_DOCS` in `tests/test_plugin.py`, as the Context gives them; §5.5 and §21.1 take the signed PROPOSED text.
+- Re-measured at `1fcdbf72`: the sites (2 `unmeasured_numbers` lines, 16 constant lines, 6 test lines in 3 files, one
+  SPEC line) are as stated; the repo's own warning count was 2, not 5 (tasks since closed), which sets no scope.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #395 head `2846288` (squash `48eb40c`): APPROVE. Passed: code-01, cmd-01, code-02, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0325-a-measured-premise-is-one-that-sets-scope-and-tasks-check-stops-warning-on-context-numbers.json.
+

@@ -145,16 +145,16 @@ class TeamLessons(unittest.TestCase):
                 self.assertEqual(text.count(tokens[-1]), 1, (brief, rule))
 
 
-# SPEC §5, §13: a brief's measured premise names its command and commit; the implementer re-runs it
+# SPEC §5, §13: a premise that sets scope names its command and commit; the implementer re-runs it
 # at its base and stops with a scope question when a figure changed materially.
 PREMISE_DOCS = {
     PLUGIN / "skills" / "writing-tasks" / "SKILL.md": ("the command\n  that measured it", "the commit it ran at",
                                                        "re-runs it at its base", "changed\n  materially",
-                                                       "scope question", "ccp tasks check` warns"),
+                                                       "scope question", "sets scope"),
     PLUGIN / "agents" / "delivery-implementer.md": ("Before you build, re-run at your base", "measured\n  premise",
-                                                    "changed materially", "scope question"),
+                                                    "changed materially", "scope question", "sets scope"),
     PLANE / "templates" / "prompts" / "implement.md": ("Before you build, re-run at {{base}}", "measured premise",
-                                                      "changed materially", "scope question"),
+                                                      "changed materially", "scope question", "sets scope"),
 }
 
 

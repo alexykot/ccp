@@ -1,6 +1,5 @@
-"""SPEC §21.1, §5.5, §10.5: what `ccp tasks check` warns about in a task's Context: measured figures gone
-stale since the commit they were measured at (counted in its warnings, named by `--stale`), and numbers stated
-with no command, which a ruling written as a quoted block does not raise."""
+"""SPEC §21.1: what `ccp tasks check` warns about in a task's Context: measured figures gone stale since the
+commit they were measured at (counted in its warnings, named by `--stale`)."""
 from __future__ import annotations
 
 import unittest
@@ -78,21 +77,6 @@ class StaleContext(unittest.TestCase):
         for sha in shas[:2]:
             self.assertNotIn(sha, ws[0])
         self.assertIn(" 2 ", ws[0])
-
-
-class QuotedRulings(unittest.TestCase):
-    """A ruling written verbatim into Context as a quoted block keeps its numbers without a warning."""
-
-    def test_a_quoted_line_raises_no_number_warning_and_the_same_line_unquoted_does(self):
-        p = Product()
-        self.addCleanup(p.cleanup)
-        ruling = "per §10.5, from round 2 on, at most a few of the 42 sites"
-        f = p.task(TID)
-        f.write_text(f.read_text().replace("- background", f"> {ruling}\n>\n> 7 more lines\n\n{ruling}"))
-        lines = f.read_text().split("\n")
-        ws = [w for w in tasklog.warnings(p.cfg) if "Context states a number" in w]
-        self.assertEqual([w.split(": Context")[0] for w in ws], [f"{FILE}:{lines.index(ruling) + 1}"], ws)
-        self.assertEqual(ws[0].split("number (")[1].split(")")[0], "2, 42")
 
 
 if __name__ == "__main__":
