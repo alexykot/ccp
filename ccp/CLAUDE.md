@@ -38,5 +38,6 @@ normative, and a module that disagrees with it is the bug.
 ## Conventions
 
 - Writes to the queue are atomic: `lib.write_atomic`, or `queue.write_json`, which calls it, under
-  `file_lock` where two writers can meet; events go through `queue.emit`. A command records its own events.
+  `file_lock` where two writers can meet; events go through `queue.emit`.
+  A command records its own events.
 - House rules E5, E6 and E8 (`docs/ENGINEERING.md`) apply to every module here.

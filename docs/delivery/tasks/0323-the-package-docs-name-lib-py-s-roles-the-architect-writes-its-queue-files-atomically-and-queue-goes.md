@@ -99,6 +99,8 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 - `ccp/CLAUDE.md`: the queue-write convention is the ruled sentence.
 - `ccp/architect.py`: both queue writes are `write_atomic` (imported from `lib`) with the same text. `write_text`
   used the locale's default encoding, `write_atomic` writes UTF-8: the text is the same, the encoding is now fixed.
-- `queue/README.md` removed; no reference to it remained.
+- `queue/README.md` removed. The grep for references missed `templates/`: `templates/docs-delivery/README.md` still pointed at it.
+- Fix round 1: that pointer now reads `(SPEC §23.7)`, where the deleted README sent readers; the `ccp/CLAUDE.md`
+  convention's second sentence is on its own line (review NIT).
 
 ## Verification notes
