@@ -18,15 +18,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 
 # A per-file check: (path, root-relative path for messages) -> failures.
 FileCheck = Callable[[Path, str], "list[str]"]
 # A file's comments in the language's own syntax: (line number, comment text) each.
 CommentReader = Callable[[Path], "list[tuple[int, str]]"]
-# §14.7: the test modules a change touches: (root, changed paths, the files git tracks or would track,
-# root-relative) -> test ids, sorted.
-AffectedReader = Callable[[Path, "list[str]", "list[str]"], "list[str]"]
+
+
+class AffectedReader(Protocol):
+    """§14.7: the test modules a change touches: (root, changed paths, the files git tracks or would track,
+    root-relative, and `named`: the changed paths the product's map did not match, which alone are matched
+    to tests by name) -> test ids, sorted."""
+
+    def __call__(self, root: Path, changed: list[str], files: list[str], *,
+                 named: list[str] | None = None) -> list[str]: ...
+
+
 # §14.7: how many test modules the pack counts in the suite: (root, the files git tracks or would track).
 SuiteSizer = Callable[[Path, "list[str]"], int]
 
