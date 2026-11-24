@@ -123,6 +123,7 @@ class RunAffectedWithAStagedPartLane(AffectedProduct, unittest.TestCase):
         r = self.ccp("suite", "run", "--affected", "--summary")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue((self.p.root / "part-ran").exists())
+        self.assertIn(b"--lane part, the lane as declared", r.stderr)
         started = self.rows("started")
         self.assertEqual([s["lane"] for s in started], ["part"])
         self.assertEqual([(e["suite_id"], e["exit_code"]) for e in self.rows("ended")], [(started[0]["suite_id"], 0)])
