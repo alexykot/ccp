@@ -148,6 +148,13 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   repo), never `ccp` on PATH, which is the released plane. Signed SPEC text is checked with
   `bin/ccp verify spec-text <task>` (`ccp verify spec-text <task>` in a product's checkout), never by a
   grep for a sentence.
+- **A check that needs a scratch product** builds it in the step that uses it, with `ccp sandbox create` on a
+  new temporary directory, and runs `ccp` there with `--root`, so `ccp tasks dry-run` runs the step whole:
+  ``D=$(mktemp -d) && CCP_DEV=1 ./bin/ccp sandbox create "$D" >/dev/null 2>&1 && env -u QUEUE_ROOT -u
+  PROJECT_YAML CCP_DEV=1 ./bin/ccp --root "$D/product" tasks check`` (the plane's own repo). A setting the
+  check needs is written into `"$D/product"` in the same step. A sandbox refuses an exported `QUEUE_ROOT` or
+  `PROJECT_YAML` outside it (plane SPEC §29.3), so the step unsets them. No step names a `<…>` placeholder but
+  the verifier's `<your run>`.
 - **A doc presence check pins the token the rule turns on** (the flag, the key, the § cite), never a
   whole sentence or a table row; signed SPEC text is proved by `ccp verify spec-text`.
 - **An expect counts only what the task changes**, never a figure that moves when another task lands

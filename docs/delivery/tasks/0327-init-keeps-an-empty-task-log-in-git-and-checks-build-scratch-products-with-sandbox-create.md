@@ -117,4 +117,20 @@ Measured at `cd3a6bf5`:
 
 ## Implementation notes
 
+- Premises re-measured at `c9774ca5`: `ccp/init.py` still makes the task log with a bare `mkdir`; `git grep -n
+  gitkeep -- tests` gives the same two fixtures, and `-- docs/spec` nothing; `git grep -n sandbox --
+  plugin/skills/writing-tasks/SKILL.md` nothing. 1706f4b1 touched only `tests/test_init.py`'s imports and fixture
+  helpers, not the class this task adds to.
+- `ccp/init.py`: after the task log directory is made, an empty `.gitkeep` is written and listed in `written` when
+  no file sits directly in the directory. "Holds no file" is read literally: a file directly in it, not one in a
+  subdirectory. When a file is there nothing is written and nothing listed (not in `kept` either: the file may be
+  the product's own task, not init's). The path is the one the `mkdir` makes, `docs/delivery/tasks`, not
+  `task_log.dir` from a kept plane.json, as before this task.
+- `--force` does not rewrite an existing `.gitkeep`: the ruling writes nothing more once a file is there.
+- SPEC §4.5 gains the PROPOSED bullet after the adoption-point bullet; the writing-tasks skill gains the ruled bullet
+  word for word after the bullet on a check of a `ccp` command.
+- Fix round 1 (review MINOR 1): `Adopt` gains a case for a task log holding only an empty subdirectory, which git
+  drops: init writes and lists `.gitkeep`. It pins the "a file directly in it" reading, which no test pinned
+  before; a mutant that counts any entry survived `Adopt` and is now killed.
+
 ## Verification notes

@@ -366,7 +366,11 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
                                           ("--starter-rules", write_starter)) if given]
     put(plane_json, plane_json_new,
         config.CONFIG_REL + (f" ({', '.join(unapplied)} not applied)" if unapplied and keep_plane_json else ""))
-    (root / "docs" / "delivery" / "tasks").mkdir(parents=True, exist_ok=True)
+    tasks_dir = root / "docs" / "delivery" / "tasks"
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+    if not any(p.is_file() for p in tasks_dir.iterdir()):  # §4.5: git keeps no empty directory
+        (tasks_dir / ".gitkeep").write_text("")
+        out["written"].append("docs/delivery/tasks/.gitkeep")
 
     gi = root / ".gitignore"
     lines = gi.read_text().splitlines() if gi.is_file() else []
