@@ -140,4 +140,9 @@ Measured at `b09de675` (origin/main).
 
 ## Implementation notes
 
+- Built the five edits exactly as ruled. Re-measured at `c8aa9c30`: every figure in Context holds (the one commit since
+  `b09de675`, 0310's squash, touched `delivery-implementer.md`'s `ccp suite affected` bullet only, not the question bullet).
+- `{{runner}}` is no longer used in `templates/prompts/implement.md`; `_common.md` still binds it, and the test's two
+  `runner-2` assertions on `_common.md` stay.
+
 ## Verification notes
