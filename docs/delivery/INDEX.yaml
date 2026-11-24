@@ -1528,7 +1528,7 @@ tasks:
     depends_on: []
     path: tasks/0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log.md
   - id: 0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared
-    status: pending
+    status: done
     title: ccp suite affected names, and ccp suite run --affected runs, a part lane declared with stages as declared, instead of a language command that lane refuses
     depends_on: []
     path: tasks/0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared.md

@@ -1,7 +1,7 @@
 ---
 task_id: 0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared
 title: ccp suite affected names, and ccp suite run --affected runs, a part lane declared with stages as declared, instead of a language command that lane refuses
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14"]
@@ -11,7 +11,7 @@ clashes_with: ["0191-the-grace-release-ends"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # Task: 0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared
@@ -148,3 +148,5 @@ Covers the open follow-up `0299-the-pre-gate-and-review-run-what-the-branch-touc
 - SPEC §14.7: the two signed passages, as written; `--affected`'s help and the `ccp suite affected` row as ruled.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #392 head `33791af` (squash `6467b40`): APPROVE. Passed: cmd-01, code-01, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared.json.
+
