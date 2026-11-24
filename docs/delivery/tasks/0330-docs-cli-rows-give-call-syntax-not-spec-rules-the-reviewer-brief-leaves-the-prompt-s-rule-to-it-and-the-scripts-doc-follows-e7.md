@@ -120,3 +120,9 @@ Measured at `db68df5b`:
 - `scripts/CLAUDE.md`: title and last line as given.
 
 ## Verification notes
+
+### Fix round 1
+
+- Brought every remaining docs/cli row to the ruled shape (syntax, who, at most one clause of purpose, the §), not only the 19 the E25 command flags: refusals, conditions, output formats and "needs `QUEUE_ROOT`" went from the rows of 01-model, 02-delivery, 03-quality and 04-observability, each found in the § the row cites first (§4.5 and §3.6 for `init` and `notify`, §16.5 for `idle_runners` and `vacant_slots`, §10.7 for `tasks orphans`, §21.1 and §22.2 for `--closed-points`, §15.5 for `pr`). Who is now in each row's own text where the file has no Who column; the 03-quality Cost cells are untouched.
+- `ccp health`'s row keeps the adoption-point window for the measurements and suite series only, and names the usage advice apart (§27.1). `ccp usage --by-model` keeps "default `implementer`". `ccp init` and `--rules-doc` name the operator (README step 2, §4.5); `tasks dry-run` names the lead, and any worker for `--here` (§21.1). The `ccp docs check` row names `--only` as taking an `architect.checks` or `docs.checks` entry (§21.2).
+- Clauses no § states, left out and named under the report's follow-ups: `health.small_task_lines`, `advice_since`, `usage --by-model`'s per-model measures and attribution rule, `tasks check --stale`'s "no other flag", `ccp usage`'s window.

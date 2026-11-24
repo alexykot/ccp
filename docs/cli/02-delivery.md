@@ -8,7 +8,7 @@ argument takes the full id or its number.
 
 | Command | Who | SPEC |
 |---|---|---|
-| `ccp tasks list [--status S] [--json]` | anyone | every task, in number order |
+| `ccp tasks list [--status S] [--json]` | anyone | §5 (list the tasks) |
 | `ccp tasks next [--scope IDS] [--json] [--allow-overdue REASON] [--holder <slot>]` (also `--explain`) | runner | §10.3, §16.3, §23.2 (`--json` carries `passed_over`) |
 | `ccp tasks index [--stdout]` | lead | regenerates `INDEX.yaml` (§5) |
 | `ccp tasks migrate [--dry-run] [--drop-open]` | lead | §5.3 (converts an earlier plane generation's task files in place) |
@@ -16,20 +16,20 @@ argument takes the full id or its number.
 | `ccp tasks rotation-due [--holder <slot>]` | the `TeammateIdle` hook, runner, lead | §10.2 step 4, §18.2 |
 | `ccp tasks phase <id> <phase> [--note T]` | runner | §10.1 |
 | `ccp tasks submit <id>` | runner, `scripts/formal-submit.template.sh` | §15.1, §10.1 (formal-submit, before `ccp prompt verify`) |
-| `ccp tasks wait <id> <reason> [--until T] [--quota-class session\|credit] [--detail …]` / `ccp tasks resume <id> [--detail …]` | runner, lead | §10.1, §3.6 (a wait on `reauth`, `operator_step` or `operator_decision` fires a notice: pending on record, and the notify command if any) |
-| `ccp tasks close <id> --pr N [--summary "…"]` | runner | §10.5, §15.5, §16.5 (names `idle_runners` and `vacant_slots`, the slots rotated and not respawned) |
+| `ccp tasks wait <id> <reason> [--until T] [--quota-class session\|credit] [--detail …]` / `ccp tasks resume <id> [--detail …]` | runner, lead | §10.1, §3.6 (park a task on a reason, and resume it) |
+| `ccp tasks close <id> --pr N [--summary "…"]` | runner | §10.5, §15.5, §16.5 (close a merged task) |
 | `ccp tasks prefer [<id>… [--reason "…"] \| --clear]` | lead (writes need `ACTOR=design-seat`) | §10.4 |
 | `ccp tasks hold [<id> [--reason "…"] \| --clear <id>]` | lead (writes need `ACTOR=design-seat`) | §10.4 |
 | `ccp tasks sign-off <id> --by <who> --words "…" [--stage brief\|build] [--head\|--from <sha>] [--at <date>]` | lead (needs `ACTOR=design-seat`) | §3.5, §10.5 |
 | `ccp tasks ruling <id> --words "…" [--check <dod_check_id>]` | lead (needs `ACTOR=design-seat`) | §17.5, §15.4 |
 | `ccp tasks follow-up <run_id>#<n> (--task <id> \| --proposal <id> \| --drop "<reason>")` | lead (needs `ACTOR=design-seat`) | §13.4, ADR-0044 D2 (run again, it replaces the outcome) |
-| `ccp tasks follow-ups [--open] [--json]` | lead | §13.4, ADR-0044 D4 (`<id> <task_id> <outcome or open>: <text>` per follow-up, then `<n> open`) |
-| `ccp tasks release <id> [--keep-branch] --reason "…"` | lead, runner | §10.4, §10.5, §16.5 (names `idle_runners` and `vacant_slots`, as close does) |
+| `ccp tasks follow-ups [--open] [--json]` | lead | §13.4, ADR-0044 D4 (list the follow-ups) |
+| `ccp tasks release <id> [--keep-branch] --reason "…"` | lead, runner | §10.4, §10.5, §16.5 (release a claimed task) |
 | `ccp tasks drop <id> --reason "…"` | lead, runner | §10.4 |
 | `ccp tasks sync [--dry-run]` | lead, runner | §10.4 |
-| `ccp tasks orphans --since <ref> [--json]` | lead | §10.7 (a commit that changes only the task log and the SPEC files is covered) |
+| `ccp tasks orphans --since <ref> [--json]` | lead | §10.7 (list the commits no task covers) |
 | `ccp tasks check --lease [--staged]` | lead, the commit hook template (`scripts/git-hooks/pre-commit.template`) | §10.5 |
-| `ccp tasks worktree [--runner <slot>]` | runner | §12.1 (`--runner` with several runners) |
+| `ccp tasks worktree [--runner <slot>]` | runner | §12.1 (the runner's worktree path) |
 
 ## Runs, prompts, reports and verdicts
 
@@ -39,8 +39,8 @@ argument takes the full id or its number.
 | `ccp prompt fix <id> --allow-unreviewed-fix --reason "…"` | runner | §15.2 |
 | `ccp prompt review <id> --mode resolution` | runner | §13.2 |
 | `ccp prompt verify <id> --waived <check_id>=<ruling id>` (repeatable) | runner | §6.7, §15.4, §15.6 |
-| `ccp prompt env <worktree>` (its path or recorded name: the `worker_env` lines its workers would get; opens no run) | runner, lead | §13.3 |
-| `ccp report <run_id> FILE` (again, with a corrected report, until the task's next run opens; the earlier one is kept as superseded) | each worker | §13.4 |
+| `ccp prompt env <worktree>` | runner, lead | §13.3 (print the worker env of a worktree) |
+| `ccp report <run_id> FILE` | each worker | §13.4 (record a worker's report) |
 | `ccp agent start\|stop` | the harness's hooks | §11.1 |
 | `ccp runs gc [--dry-run]` | lead, runner | §11.1 |
 | `ccp verify record FILE` | verifier | §15.4, §15.6, §6.7 |
@@ -58,11 +58,11 @@ error, naming it; 2 on a usage error.
 
 | Command | Who | SPEC |
 |---|---|---|
-| `ccp pr open --branch <branch> --title <title> --body-file <file>` (`-` for stdin) | implementer | §15.5 (against the integration branch; prints the PR number) |
-| `ccp pr view <pr> [--json]` | reviewer, verifier, runner | §15.5 (`--json`: the PR's facts as one object) |
+| `ccp pr open --branch <branch> --title <title> --body-file <file>` (`-` for stdin) | implementer | §15.5 (open a PR) |
+| `ccp pr view <pr> [--json]` | reviewer, verifier, runner | §15.5 (read a PR) |
 | `ccp pr diff <pr>` | reviewer, verifier | §15.5 |
 | `ccp pr edit <pr> --body-file <file>` (`-` for stdin) | runner | §15.5, §15.2 |
-| `ccp pr merge <pr> --head <sha> --task <task_id>` | runner | §15.5 (`--head`: the PR's full head sha) |
+| `ccp pr merge <pr> --head <sha> --task <task_id>` | runner | §15.5 (merge a PR) |
 
 ## Test runs
 
@@ -96,7 +96,7 @@ error, naming it; 2 on a usage error.
 | `team.sh runner rotate [--slot S]` / `team.sh runner stop [--drain]` (also `--slot S`) | lead | §10.2 |
 | `team.sh runner scope --add <id>` (also `--remove <ids>`) | lead | §10.2 |
 | `team.sh runner status` | lead | §10.2 |
-| `team.sh gate open\|decide\|ask-operator\|status …` | runner, lead | §17.9, §3.6 (`ask-operator` fires a `decision` notice) |
+| `team.sh gate open\|decide\|ask-operator\|status …` | runner, lead | §17.9, §3.6 (open and decide a gate) |
 
 ## Spec questions (`scripts/spec-maintainer-ask.sh`)
 
