@@ -1,7 +1,7 @@
 ---
 task_id: 0320-dry-run-lists-a-placeholder-step-as-not-run-and-here-prints-each-step-s-whole-output
 title: ccp tasks dry-run lists a step whose command holds a placeholder as not run, naming it, and with --here prints each step's whole output; the worker prompt and the runner brief name the command they mean
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S21", "S13", "S15"]
@@ -144,4 +144,24 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 
 ## Implementation notes
 
+- `ccp/dryrun.py`: `PLACEHOLDER_RE` and `placeholder(cmd)` (the first match); `runnable(steps)` gives the steps both
+  modes run (one backticked command holding no placeholder), so `plan` keeps each command and `printout` names the
+  placeholder: `step <n>: not run (holds the placeholder <span>)`. `Ran` carries the step's whole output's lines;
+  `printout(..., whole=True)`, which only `_here` passes, prints them under the step's line, indented six spaces
+  (`HERE_INDENT`), uncapped. The worktree mode's printout and `--write` records are unchanged; a placeholder step
+  is left out of its check's record like any step not run.
+- Tests: `test_a_step_holding_a_placeholder_is_not_run_and_names_it` and
+  `test_here_prints_each_step_s_whole_output_and_without_it_only_the_first_line` on plain values; the shared
+  `CHECKS` fixture's `cmd-01` gains a placeholder step (the worktree mode and its `--write` record end to end), and
+  the `--here` end-to-end test a step `touch ran # <your run>`, which bash would run, so a clean status shows it did
+  not; its line indexes move by the whole output now printed.
+- Docs: §21.1's passage as signed, the `ccp tasks dry-run` row in `docs/cli/03-quality.md`, `_common.md`'s
+  mutation-worktree bullet and the runner brief's fix-round sentence as the Context gives them.
+- Fix round 1 (review MINOR-1, NIT-1): the placeholder test gains a step `sort < in > out` and asserts it is
+  runnable and listed as run, so the letter right after `<` in `PLACEHOLDER_RE` is pinned (a spaced redirection
+  pair keeps running); the end-to-end test's comment on its placeholder step no longer names `--write`, which that
+  test does not pass.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #391 head `a371b31` (squash `5f2d2bf`): APPROVE. Passed: cmd-01, cmd-02, code-01, doc-01, doc-02, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0320-dry-run-lists-a-placeholder-step-as-not-run-and-here-prints-each-step-s-whole-output.json.
+
