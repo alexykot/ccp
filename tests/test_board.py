@@ -14,7 +14,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import board, cli
-from tests.helpers import epoch_iso as _iso, good_then_failed, machine_file, PLANE_ROOT, TASK
+from tests.helpers import machine_file, PLANE_ROOT, TASK
+from tests.ledger_helpers import epoch_iso as _iso, good_then_failed
 from tests.toolkit_fixture import ToolkitFixture, git
 import unittest
 

@@ -3,16 +3,11 @@ Acceptance checks docs/design/architect.md #3 and #4 are named below."""
 from __future__ import annotations
 
 import json
-import subprocess
 import unittest
 
 from ccp import tasklog
+from tests.git_helpers import git
 from tests.helpers import Product
-
-
-def git(root, *a):
-    subprocess.run(["git", "-C", str(root), "-c", "user.email=t@t", "-c", "user.name=t", *a], check=True,
-                   capture_output=True)
 
 
 def front(p: Product, tid: str, old: str, new: str) -> None:

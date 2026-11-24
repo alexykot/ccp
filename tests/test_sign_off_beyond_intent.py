@@ -13,7 +13,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, lifecycle, prompt, report, verify
-from tests.helpers import approve_verdict as approve, Product, as_lead
+from tests.helpers import Product, as_lead
+from tests.report_helpers import approve_verdict as approve
 from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 PASSAGE = "docs/spec/01-model.md §3.5: a new rule that close also waits on the lead's word"

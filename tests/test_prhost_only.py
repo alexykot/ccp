@@ -10,7 +10,8 @@ import unittest
 from pathlib import Path
 
 from ccp import config, prompt
-from tests.helpers import PLANE_ROOT, REPORT_HEAD as HEAD
+from tests.helpers import PLANE_ROOT
+from tests.report_helpers import REPORT_HEAD as HEAD
 from tests.toolkit_fixture import ToolkitFixture
 
 ROOT = PLANE_ROOT

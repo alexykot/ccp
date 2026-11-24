@@ -8,7 +8,8 @@ import json
 import unittest
 
 from ccp import adr, verify
-from tests.helpers import MARKED_BLOCK, MARKED_CHECK_ID as CHECK, MARKED_TASK_ID as TASK, approve_verdict, as_lead
+from tests.helpers import as_lead
+from tests.report_helpers import approve_verdict, MARKED_BLOCK, MARKED_CHECK_ID as CHECK, MARKED_TASK_ID as TASK
 from tests.toolkit_fixture import ToolkitFixture, git
 
 OPERATOR_GATE = f"{TASK}-1"

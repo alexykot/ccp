@@ -12,7 +12,8 @@ import unittest
 from pathlib import Path
 
 from ccp import suite
-from tests.helpers import Product, repo_git as git
+from tests.git_helpers import git
+from tests.helpers import Product
 from tests.suite_fixture import PY, ccp_proc
 
 ALPHA_BETA = "import sys; print('alpha'); sys.stdout.flush(); print('beta', file=sys.stderr)"

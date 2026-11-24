@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import subprocess
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import replace
@@ -14,12 +13,8 @@ from unittest import mock
 
 from ccp import cli, config, doclang, suite
 from ccp.doclang import python as py_pack
+from tests.git_helpers import git
 from tests.helpers import PLANE_ROOT, Product, merged_plane
-
-
-def git(root, *a):
-    return subprocess.run(["git", "-C", str(root), "-c", "user.email=t@t", "-c", "user.name=t", *a], check=True,
-                          capture_output=True, text=True).stdout.strip()
 
 
 FILLERS = [f"tests/test_filler{i}.py" for i in range(1, 7)]

@@ -9,7 +9,8 @@ from pathlib import Path
 
 from ccp import config, report
 from tests.toolkit_fixture import ToolkitFixture
-from tests.helpers import DOWNTIME_FIELD as DOWNTIME, REPORT_HEAD as HEAD, MIGRATION_FIELD as MIGRATION, implement_report
+from tests.helpers import DOWNTIME_FIELD as DOWNTIME, MIGRATION_FIELD as MIGRATION
+from tests.report_helpers import implement_report, REPORT_HEAD as HEAD
 
 
 class Declared(ToolkitFixture, unittest.TestCase):

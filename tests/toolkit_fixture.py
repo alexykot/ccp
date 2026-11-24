@@ -6,7 +6,6 @@ import io
 import json
 import os
 import shutil
-import subprocess
 import tempfile
 import textwrap
 from contextlib import redirect_stderr, redirect_stdout
@@ -17,17 +16,11 @@ from ccp import cli, config, prhost
 from ccp.queue import lib
 
 from tests import helpers
+from tests.git_helpers import git
 from tests.helpers import binding, GIT_ENV, PLANE_ROOT, TASK
 
 
 PLANE = PLANE_ROOT
-
-
-def git(cwd: Path, *a: str) -> str:
-    r = subprocess.run(["git", "-C", str(cwd), *a], capture_output=True, text=True, env={**os.environ, **GIT_ENV})
-    if r.returncode != 0:
-        raise AssertionError(f"git {' '.join(a)}: {r.stderr}")
-    return r.stdout.strip()
 
 
 class ToolkitFixture:

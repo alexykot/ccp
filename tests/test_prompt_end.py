@@ -7,7 +7,7 @@ import json
 import unittest
 from pathlib import Path
 
-from tests.helpers import REPORT_HEAD as HEAD, implement_report
+from tests.report_helpers import implement_report, REPORT_HEAD as HEAD
 from tests.toolkit_fixture import ToolkitFixture
 
 RUN = "0002-second/implement"

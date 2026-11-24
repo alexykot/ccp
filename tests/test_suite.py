@@ -15,7 +15,8 @@ from unittest import mock
 from pathlib import Path
 
 from ccp import board, config, suite
-from tests.helpers import Product, done_report
+from tests.helpers import Product
+from tests.report_helpers import done_report
 from tests.suite_fixture import CCP, FAILING_MODULE, PLANE, PY, SuiteFixture, TALLY_SUMMARY, _start_log, ccp_proc
 
 

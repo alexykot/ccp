@@ -12,7 +12,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, verify
-from tests.helpers import approve_verdict as approve, held_otherwise, judge_merge_ok as decide, PLANE_ROOT, Product
+from tests.helpers import PLANE_ROOT, Product
+from tests.report_helpers import approve_verdict as approve, held_otherwise, judge_merge_ok as decide
 
 ROOT = PLANE_ROOT
 NEW_KEYS = ("as_written", "held_instead", "ruling")

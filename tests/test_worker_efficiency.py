@@ -12,7 +12,7 @@ from pathlib import Path
 from ccp import config, otel, prompt, runs, usage
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 from tests.verify_cache_fixture import CacheFixture
-from tests.helpers import PROMPT_TEMPLATES as TEMPLATES, render_phase_values as render, phase_values as values
+from tests.render_helpers import phase_values as values, PROMPT_TEMPLATES as TEMPLATES, render_phase_values as render
 
 AGENTS = PLANE / "plugin" / "agents"
 WORKER_TOOLS = {

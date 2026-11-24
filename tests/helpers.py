@@ -4,10 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import os
-import re
-import subprocess
 import tempfile
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -150,69 +147,6 @@ class Product:
         tasklog.write_index(self.cfg)
 
 
-# What a done report of each phase carries besides `Outcome:`, its own lines and `## Friction` (SPEC §13.4): a
-# review's `## Spec beyond intent`, and a round that pushes a head its `## Tests for new behaviour`.
-def done_sections() -> dict[str, tuple[str, str]]:
-    from ccp import runs  # noqa: PLC0415
-    return {"review": ("## Spec beyond intent", "none"),
-            **{p: ("## Tests for new behaviour", "none: the fixture's round adds no behaviour") for p in runs.CHANGE_PHASES}}
-
-
-def done_report(phase: str, *lines: str, friction: tuple[str, ...] = ("none",)) -> str:
-    """A report of `phase` with `Outcome: done` for `ccp report`: `lines` (a round's `PR:` and `Head:`, a review's
-    `Severity:`, a `Suite:` line, a `## Follow-ups` section), the section the phase needs when done, and
-    `## Friction` with the lines `friction`."""
-    return "\n".join(["Outcome: done", *lines, *done_sections().get(phase, ()), "## Friction", *friction, ""])
-
-
-T0 = 1_800_000_000 * 10**9  # 2027-01-15, in nanoseconds: the epoch the usage tests' times count from
-
-
-class FoldRuns:
-    """Mixin for a `TestCase` whose `self.q` is a temp queue: `mkrun` writes a run record (`start` and `stop`
-    seconds from `T0`), `write` appends rows to a board file and `rows` makes usage-request rows (a `t` in
-    seconds from `T0`)."""
-
-    def mkrun(self, rid, seat, model, effort, agent, start, stop):
-        f = lambda s: datetime.fromtimestamp(T0 / 1e9 + s, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        task, phase = rid.split("/")
-        p = self.q / "runs" / task / f"{phase}.json"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"run_id": rid, "task_id": task, "phase": phase, "seat": seat, "agent_type": f"delivery-{seat}",
-                                 "expected_model": model, "expected_effort": effort, "agent_id": agent,
-                                 "opened_at": f(start), "started_at": f(start), "stopped_at": f(stop)}))
-
-    def write(self, name, rows):
-        with (self.q / "board" / name).open("a") as fh:
-            for r in rows:
-                fh.write(json.dumps(r) + "\n")
-
-    def rows(self, *rs):
-        from ccp import otel  # noqa: PLC0415
-        out = []
-        for r in rs:
-            r = dict(r)
-            t = r.pop("t")
-            out.append({k.replace("__", "_"): v for k, v in r.items()} | {"at": otel._iso(t)})
-        return out
-
-
-class BoardPage:
-    """Mixin for a `TestCase`: `page` runs the board page's script under node against a built board and
-    returns the html it wrote and the drill panels it opened."""
-
-    def page(self, b, h: str = "", patch=None):
-        from ccp import board  # noqa: PLC0415
-        from tests.board_drill_fixture import HASH_STUB
-        js = (patch or (lambda t: t))(board.PAGE.read_text()).replace("/*__BOARD__*/null", board.embed(b)).split("<script>", 1)[1].split("</script>", 1)[0]
-        loc = "globalThis.location = {hash: %s, pathname: '/b', search: ''};\n" % json.dumps(h)
-        r = subprocess.run(["node", "-e", HASH_STUB + loc + js + "\nprocess.stdout.write(JSON.stringify({out: out.join(''), panel}));"],
-                           capture_output=True, text=True, timeout=60)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        d = json.loads(r.stdout)
-        return d["out"], d["panel"]
-
-
 PLANE_ROOT = Path(__file__).resolve().parents[1]
 RUN_CHECKOUT_SCRIPT = str(PLANE_ROOT / "scripts/run-checkout.sh")
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
@@ -246,83 +180,6 @@ def as_actor(value: str | None):
     return mock.patch.dict(os.environ, {"ACTOR": value})
 
 
-def git_run(cmd, **kw):
-    return subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, **GIT_ENV, **kw.pop("env", {})}, **kw)
-
-
-def release_git(cwd: Path, *a: str) -> str:
-    r = git_run(["git", *a], cwd=cwd)
-    assert r.returncode == 0, r.stderr
-    return r.stdout.strip()
-
-
-def ledger_event(at: str, typ: str, op: str, payload: dict, task_id: str = "") -> dict:
-    from ccp.queue import lib  # noqa: PLC0415
-    return {"at": at, "project_id": "demo", "task_id": task_id, "actor": lib.LEAD, "type": typ, "op": op,
-            "payload": payload}
-
-
-def spawn_event(at: str, rp: str, scope: list[str]) -> dict:
-    return ledger_event(at, "runner", "spawn", {"name": "runner", "scope": scope, "review_point": rp})
-
-
-def lease_event(at: str, tid: str) -> dict:
-    return ledger_event(at, "lease", "set", {"holder": "runner"}, tid)
-
-
-def epoch_iso(t: float) -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
-
-
-def good_then_failed(q: Path, resets_in_s: float) -> dict:
-    """The product's samples: a good reading two hours old, weekly at 95% with its reset `resets_in_s` from now,
-    then a failed read a minute ago (§25.1: the unknown sample, no figures). Returns the good row."""
-    t = time.time()
-    resets = epoch_iso(t + resets_in_s)
-    good = {"at": epoch_iso(t - 7200), "five_hour": 10, "seven_day": 95, "resets_at": resets, "five_hour_resets_at": None,
-            "windows": [{"name": "seven_day", "pct": 95, "resets_at": resets}, {"name": "five_hour", "pct": 10, "resets_at": None}],
-            "weekly_window": "seven_day", "session_window": "five_hour"}
-    failed = {"at": epoch_iso(t - 60), "five_hour": None, "seven_day": None, "resets_at": None, "five_hour_resets_at": None,
-              "windows": [], "failed": True, "exit": 1}
-    (q / "board").mkdir(exist_ok=True)
-    (q / "board" / "allowance.jsonl").write_text("".join(json.dumps(r) + "\n" for r in (good, failed)))
-    return good
-
-
-def repo_git(repo: Path, *args: str) -> str:
-    return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *args],
-                          capture_output=True, text=True, check=True).stdout
-
-
-SUITE_RUN_ID = "0002-second/verify"
-
-
-def suite_started(sid, lane="gate", at="2026-11-01T10:00:00Z"):
-    return {"op": "started", "suite_id": sid, "at": at, "lane": lane, "run_id": SUITE_RUN_ID, "task_id": "0002-second",
-            "phase": "verify"}
-
-
-def suite_ended(sid, seconds, code=0, tests=900, cached=None, stages=None, at="2026-11-01T10:20:00Z"):
-    row = {"op": "ended", "suite_id": sid, "at": at, "exit_code": code, "seconds": seconds, "tests": tests,
-           "failed": None, "skipped": None, "ran": None, "cached": cached, "interrupted": None}
-    if stages is not None:
-        row.update(stages=[{"name": n, "seconds": s, "exit_code": 0} for n, s in stages], failed_stage=None)
-    return row
-
-
-HEALTH_T0 = 1_760_000_000  # 2025-10-09T08:53:20Z
-
-
-def health_git(root, *a, env=None):
-    return subprocess.run(["git", "-C", str(root), "-c", "user.email=t@t", "-c", "user.name=t", *a], check=True,
-                          capture_output=True, text=True, env={**os.environ, **(env or {})}).stdout
-
-
-def health_commit(root, msg, at, *extra):
-    stamp = f"@{at} +0000"
-    health_git(root, "commit", "-qm", msg, *extra, env={"GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp})
-
-
 def file_tree(*roots: Path) -> dict[str, bytes]:
     """Every file under `roots` (git's own directory aside) with its bytes, and every directory."""
     out: dict[str, bytes] = {}
@@ -333,30 +190,8 @@ def file_tree(*roots: Path) -> dict[str, bytes]:
     return out
 
 
-MARKED_CHECK_ID = "mac-01"
-MARKED_TASK_ID = "0002-second"
-MARKED_BLOCK = f"""- id: `{MARKED_CHECK_ID}`
-  story: As the operator, it runs on my machine.
-  setup: a checkout of the head.
-  runs_on: operator-machine
-  steps:
-    1. run it
-  expect: exit 0
-
-## Implementation notes"""
-
-
 MIGRATION_FIELD = {"name": "migration", "values": ["required", "not required"]}
 DOWNTIME_FIELD = {"name": "downtime", "values": ["yes", "no"]}
-REPORT_HEAD = "a" * 40
-
-
-def implement_report(*lines: str, outcome: str = "done") -> str:
-    if outcome == "done":
-        return done_report("implement", "PR: #7", f"Head: {REPORT_HEAD}", *lines)
-    return "\n".join([f"Outcome: {outcome}", "PR: #7", f"Head: {REPORT_HEAD}", *lines, "## Friction", "none", ""])
-
-
 REVIEW_REGISTER = """# The review points (product-owned; SPEC §22)
 review_points:
   - id: R7
@@ -387,84 +222,5 @@ def tagged_task(p: Product, tid: str, status: str = "pending", rp: str | None = 
     return f
 
 
-def api_request(rid, t, model="claude-opus-5-5", effort="high", source="agent:custom", out=100, **more):
-    return {"t": T0 + t * 10**9, "event__name": "api_request", "request_id": rid, "model": model, "effort": effort,
-            "query_source": source, "input_tokens": 2, "output_tokens": out, "cache_read_tokens": 1000,
-            "cache_creation_tokens": 10, "cost_usd": 0.01, "session__id": "s1", **more}
-
-
-ADVICE_SPANS = {"lead": {}, "runner": {"agent_id": "runner@session-abc"}, "worker": {"agent_id": "a1"}}
-
-
-def advice_row(rid, who, ctx=None, cost=0.01, written=0, five=0, model="claude-opus-5-5", session="s1",
-               at="2027-01-15T08:00:00Z"):
-    """One request of `who` (lead, runner or worker) on `model` in `session` at `at`, sending `ctx` context
-    tokens (default: the writes and a thousand more), `written` of them cache writes, `five` of those at 5
-    minutes."""
-    ctx = written + 1000 if ctx is None else ctx
-    return ({"request_id": rid, "at": at, "session_id": session, "model": model,
-             "effort": "high", "query_source": "repl_main_thread" if who == "lead" else "agent:custom",
-             "input_tokens": 1, "output_tokens": 10, "cache_read_tokens": ctx - 1 - written,
-             "cache_creation_tokens": written, "cache_creation_5m_tokens": five,
-             "cache_creation_1h_tokens": written - five, "cost_usd": cost},
-            {"request_id": rid, **ADVICE_SPANS[who]})
-
-
-HEAD_A = "a" * 40
-HEAD_B = "b" * 40
-
-
-def approve_verdict(task: str = "0001-a", **fields: object) -> dict:
-    """A verdict that passes every rule: what the verifier writes for an approve at HEAD_A."""
-    return {
-        "task_id": task, "project_id": "demo", "verdict": "approve", "head_sha": HEAD_A,
-        "checks": [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it", "produced_by": "verifier"}],
-        "spec_beyond_intent": [],
-        "gate": {"runs": [{"command": "scripts/unit.sh", "exit_code": 0, "tests_run": 412,
-                           "tests_skipped": 0, "seconds": 88.5},
-                          {"command": "scripts/lint.sh", "exit_code": 0}]},
-        **fields,
-    }
-
-
-def judge_merge_ok(p: Product, queue: Path, rec: dict, rid: str = "0001-a", recorded: tuple | None = None,
-                   pr: str = "7", **facts: object) -> tuple[list[str], dict]:
-    """The merge-ok decision on plain values: an open PR at HEAD_A (`facts` override), `rec` recorded just now."""
-    from ccp import prhost, verify  # noqa: PLC0415
-    got = prhost.PrFacts(**{"number": 7, "state": "open", "head": HEAD_A, **facts})
-    return verify.judge(p.cfg, queue, rec, rid, got.head, got, recorded or (datetime.now(timezone.utc), "written"), pr)
-
-
 def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def held_otherwise(**fields: object) -> dict:
-    """A check the verifier ran that held only in another form, under the approved gate 0001-a-1."""
-    return {"dod_check_id": "check-01", "pass": True, "as_written": False,
-            "held_instead": "ran the listing at the head in place of the removed flag: exit 0",
-            "ruling": "0001-a-1", "evidence": "the expectation names a flag the product no longer has",
-            "produced_by": "verifier", **fields}
-
-
-PROMPT_TEMPLATES = PLANE_ROOT / "templates" / "prompts"
-
-
-def phase_values(**over) -> dict:
-    """Every name the templates use, set to a placeholder, with the given overrides."""
-    from ccp import prompt  # noqa: PLC0415
-    names = set()
-    for f in PROMPT_TEMPLATES.glob("*.md"):
-        t = f.read_text()
-        names |= set(prompt.VAR_RE.findall(t)) | {m[1] for m in re.findall(r"\{\{([#^/])(\w+)\}\}", t)}
-    v = {n: f"<{n}>" for n in names}
-    v.update(refactor=False, prior_reports="", note="", worker_env="", rules_doc="", fragment="", main_checkout="/m",
-             accept_cache=False, review_cache=False, cold_gate=False, architect_checks="", pregate_lane="", cache_max_age_days="",
-             budgets=False, resolution=False, resolved_verify=False, has_affected=False, has_old=False)
-    v.update(over)
-    return v
-
-
-def render_phase_values(phase: str, **over) -> str:
-    from ccp import prompt  # noqa: PLC0415
-    return prompt.render_phase(phase, phase_values(**over))

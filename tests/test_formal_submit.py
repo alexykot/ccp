@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, prompt, submit, suite
-from tests.helpers import done_report
+from tests.report_helpers import done_report
 from tests.review_flow import CLEAN, MAJOR, PROOF, SKIP_REVIEW_PLANE, PhaseFlow, SkipFlow, A, B
 from tests.toolkit_fixture import PLANE, ToolkitFixture
 

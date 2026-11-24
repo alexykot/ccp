@@ -12,7 +12,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import adr, cli
-from tests.helpers import approve_verdict as approve, Product, TASK
+from tests.helpers import Product, TASK
+from tests.report_helpers import approve_verdict as approve
 
 ADR_BODY = "# ADR-0001 — T\n\n## Decision\n\n### D1. First\n\nOne.\n\n### D2. Second\n\nTwo.\n"
 

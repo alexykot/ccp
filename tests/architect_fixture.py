@@ -16,6 +16,7 @@ from unittest import mock
 from ccp import architect, cli
 from ccp.queue import lib
 
+from tests.git_helpers import git
 from tests.helpers import Product, binding
 
 
@@ -49,11 +50,6 @@ PY
 FINDING = {"id": "F01", "title": "Two registries for one concept", "category": "duplication", "severity": "medium",
            "confidence": "high", "what": "Arms are listed twice.", "evidence": ["app/a.py:1 — ARMS", "app/b.py:1 — ARMS"],
            "fix": "merge", "proposal": "Keep app/a.py's list.", "touches": ["code"]}
-
-
-def git(root: Path, *a: str) -> None:
-    subprocess.run(["git", "-C", str(root), "-c", "user.email=t@t", "-c", "user.name=t", *a], check=True,
-                   capture_output=True)
 
 
 class Harness(unittest.TestCase):

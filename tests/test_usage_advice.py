@@ -16,7 +16,8 @@ from unittest import mock
 
 from ccp import cli, config, usage
 from ccp.queue import lib
-from tests.helpers import advice_row as row, Product
+from tests.helpers import Product
+from tests.ledger_helpers import advice_row as row
 
 
 def ago(hours: float) -> str:

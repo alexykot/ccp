@@ -8,7 +8,7 @@ import unittest
 
 from ccp import followups, report, runs
 from ccp.queue import lib
-from tests.helpers import done_report, REPORT_HEAD as HEAD
+from tests.report_helpers import done_report, REPORT_HEAD as HEAD
 from tests.toolkit_fixture import ToolkitFixture
 
 IMPLEMENT = "0002-second/implement"

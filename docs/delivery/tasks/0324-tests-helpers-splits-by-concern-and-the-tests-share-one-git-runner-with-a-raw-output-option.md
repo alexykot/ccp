@@ -111,4 +111,20 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 
 ## Implementation notes
 
+- `tests/helpers.py` (470 to 226 lines) keeps the product fixture, `PLANE_ROOT`, `RUN_CHECKOUT_SCRIPT`, `GIT_ENV`, the
+  actor helpers, `file_tree`, `now_iso`, `MIGRATION_FIELD`, `DOWNTIME_FIELD`, `REVIEW_REGISTER` and `tagged_task`; it imports
+  none of the four new modules. The new modules hold the names the task rules; `T0` and `epoch_iso` (read only by the moved
+  ledger functions) went to `tests/ledger_helpers.py` with them, by the "a constant goes with the functions that read it" rule.
+- `git(cwd, *args, env=None, raw=False)` raises `AssertionError` (`git <args>: <stderr>`) on a non-zero exit, as the old
+  `toolkit_fixture` runner did. The six module-level runners are gone; `architect_fixture.py` and `toolkit_fixture.py` import
+  `git` from `tests.git_helpers`, so the ~75 modules that import `git` from `tests.toolkit_fixture` (and `test_architect`
+  from `architect_fixture`) keep working and are not edited (they are beyond the 55 modules `paths` lists and use no moved
+  name from `helpers.py`).
+- `tests/test_gate_cache.py` reads `status --porcelain`, `stash list` and `count-objects` with `raw=True`, as it read them
+  through `repo_git`. `tests/test_git_helpers.py` (new) tests the shared runner.
+- Fix round 1 (two NITs): `test_git_helpers` now asserts the failure message holds the quoted pathspec `'no-such-ref'`
+  (git's stderr, which survives translation) instead of git's English "did not match"; `tests/CLAUDE.md` says "A new test does
+  not define a runner of its own (a few older private runners remain)" and its long line is rewrapped. The ROADMAP F09/F11
+  move to done is left to the reconcile of 0324; the `toolkit_fixture` importers' affected set is a follow-up.
+
 ## Verification notes

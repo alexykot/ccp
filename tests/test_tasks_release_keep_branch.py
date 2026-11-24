@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from ccp import config
-from tests.helpers import done_report
+from tests.report_helpers import done_report
 from tests.toolkit_fixture import ToolkitFixture, git
 
 

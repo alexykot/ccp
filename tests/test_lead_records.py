@@ -10,7 +10,8 @@ from pathlib import Path
 
 from ccp import config, queue, refs, runs, tasklog
 from ccp.queue import QueueError, lib
-from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK, as_actor, as_lead
+from tests.helpers import as_actor, as_lead
+from tests.report_helpers import MARKED_BLOCK as MARKED, MARKED_CHECK_ID as CHECK, MARKED_TASK_ID as TASK
 from tests.toolkit_fixture import ToolkitFixture, git
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"

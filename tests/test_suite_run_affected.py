@@ -11,7 +11,8 @@ import unittest
 from pathlib import Path
 
 from ccp import suite
-from tests.helpers import Product, repo_git as git
+from tests.git_helpers import git
+from tests.helpers import Product
 from tests.suite_fixture import PY, ccp_proc
 
 # A part-lane argv that writes the module names it was given, and counts one test

@@ -14,7 +14,8 @@ from typing import Any
 from unittest import mock
 
 from ccp import architect, board, config, drill, estimate, forecast, health, init, prompt, tasklog, usage, wt
-from tests.helpers import advice_row as row, PLANE_ROOT, Product
+from tests.helpers import PLANE_ROOT, Product
+from tests.ledger_helpers import advice_row as row
 from tests.board_seats_fixture import SeatsBase, req
 from tests.toolkit_fixture import ToolkitFixture
 from tests.upgrade_fixture import UpgradeFixture
