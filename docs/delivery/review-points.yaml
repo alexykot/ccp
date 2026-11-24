@@ -176,3 +176,8 @@ review_points:
     goal: "The open worker follow-ups of 0300 and 0304 and the lead's notes on them: every atomic write through one helper with a unique temporary name, so two concurrent writers of one file both succeed and a failed write leaves no temporary file; close's notes edit and the estimator's task text finding section headings outside fenced blocks, with a backtick fence's info string holding no backtick; and the task-writing guidance on a revert check's hunks, with an implementer's questions going in its report."
     status: planned
     opened: "2026-11-23"
+  - id: R32
+    name: eleventh architect pass fixes
+    goal: "Findings of architect pass ar-20261123T230912Z-197a and the open follow-ups of 0296 and 0305: a task_log.dir that is not a path refused at load, tests for notify's unreadable plane.json, close's not_merged call and suite run's --affected flag rules, and the architect fixture waiting for its detached passes; E4 counting every long-literal assert form and naming its figure; one mutation route in the review prompt, token-pinned prompt tests, checks that pin a test by its id and removal checks that miss the replacing text; module docstrings with no exit codes or SPEC grammar and the queue README's stale rules gone; and a path the affected map matches no longer matched to tests by its name, with its signed §14.7 sentence."
+    status: planned
+    opened: "2026-11-24"
