@@ -520,9 +520,16 @@ def parse(phase: str, text: str, accept_cache: bool = False,
 
 
 # The run record's fields a report's lines give (§13.4), from the table (`outcome` and `friction_count` are
-# set apart by `submit`); a correction replaces them all.
+# set apart by `submit`); a correction replaces those its phase's report can give (`phase_keys`).
 SET_APART = ("outcome", "friction_count")
 PARSED_KEYS = tuple(dict.fromkeys(k for s in SECTIONS for k in s.stored if k not in SET_APART))
+
+
+def phase_keys(phase: str, mode: str | None = None) -> tuple[str, ...]:
+    """The `PARSED_KEYS` a report of `phase` (a review's `mode`) can give: those a correction replaces. Any other
+    (a review's `head` and `pr`) keeps the value the run was opened with."""
+    own = {k for s in sections_for(phase, mode) for k in s.stored}
+    return tuple(k for k in PARSED_KEYS if k in own)
 
 
 # The run record's fields the plane computes at submit (§11.1); a correction computes them again.
@@ -670,7 +677,7 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
                               {"at": iso(), "superseded": str(superseded) if superseded else None}]
         for k in COMPUTED_KEYS:  # computed again below, from the corrected head
             rec.pop(k, None)
-        for k in PARSED_KEYS:  # the run's figures are the corrected report's, none left from the earlier one
+        for k in phase_keys(rec["phase"], rec.get("mode")):  # the corrected report's, none left from the earlier one
             if not (rec["phase"] == "verify" and k in ("verdict", "head")):  # those are `ccp verify record`'s
                 rec.pop(k, None)
     if src.resolve() != dest.resolve():

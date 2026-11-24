@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import runs
+from ccp import report, runs
 from tests.report_helpers import done_report, implement_report, REPORT_HEAD as HEAD
 from tests.review_flow import ReviewFlow
 from tests.toolkit_fixture import ToolkitFixture
@@ -89,6 +89,15 @@ class Correction(ReviewFlow, ToolkitFixture, unittest.TestCase):
         recorded = [e["payload"] for e in self.events() if (e["type"], e["op"]) == ("review", "recorded")]
         self.assertEqual([(p["run_id"], p["verdict"]) for p in recorded], [(REVIEW, "changes"), (REVIEW, "clean")])
         self.assertEqual(recorded[1]["severity"]["MINOR"], 1)
+
+    def test_a_corrected_review_keeps_the_head_and_pr_it_was_opened_with(self):
+        self.reported_review()  # opened with --pr 7 --head A; a review's report gives neither
+        code, _, out, err = self.report(REVIEW, review_report("none", "BLOCKER=0 MAJOR=0 MINOR=1 NIT=0"))
+        self.assertEqual(code, 0, out + err)
+        rec = self.run_rec(REVIEW)
+        self.assertEqual((rec["head"], rec["pr"], rec["spec_beyond_intent"]), (A, "7", 0))
+        self.assertIn(f"is not {A[:12]}, the head the last review {REVIEW} judged",
+                      runs.unreviewed_fix(self.q, "0002-second", "b" * 40) or "")
 
     def test_a_second_correction_keeps_both_earlier_reports(self):
         self.reported_review()
@@ -191,6 +200,22 @@ class Correction(ReviewFlow, ToolkitFixture, unittest.TestCase):
         code, _, _, err = self.report(REVIEW, review_report("none"))
         self.assertEqual(code, 1)
         self.assertIn("already abandoned", err)
+
+
+class PhaseKeys(unittest.TestCase):
+    """`report.phase_keys`: a correction replaces only the fields its phase's report can give."""
+
+    def test_a_review_keeps_what_it_was_opened_with_and_a_round_replaces_its_head_and_pr(self):
+        review = report.phase_keys("review")
+        self.assertNotIn("head", review)
+        self.assertNotIn("pr", review)
+        self.assertIn("severity", review)
+        self.assertNotIn("resolution", review)
+        self.assertIn("resolution", report.phase_keys("review", "resolution"))
+        for phase in ("implement", "fix", "merge", "ruling"):
+            self.assertTrue({"head", "pr"} <= set(report.phase_keys(phase)), phase)
+        self.assertIn("head", report.phase_keys("verify"))  # kept by the correction itself: `ccp verify record`'s
+        self.assertNotIn("pr", report.phase_keys("verify"))
 
 
 class OpenedAfter(unittest.TestCase):
