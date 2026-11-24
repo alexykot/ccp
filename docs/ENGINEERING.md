@@ -18,7 +18,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   binding) through the code or a fixture helper, never as a copied literal. A fixture or helper other
   modules reuse lives in a module that holds no tests; no module imports a test module or binds
   another module's test-class methods.
-  check: command — architect.checks `E4` (four greps, an import check over the tracked test files, and the long-literal count it holds at or below its figure)
+  check: command — architect.checks `E4`: four greps and an import check, each printing its hits, and a count of assert
+  calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch: a change that gives a branch a
   plain-value test cuts that branch's end-to-end test in the same change.
