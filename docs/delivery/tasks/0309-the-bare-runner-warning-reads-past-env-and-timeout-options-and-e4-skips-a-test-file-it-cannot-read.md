@@ -130,4 +130,8 @@ Measured at `15dbfe7a` (origin/main; first at `ad9b4f84`, every figure re-ran un
 
 ## Implementation notes
 
+- `runs_bare` (`ccp/tasklog.py`): the prefix walk is now an index loop with a helper `_skip_options` that, after `env`, `time` or `timeout`, skips each `-` word and the next word too when the option is in `PREFIX_OPTION_ARGS[prefix]`. `timeout` is read past only when a `TIMEOUT_RE` duration follows its options, else the walk stops at `timeout` (so `timeout -k 5 python3 -m unittest` and `timeout python3 -m unittest` stay not bare). `CCP_COMMANDS`, its guard and the docstring sentence are removed.
+- E4's import part (`docs/delivery/plane.json`) is a multi-line `python3 -B -c` program (newlines inside its quotes, no ` && `): a `for` loop with `try`/`except (OSError, SyntaxError, ValueError)` prints `E4: skipped <path>: <message>` on stderr and goes on; hits still print `<path>:<line>` on stdout, exit 1 on a hit, 0 otherwise.
+- New tests: `test_bare_past_env_time_and_timeout_options` (`RunsBare`) and `test_the_check_skips_a_tracked_test_file_it_cannot_read_and_says_so` (`TestModulesImportNoTestModule`).
+
 ## Verification notes
