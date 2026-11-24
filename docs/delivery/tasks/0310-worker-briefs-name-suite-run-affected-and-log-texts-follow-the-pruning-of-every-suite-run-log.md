@@ -1,7 +1,7 @@
 ---
 task_id: 0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log
 title: Worker briefs name ccp suite run --affected in place of the suite affected hand-off, the log texts follow §14.4's pruning of every suite-run log, the full-log test closes its pipe, and lib names its retired review event types
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S19"]
@@ -11,7 +11,7 @@ paths: ["ccp/prompt.py", "plugin/agents/delivery-implementer.md", "tests/test_fu
 clashes_with: ["0191-the-grace-release-ends"]
 adopt: "none"
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # Task: 0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log
@@ -187,3 +187,5 @@ Covers these open follow-ups (`ccp --root . tasks follow-ups --open`), `0299` an
   recorded in Context and no code, test or doc changed.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #378 head `0933e73` (squash `be5a9b3`): APPROVE. Passed: code-01, code-02, code-03, code-04, code-05. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log.json.
+
