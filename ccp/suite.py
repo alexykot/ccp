@@ -32,7 +32,7 @@ from typing import Any, Iterator
 from ccp.envvars import envvar, for_child
 from ccp import config, doclang, runs
 from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, lane_stages, skip_rules_at
-from ccp.queue import QueueError, emit, iso, root, seat_actor
+from ccp.queue import QueueError, emit, iso, lib, root, seat_actor
 
 COLD_VAR = "CCP_SUITE_COLD"  # §14.2: `ccp suite run --cold` sets it to 1 for what the run starts
 LINE_MAX = 8192  # a partial line longer than this is dropped from the count scan, never from the output
@@ -79,9 +79,7 @@ def take_lane(q: Path, holder: dict[str, Any]) -> tuple[int | None, dict[str, An
                 pass
     except (OSError, ValueError, TypeError, AttributeError):
         pass
-    tmp = d / f".suite-exclusive.{os.getpid()}.tmp"  # replaced whole: a reader never sees half a record
-    tmp.write_text(json.dumps(holder) + "\n")
-    os.replace(tmp, d / "suite-exclusive.json")
+    lib.write_atomic(d / "suite-exclusive.json", json.dumps(holder) + "\n")  # replaced whole: a reader never sees half a record
     return fd, holder
 
 

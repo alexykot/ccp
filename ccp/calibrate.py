@@ -68,6 +68,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp import estimate as est
+from ccp.queue import lib
 
 CALIB_V = 4
 METRICS = ("wall", "tokens", "cost")
@@ -510,9 +511,7 @@ def model(q: Path | None, cfg: Any = None, by: dict[str, list[dict[str, Any]]] |
     m = build(by, s)
     if p is not None and p.parent.is_dir():
         try:
-            tmp = p.with_suffix(".tmp")
-            tmp.write_text(json.dumps({"key": key, "model": m}, default=str))
-            tmp.replace(p)
+            lib.write_atomic(p, json.dumps({"key": key, "model": m}, default=str))
         except OSError:
             pass
     return {**m, "cached": False}

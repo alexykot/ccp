@@ -358,9 +358,7 @@ def _record(cfg: Config, a: Any, key: str, other: str) -> dict[str, Any]:
         config._parse(cfg.root, new)  # noqa: SLF001  (the file as it would be, checked as `load` does)
     except config.ConfigError as e:
         raise QueueError(f"{a.cmd}: {config.CONFIG_REL} would not load after the change: {e}", 2) from e
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_bytes(new.encode("utf-8"))
-    tmp.replace(path)
+    lib.write_atomic(path, new)
     return {"ok": True, "task": tid, "recorded": key, "reason": reason}
 
 
