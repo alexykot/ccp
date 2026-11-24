@@ -1,7 +1,7 @@
 ---
 task_id: 0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants
 title: The prompt-audit writer refuses an actor the ledger would refuse, heartbeat.sh validates before it writes the seat file, validate_event loses its unused reading keyword while a test holds the schemas' actor enums, and the audit docs describe keep_body and audit_keep_days as constants
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S23", "S29"]
@@ -11,7 +11,7 @@ paths: ["scripts/observability/lib.py", "scripts/observability/heartbeat.sh", "s
 clashes_with: ["0191-the-grace-release-ends", "0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes", "0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once", "0296-the-spec-question-script-loads-the-product-config-once-and-reads-its-task-dir", "0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log", "0300-mutant-file-texts-end-where-written-a-revert-takes-several-ranges-and-mutate-s-refusal-copies-go"]
 adopt: "none"
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-24
 ---
 
 # Task: 0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants
@@ -195,3 +195,5 @@ As the runner passed it (lead, 2026-11-23, spec question `sm-20261123T235446Z-d2
 - Fix round 1: the lead's ruling r1 (in Context) narrows doc-01 step 1's design-doc pattern to the old paragraph, so the ruled replacement text at `docs/design/observability.md` line 68 stays as written; the old paragraph is gone (`git grep -n '^.prompts.audit_keep_days. (default null' -- docs/design/observability.md` prints nothing). The review's three NITs: `prune-prompts.sh`'s header says "on demand" once; `lib.py`'s docstring and `LEGACY_ACTORS` comment name `tests/test_event_registry.py` as holding the contracts' enums to the written values plus the legacy actors, rewrapped; `ccp/prompt.py`'s module docstring line is rewrapped to about 120 characters.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #371 head `0319711` (squash `8a3c1e4`): APPROVE. Passed: code-01, cmd-01, cmd-02, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants.json.
+
