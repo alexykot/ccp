@@ -334,7 +334,7 @@ class CheckoutOnASignal(unittest.TestCase):
     def signalled(self, sig: int) -> None:
         out = Path(self._tmp.name) / "tree"
         before = git(self.root, "worktree", "list", "--porcelain")
-        env = {**os.environ, "PYTHONPATH": str(PLANE)}
+        env = {**os.environ, "PYTHONPATH": str(PLANE_ROOT)}
         self.addCleanup(reap, out.with_name("sleeper"))  # whichever check fails, the sleeper goes
         r = subprocess.run([sys.executable, "-c", SIGNALLED, str(self.root), str(sig), str(out)], env=env,
                            capture_output=True, text=True, timeout=60)
