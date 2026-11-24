@@ -63,6 +63,11 @@ All reshape phases have landed.
     `scripts/observability/*.sh` wrappers over `ccp`, but `emit-event.sh` and `heartbeat.sh` write the ledger
     themselves through `lib.py`, and `ccp` calls `heartbeat.sh` and `set-waiting-on.sh` as single writers that
     share `lib.py` with it. F17 states the direction it lands on in those four places.
+    Architect pass `ar-20261124T034246Z-e089` (F04) found the trigger met and untasked; its triage, at the
+    five-task cap, sets a new one: tasked once 0323 (the package docs on lib.py and the queue-write route) and 0324
+    (the test helpers that import lib) are done. The move also folds the architect report's and triage's
+    hand-written validators into `ccp/schema.py` against their contracts (`ar-20261124T034246Z-e089` F06), since it
+    brings `architecture_review.py` into `ccp`.
 - **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
   - F12: the plane's own `pregate` lane: taken up by task 0285 (R25), after architect pass
     `ar-20261122T055103Z-11aa` (F07) found it still undeclared.
@@ -85,13 +90,16 @@ All reshape phases have landed.
 - **Deferred from architect pass `ar-20261122T055103Z-11aa`** (record in `docs/delivery/reviews/`):
   - F08: a render-only `ccp prompt` (no audit, no run), so a template refactor proves "rendered prompt
     unchanged" with one command at base and head. Tasked if the seats of R24's 0276, the next template
-    refactor, note the same scratch render-and-compare work.
+    refactor, note the same scratch render-and-compare work. 0317's seats noted it (`ar-20261124T034246Z-e089` F04);
+    its triage, at the five-task cap, sets a new trigger: the next task that refactors a prompt template builds it,
+    as its first check.
 - **Deferred from architect pass `ar-20261122T162238Z-9098`** (record in `docs/delivery/reviews/`):
   - F03: the observability scripts called wrappers over `ccp`; with F17 above (operator, 2026-11-23).
   - F09 and F11: `tests/helpers.py` is imported by most test modules, so an edit to it makes the part lane
     nearly the whole suite, and tests keep private git runners (the shared one strips its output) beside it.
     Split `tests/helpers.py` by concern and give it one git runner with a raw-output option, by one refactor
-    task, once the R26 tasks that edit shared test fixtures (0293, 0302) are done. The language pack selecting only a
+    task, once the R26 tasks that edit shared test fixtures (0293, 0302) are done: taken up by task 0324 (R33,
+    `ar-20261124T034246Z-e089` F04). The language pack selecting only a
     changed name's importers is not taken: a test reaches a changed helper through another helper of the
     same module, so it would miss tests.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane

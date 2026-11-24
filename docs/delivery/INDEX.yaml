@@ -1572,3 +1572,28 @@ tasks:
     title: A changed path that plane.json suite.affected_map matches is no longer matched to tests by its name, so the language pack stops marking every test that names the file while a changed test module and a module's importers still count, and this repo maps its own plane.json to the tests that read it
     depends_on: []
     path: tasks/0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it.md
+  - id: 0320-dry-run-lists-a-placeholder-step-as-not-run-and-here-prints-each-step-s-whole-output
+    status: pending
+    title: ccp tasks dry-run lists a step whose command holds a placeholder as not run, naming it, and with --here prints each step's whole output; the worker prompt and the runner brief name the command they mean
+    depends_on: []
+    path: tasks/0320-dry-run-lists-a-placeholder-step-as-not-run-and-here-prints-each-step-s-whole-output.md
+  - id: 0321-one-tasklog-reader-finds-a-task-file-s-sections-and-a-null-task-log-block-loads-as-its-defaults
+    status: pending
+    title: One public tasklog reader finds a task file's sections, close and the estimator call it and E22 checks it; the Context number scan blanks fences through unfence; a null task_log block loads as its defaults and an absolute or .. task_log.dir is refused at load
+    depends_on: []
+    path: tasks/0321-one-tasklog-reader-finds-a-task-file-s-sections-and-a-null-task-log-block-loads-as-its-defaults.md
+  - id: 0322-a-house-check-program-lives-in-a-tracked-script-and-mutate-files-unbuilt-only-on-the-mutant-s-own-files
+    status: pending
+    title: E4's and E24's check programs move out of plane.json into one tracked script that architect.checks calls in one line each; ccp mutate files a mutant unbuilt on a source-location line only when it names a file the mutant touched, and prints one line per mutant on stderr
+    depends_on: []
+    path: tasks/0322-a-house-check-program-lives-in-a-tracked-script-and-mutate-files-unbuilt-only-on-the-mutant-s-own-files.md
+  - id: 0323-the-package-docs-name-lib-py-s-roles-the-architect-writes-its-queue-files-atomically-and-queue-goes
+    status: pending
+    title: The observability package doc names lib.py as the one binding reader and the seat table, ccp's conventions name the atomic write as it is, the architect writes its report and failure text into the queue atomically, and the tracked queue directory goes
+    depends_on: []
+    path: tasks/0323-the-package-docs-name-lib-py-s-roles-the-architect-writes-its-queue-files-atomically-and-queue-goes.md
+  - id: 0324-tests-helpers-splits-by-concern-and-the-tests-share-one-git-runner-with-a-raw-output-option
+    status: pending
+    title: tests/helpers.py splits by concern into a git, a ledger, a report and a render helper module, so an edit to one concern marks only its importers affected, and the tests share one git runner with a raw-output option
+    depends_on: []
+    path: tasks/0324-tests-helpers-splits-by-concern-and-the-tests-share-one-git-runner-with-a-raw-output-option.md

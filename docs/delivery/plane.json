@@ -29,6 +29,10 @@
         "cmd": "! git grep -nE '(plane\\.json\"|CONFIG_REL)\\)\\.read_text' -- ccp plugin scripts ':(exclude)ccp/config.py'"
       },
       {
+        "id": "E17",
+        "cmd": "! git grep -nE '_BINDING_LINE|def read_binding' -- ccp scripts ':(exclude)scripts/observability/lib.py'"
+      },
+      {
         "id": "E18",
         "cmd": "! git grep -n unittest -- ccp ':(exclude)ccp/doclang'"
       },
