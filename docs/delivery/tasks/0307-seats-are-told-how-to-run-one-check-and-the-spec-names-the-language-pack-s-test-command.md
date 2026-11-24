@@ -90,4 +90,8 @@ items (c) and (e). Measured at `0f44fb3` (origin/main) unless a line says otherw
 
 ## Implementation notes
 
+Built as the lead's rulings gave it: one line in `templates/prompts/_common.md` after the suite-run bullet's sub-lines, `test_every_worker_prompt_names_how_to_run_one_check` in `PromptsNameTheTools` (implement, review and verify prompts), and the §21.4 passage as signed. Premises re-measured at `b658c844`: no prompt named the two commands, §21.4 named no test command; the three commits since `0f44fb3` touched other passages. No ADR decision to mark built.
+
+Fix round 1 (review MINOR 1, NIT 1; runner's ruling): the evidence bullet now says "the `{{ccp}} suite run` command above", so the new dry-run/docs-check bullet sitting directly above it cannot be read as the command it points at; the test also asserts `--check <check id> --here`, so dropping the `--here` flag (which sends a worker to a dry run at the integration branch, refused for a claimed task) fails it.
+
 ## Verification notes

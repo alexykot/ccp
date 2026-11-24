@@ -629,7 +629,7 @@ brief.
 
 The top-level `language` (§8.1) selects a pack; it has no default. `none` turns the package-doc
 rules off (§21.3); any other name that is not a pack is a configuration error that lists the packs.
-The pack also reads the product's test output (§14.1) and the tests a change touches (§14.7). A pack adds its source suffixes and directory names
+The pack also reads the product's test output (§14.1) and the tests a change touches (§14.7), and gives the language's test command, where it has one, which runs test modules, or one test, by name (the per-test runner `ccp mutate` falls back to), and the lines that say the code did not build or import (§20.6). A pack adds its source suffixes and directory names
 to the core's, and it runs its per-file checks over `docstring_globs`. `language: none` with
 `docstring_globs` set warns.
 
