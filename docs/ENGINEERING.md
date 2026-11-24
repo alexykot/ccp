@@ -18,7 +18,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   binding) through the code or a fixture helper, never as a copied literal. A fixture or helper other
   modules reuse lives in a module that holds no tests; no module imports a test module or binds
   another module's test-class methods.
-  check: command — architect.checks `E4` (four greps, an import check over the tracked test files, and the long-literal count it holds at or below its figure)
+  check: command — architect.checks `E4`: four greps and an import check, each printing its hits, and a count of assert
+  calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch: a change that gives a branch a
   plain-value test cuts that branch's end-to-end test in the same change.
@@ -27,7 +28,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E21** A dod_check proves behaviour with the head's own tool: a check of a `ccp` command runs the
   checkout's `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A
   check that runs tests runs them through `bin/ccp suite run --lane <part lane> -- <command>` and pins a
-  named test by that recorded run's log, never a bare test runner's output. A
+  named test by giving its id to that command, so the run's exit code decides, never by a grep of the runner's
+  text or a bare test runner's output. A
   check that needs a modified copy (a planted fault) names `ccp mutate` where it can run one test (§20.6),
   else a `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text
   is proved by `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row.
@@ -130,19 +132,19 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   across templates
 - **E24** A module docstring names the § it implements and what the module is for; it never lists the
   keys, checks, refusals, exit codes or formats the code or the SPEC holds.
-  check: pass, plus command — architect.checks `E24`: the count of ccp modules whose docstring is over 30 lines
-  stays at or below its figure, lowered as docstrings are cut; the architect compares the rest with the § they restate
+  check: pass, plus command — architect.checks `E24`: the counts of ccp module docstrings over 30 lines and stating an
+  exit code, each at or below its figure (named when over); the architect compares the rest with the § they restate
 
 ## Known intentional
 
 - Line grammars that are not references stay with their reader (E23): ccp/adr.py's `DECISION_RE` (a decision's
   state line) and `_DEC_HEAD` and `_DEC_MARK` (the line grammar of a decision's heading and mark; its other decision
   patterns derive from them).
-
 - The gate's test cache keys every module on all the inputs it shares (every tracked and untracked
   file but the test modules), not on what it imports: one source edit reruns every
   module (scripts/gate_parallel.py).
-
 - Health's before-review conflict catch-up figures (`ccp/health.py` `conflict_catch_ups`) are the
   whole implement or fix rounds' wall time and tokens, as §27.1 says and the text line labels them:
   no round records a merge step's own cost (ar-20261121T174754Z-7df5 F12).
+- The architect's prompt lists every friction note since the last pass, the runner's `allow-overdue` override
+  rows included (§19.6: all the notes go to the pass); only the due trigger leaves overrides out (ar-20261123T230912Z-197a F09).
