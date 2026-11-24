@@ -157,5 +157,9 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
   not; its line indexes move by the whole output now printed.
 - Docs: §21.1's passage as signed, the `ccp tasks dry-run` row in `docs/cli/03-quality.md`, `_common.md`'s
   mutation-worktree bullet and the runner brief's fix-round sentence as the Context gives them.
+- Fix round 1 (review MINOR-1, NIT-1): the placeholder test gains a step `sort < in > out` and asserts it is
+  runnable and listed as run, so the letter right after `<` in `PLACEHOLDER_RE` is pinned (a spaced redirection
+  pair keeps running); the end-to-end test's comment on its placeholder step no longer names `--write`, which that
+  test does not pass.
 
 ## Verification notes

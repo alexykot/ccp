@@ -91,18 +91,21 @@ class StepsAndRecords(unittest.TestCase):
                            "- id: `cmd-01`\n  story: s.\n  steps:\n    1. Run `grep -c x <your run>`.\n"
                            "    2. Run `tail -n 5 <the log step 1 names>`.\n    3. Run `printf 'a\\n' > out`.\n"
                            "    4. Run `grep -c x < in`.\n    5. Run `sort <in >out`.\n    6. Run `cat <<EOF >f`.\n"
-                           "    7. Read the log.\n  expect: e.\n")
+                           "    7. Read the log.\n    8. Run `sort < in > out`.\n  expect: e.\n")
         checks = dryrun.plan(text)
         (cid, steps), = checks
-        self.assertEqual(dryrun.runnable(steps), [("3", "printf 'a\\n' > out"), ("4", "grep -c x < in")])
-        ran = {cid: [dryrun.outcome("3", steps[2][1], 0, ""), dryrun.outcome("4", steps[3][1], 0, "0\n")]}
+        self.assertEqual(dryrun.runnable(steps),
+                         [("3", "printf 'a\\n' > out"), ("4", "grep -c x < in"), ("8", "sort < in > out")])
+        ran = {cid: [dryrun.outcome("3", steps[2][1], 0, ""), dryrun.outcome("4", steps[3][1], 0, "0\n"),
+                     dryrun.outcome("8", steps[7][1], 0, "")]}
         lines = dryrun.printout("t", "abc1234", "HEAD, here", checks, ran)[2:]
-        self.assertEqual([ln.split()[1].rstrip(":") for ln in lines], list("1234567"))
+        self.assertEqual([ln.split()[1].rstrip(":") for ln in lines], list("12345678"))
         for at, ph in ((0, "<your run>"), (1, "<the log step 1 names>"), (4, "<in >"), (5, "<EOF >")):
             self.assertIn(dryrun.NOT_RUN, lines[at])
             self.assertTrue(lines[at].endswith(f"placeholder `{ph}`)"), lines[at])
         self.assertIn("exited 0", lines[2])
         self.assertIn("exited 0", lines[3])
+        self.assertIn("exited 0", lines[7])
         self.assertNotIn("placeholder", lines[6])
         self.assertIn(dryrun.NOT_RUN, lines[6])
 
@@ -195,7 +198,7 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         lines = out.splitlines()
         first, second = lines.index("  cmd-01:"), lines.index("  cmd-02:")
         self.assertIn("exited 0, 1 line, first: `one`", lines[first + 1])
-        self.assertIn(dryrun.NOT_RUN, lines[first + 2])  # a placeholder step: --write's record is step 1's alone
+        self.assertIn(dryrun.NOT_RUN, lines[first + 2])  # a placeholder step (cat <your run>): not run
         self.assertIn(dryrun.NOT_RUN, lines[second + 1])
         self.assertIn(git(self.main, "rev-parse", "--short=7", "origin/main"), lines[0])
 
