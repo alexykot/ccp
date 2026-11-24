@@ -135,6 +135,34 @@ class Adopt(InitCase):
         cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
         self.assertEqual(cfg["architect"], {"shape_from_task": "0008"})
 
+    def test_an_empty_task_log_gets_a_gitkeep(self):
+        keep = "docs/delivery/tasks/.gitkeep"
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertEqual((self.repo / keep).read_text(), "")
+        self.assertIn(keep, res["written"])
+        code, res = self.init("--project-id", "demo", "--force")  # a rerun finds a file there: nothing more
+        self.assertEqual(code, 0, res)
+        self.assertNotIn(keep, res["written"])
+        self.assertEqual(sorted(p.name for p in (self.repo / "docs/delivery/tasks").iterdir()), [".gitkeep"])
+
+    def test_a_task_log_holding_only_an_empty_subdirectory_gets_a_gitkeep(self):
+        tasks = self.repo / "docs/delivery/tasks"
+        (tasks / "sub").mkdir(parents=True)  # git drops it, so a clone would lose the task log
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertEqual((tasks / ".gitkeep").read_text(), "")
+        self.assertIn("docs/delivery/tasks/.gitkeep", res["written"])
+
+    def test_a_task_log_holding_a_file_gets_none(self):
+        tasks = self.repo / "docs/delivery/tasks"
+        tasks.mkdir(parents=True)
+        (tasks / "0001-a.md").write_text("---\ntask_id: 0001-a\n---\n")
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertFalse((tasks / ".gitkeep").exists())
+        self.assertNotIn("docs/delivery/tasks/.gitkeep", res["written"])
+
     def test_a_rules_doc_the_product_has_is_kept_even_with_force_and_its_settings_are_not_written(self):
         (self.repo / "docs").mkdir()
         (self.repo / "docs/ENGINEERING.md").write_text("# Our own rules\n")
