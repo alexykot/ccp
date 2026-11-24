@@ -91,4 +91,14 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 
 ## Implementation notes
 
+- Premises re-measured at `8d016bea`: unchanged (`read_binding|SEAT_IDS` absent from the observability doc, 7 files
+  call `write_atomic`, 2 `write_text` lines in `ccp/architect.py`, `queue/README.md` the only tracked file under `queue`).
+- `scripts/observability/CLAUDE.md`: the first paragraph now names `read_binding` (with `binding_path`,
+  `product_binding`, `binding_data`, `read_machine`) and the seat table (`RUNNER`, `VERIFIER`, `LEAD`, `SEAT_IDS`),
+  citing E17 and E27.
+- `ccp/CLAUDE.md`: the queue-write convention is the ruled sentence.
+- `ccp/architect.py`: both queue writes are `write_atomic` (imported from `lib`) with the same text. `write_text`
+  used the locale's default encoding, `write_atomic` writes UTF-8: the text is the same, the encoding is now fixed.
+- `queue/README.md` removed; no reference to it remained.
+
 ## Verification notes
