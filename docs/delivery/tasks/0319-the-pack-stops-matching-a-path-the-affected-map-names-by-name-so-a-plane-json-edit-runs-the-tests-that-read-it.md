@@ -116,4 +116,15 @@ Measured at `bb102371`:
 
 ## Implementation notes
 
+- `ccp/doclang/python.py`: `affected` takes the keyword `named` (default: all of `changed`); only those paths' file
+  names match tests by text. The import rule and a changed test module still read every changed path.
+- `ccp/suite.py`: `_mapped` returns the map's ids and the changed paths no glob matches; `affected` passes every
+  changed path as `changed` and the unmatched ones as `named`. A pack with no reader is unchanged.
+- `docs/delivery/plane.json`: `suite.affected_map` maps `docs/delivery/plane.json` to `tests.test_self_hosting`, the one
+  module both searches in Context find at `48c54981` (re-run; a wider search for `PLANE`/`REPO` aliases found no other
+  reader of the repo's own plane.json). `ccp suite affected --paths docs/delivery/plane.json` now lists that one module.
+- The new test's `pkg/a.py` list also holds `tests.test_a`, the scratch product's own importer of `pkg.a`.
+- `ccp/doclang/__init__.py`'s `AffectedReader` type and comment still describe three positional arguments: the file is
+  outside this task's paths, so it is left as a follow-up.
+
 ## Verification notes
