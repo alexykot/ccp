@@ -1588,7 +1588,7 @@ tasks:
     depends_on: []
     path: tasks/0322-a-house-check-program-lives-in-a-tracked-script-and-mutate-files-unbuilt-only-on-the-mutant-s-own-files.md
   - id: 0323-the-package-docs-name-lib-py-s-roles-the-architect-writes-its-queue-files-atomically-and-queue-goes
-    status: pending
+    status: done
     title: The observability package doc names lib.py as the one binding reader and the seat table, ccp's conventions name the atomic write as it is, the architect writes its report and failure text into the queue atomically, and the tracked queue directory goes
     depends_on: []
     path: tasks/0323-the-package-docs-name-lib-py-s-roles-the-architect-writes-its-queue-files-atomically-and-queue-goes.md
