@@ -486,11 +486,12 @@ def _unbuilt_patterns(mu: dict[str, Any], pack: doclang.Pack) -> list[re.Pattern
 
 def _names_touched(m: re.Match[str], files: list[str]) -> bool:
     """Whether a did-not-build match counts: always for a pattern with no group named `path`; else only when
-    that group's text is a file the mutant touched, its root-relative path or ending with `/` and that path."""
+    that group's text is a file the mutant touched, its root-relative path or ending with `/` and that path.
+    The mutant's paths are compared as `_key` spells them, so `./ccp/x.py` is `ccp/x.py`."""
     if "path" not in m.re.groupindex:
         return True
     path = m.group("path")
-    return path is not None and any(path == f or path.endswith(f"/{f}") for f in files)
+    return path is not None and any(path == k or path.endswith(f"/{k}") for k in map(_key, files))
 
 
 def says_unbuilt(text: str, pats: list[re.Pattern[str]], files: list[str]) -> bool:

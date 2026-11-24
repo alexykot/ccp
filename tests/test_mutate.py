@@ -721,6 +721,8 @@ class UnbuiltLines(unittest.TestCase):
         self.assertTrue(self.unbuilt(QUOTED_SYNTAX_ERROR, ["tests/test_b.py"]))
         frame = '  File "/w/rev-1/ccp/x.py", line 5\n'
         self.assertTrue(self.unbuilt(frame, ["ccp/x.py"]))
+        self.assertTrue(self.unbuilt(frame, ["./ccp/x.py"]))
+        self.assertTrue(self.unbuilt(frame, ["ccp//x.py"]))
         self.assertFalse(self.unbuilt(frame, ["ccp/y.py", "x.py.bak", "p/x.py"]))
         failed_import = "ImportError: Failed to import test module: tests.test_x\n"
         self.assertTrue(self.unbuilt(failed_import, []))

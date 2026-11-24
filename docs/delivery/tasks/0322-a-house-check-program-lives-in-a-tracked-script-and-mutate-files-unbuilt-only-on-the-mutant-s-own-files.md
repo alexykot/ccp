@@ -174,5 +174,8 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
   `test_the_house_checks_name_their_figure_when_over`, `LongLiteralCount` gains
   `test_the_docstring_counts_read_the_tracked_ccp_modules_and_skip_one_they_cannot_parse`, a scratch repo for E24's
   two counts and its skip, which no test covered.
+- Fix round 1: `_names_touched` compares the mutant's paths as `_key` spells them. A `--mutant`, `--mutant-file`
+  or `--revert` keeps the path as typed, so `./ccp/x.py` never matched the frame's real path and a syntax-breaking
+  mutant was filed killed; `UnbuiltLines` now pins `./ccp/x.py` and `ccp//x.py`.
 
 ## Verification notes
