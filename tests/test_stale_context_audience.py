@@ -44,7 +44,7 @@ def warning_lines(out: str) -> list[str]:
 
 class TasksCheck(unittest.TestCase):
     """A git product with two pending tasks measured at a commit before a change to their paths, and a third
-    whose Context states a number with no command (another warning)."""
+    whose Context names a later task, 0004-d, as a prerequisite in prose (another warning)."""
 
     def setUp(self):
         self.p = Product()
@@ -54,7 +54,8 @@ class TasksCheck(unittest.TestCase):
         for tid in ("0001-a", "0002-b"):
             measured(self.p.task(tid), base, "src/a.py")
         f = self.p.task("0003-c")
-        f.write_text(f.read_text().replace("- background", "- 42 sites"))
+        f.write_text(f.read_text().replace("- background", "- gated on 0004"))
+        self.p.task("0004-d")
         self.p.index()
         commit(self.p.root, "src/a.py", "change a")
 
@@ -76,7 +77,7 @@ class TasksCheck(unittest.TestCase):
         self.assertIn("2", counted[0])
         for line in stale:
             self.assertNotIn(line, warns)
-        self.assertTrue(any("Context states a number" in w for w in warns), warns)  # the other warnings stay
+        self.assertTrue(any("names 0004-d" in w for w in warns), warns)  # the other warnings stay
 
     def test_stale_names_each_task_and_no_other_warning(self):
         code, out, err = self.check("--stale")

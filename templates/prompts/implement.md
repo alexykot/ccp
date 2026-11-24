@@ -13,7 +13,7 @@ Where the task leaves something open, write the narrowest rule consistent with i
 If the task cannot be done as written (it contradicts a check, the SPEC or an ADR, or a premise it states is false), finish everything else and put the conflict at the top of your report as an open question.
 Do not pick silently.
 SPEC edits only as the task gives them: rule text the task does not carry goes to a line of your report's `## Follow-ups`, not the PR, which merges on the signed text; only text without which the code cannot be correct goes to the lead, as a spec question in your report (SPEC §3.5).
-Before you build, re-run at {{base}} each command the task's Context names for a measured premise (a count, a size, a list of sites, an "already" or "never happens" claim).
+Before you build, re-run at {{base}} each command the task's Context names for a measured premise (one that sets scope: the sites the task edits, a figure a check holds).
 If a figure changed materially, stop before building and put it at the top of your report as a scope question: the premise, its command, the figure the task states and the one you measured.
 {{#refactor}}
 If the work turns out to need a behaviour or stored-data change, stop and report it.
