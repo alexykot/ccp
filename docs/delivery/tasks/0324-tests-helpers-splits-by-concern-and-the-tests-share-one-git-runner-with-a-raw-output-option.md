@@ -1,7 +1,7 @@
 ---
 task_id: 0324-tests-helpers-splits-by-concern-and-the-tests-share-one-git-runner-with-a-raw-output-option
 title: tests/helpers.py splits by concern into a git, a ledger, a report and a render helper module, so an edit to one concern marks only its importers affected, and the tests share one git runner with a raw-output option
-status: pending
+status: done
 kind: refactor
 depends_on: []
 review_refs: ["ar-20261124T034246Z-e089#F04", "ar-20261122T162238Z-9098#F09", "ar-20261122T162238Z-9098#F11"]
@@ -128,3 +128,5 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
   move to done is left to the reconcile of 0324; the `toolkit_fixture` importers' affected set is a follow-up.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #388 head `b4520ee` (squash `6ec3bf3`): APPROVE. Passed: code-01, code-02, code-03, code-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0324-tests-helpers-splits-by-concern-and-the-tests-share-one-git-runner-with-a-raw-output-option.json.
+
