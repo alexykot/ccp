@@ -1,7 +1,7 @@
 ---
 task_id: 0327-init-keeps-an-empty-task-log-in-git-and-checks-build-scratch-products-with-sandbox-create
 title: ccp init keeps an empty task log in git, so a fresh clone of a new product passes tasks check and docs check; the writing-tasks skill has a check that needs a scratch product build it with ccp sandbox create in the step that uses it
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S21"]
@@ -134,3 +134,5 @@ Measured at `cd3a6bf5`:
   before; a mutant that counts any entry survived `Adopt` and is now killed.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #401 head `f1e92ed` (squash `162d9cd`): APPROVE. Passed: cmd-01, code-01, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0327-init-keeps-an-empty-task-log-in-git-and-checks-build-scratch-products-with-sandbox-create.json.
+

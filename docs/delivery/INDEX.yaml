@@ -1608,7 +1608,7 @@ tasks:
     depends_on: []
     path: tasks/0326-a-corrected-review-report-keeps-the-head-and-pr-its-run-was-opened-with.md
   - id: 0327-init-keeps-an-empty-task-log-in-git-and-checks-build-scratch-products-with-sandbox-create
-    status: pending
+    status: done
     title: ccp init keeps an empty task log in git, so a fresh clone of a new product passes tasks check and docs check; the writing-tasks skill has a check that needs a scratch product build it with ccp sandbox create in the step that uses it
     depends_on: []
     path: tasks/0327-init-keeps-an-empty-task-log-in-git-and-checks-build-scratch-products-with-sandbox-create.md
