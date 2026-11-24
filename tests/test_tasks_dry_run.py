@@ -235,7 +235,7 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         rel = "docs/delivery/tasks/0002-second.md"
         self.write(rel, with_checks((self.main / rel).read_text(), CHECKS + (
             "\n- id: `cmd-09`\n  story: s.\n  steps:\n    1. Run `echo a 2>&1 >/dev/null; echo \"$0\"`.\n"
-            "    2. Run `git rev-parse HEAD`.\n    3. Run `cat <your run>`.\n  expect: e.\n")))
+            "    2. Run `git rev-parse HEAD`.\n    3. Run `touch ran # <your run>`.\n  expect: e.\n")))
         git(self.main, "commit", "-qam", "0002's own check, not pushed")
         head, before = git(self.main, "rev-parse", "HEAD"), (self.main / rel).read_text()
         worktrees = git(self.main, "worktree", "list")
@@ -247,7 +247,7 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         self.assertIn("exited 0, 1 line, first: `bash`", lines[2])
         self.assertEqual(lines[3].strip(), "bash")  # --here: the step's whole output, under its line
         self.assertIn(f"first: `{head}`", lines[4])
-        self.assertIn(dryrun.NOT_RUN, lines[6])
+        self.assertIn(dryrun.NOT_RUN, lines[6])  # bash would run it: the clean status below shows it did not
         self.assertNotEqual(head, git(self.main, "rev-parse", "origin/main"))
         self.assertEqual((self.main / rel).read_text(), before)
         self.assertEqual(git(self.main, "worktree", "list"), worktrees)
