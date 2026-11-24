@@ -2,8 +2,10 @@
 
 `lib.py` is shared by `ccp` and every script here: it writes and folds the event ledger
 (`QUEUE_ROOT/observability/events.jsonl`), holds the work.json lock, the one atomic write (`write_atomic`: a
-unique temporary name beside the file, removed when the write fails) and the values only read, never written
-(`WAIT_READ_ONLY`, `LEGACY_EVENT_TYPES`: house rule E9). `team.py` runs the runner teammate's
+unique temporary name beside the file, removed when the write fails), the one reader of a product's binding
+(`read_binding`, with `binding_path`, `product_binding`, `binding_data` and the machine file's `read_machine`),
+the seat table (`RUNNER`, `VERIFIER`, `LEAD`, `SEAT_IDS`: house rules E17 and E27) and the values only read, never
+written (`WAIT_READ_ONLY`, `LEGACY_EVENT_TYPES`: house rule E9). `team.py` runs the runner teammate's
 lifecycle and the gate ledger, `spec_maintainer.py` spec questions to the lead (the open-question
 rule is `ccp/queue.py`'s, the headless launch `ccp/headless.py`'s), `architecture_review.py` the review kit the architect seat runs on (§19). The shell scripts are thin
 single writers: `set-waiting-on.sh` (the only writer of `waiting_on`), `emit-event.sh`, `heartbeat.sh`,

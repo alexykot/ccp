@@ -51,7 +51,7 @@ OBS = PLANE / "scripts" / "observability"
 sys.path.insert(0, str(OBS))
 
 import architecture_review as ar  # noqa: E402  (review kinds, lock, validation, triage)
-from lib import fmt_dt, lock_is_stale, parse_dt, read_json, write_json  # noqa: E402
+from lib import fmt_dt, lock_is_stale, parse_dt, read_json, write_atomic, write_json  # noqa: E402
 
 LENSES: dict[str, tuple[str, ...]] = {
     "structure": ar.CATEGORIES,
@@ -733,7 +733,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
         report = ar.last_json_object(str(res.get("result") or ""))
         errs = validate(report, rid, pid, mode, lenses, refs.ids(cfg)) if report is not None else ["no JSON report in the final message"]
         if errs:
-            (ar.rdir(q) / f"{rid}.failed.txt").write_text((str(res.get("result") or se or ""))[-20000:])
+            write_atomic(ar.rdir(q) / f"{rid}.failed.txt", (str(res.get("result") or se or ""))[-20000:])
             move("failed", error="; ".join(errs)[:500])
             return {**result, "outcome": "failed", "errors": errs,
                     "actions": [{"action": "retry_next_due", "detail": f"Raw output kept in reviews/{rid}.failed.txt."}]}, 1
@@ -742,7 +742,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
         if adr:
             report["adr"] = adr
         write_json(ar.report_path(q, rid), report)
-        (ar.rdir(q) / f"{rid}.md").write_text(render(report))
+        write_atomic(ar.rdir(q) / f"{rid}.md", render(report))
         rec0.update(findings=len(report["findings"]), rule_changes=len(report["rule_changes"]),
                     done_at_report=sorted(_done(tasklog.load(cfg))))
         if mode == "pass":
