@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config
+from tests.helpers import PLANE_ROOT
 from tests.review_flow import PROOF, SkipFlow
 from tests.git_helpers import git
 from tests.toolkit_fixture import ToolkitFixture
@@ -331,7 +332,6 @@ class CheckoutOnASignal(unittest.TestCase):
         git(self.root, "commit", "-q", "-m", "a")
 
     def signalled(self, sig: int) -> None:
-        from tests.suite_fixture import PLANE
         out = Path(self._tmp.name) / "tree"
         before = git(self.root, "worktree", "list", "--porcelain")
         env = {**os.environ, "PYTHONPATH": str(PLANE)}

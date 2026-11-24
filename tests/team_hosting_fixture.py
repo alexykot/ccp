@@ -67,7 +67,7 @@ class TeamCase(unittest.TestCase):
     def origin(self, push: bool = True) -> Path:
         """Make the product a git checkout with a bare origin; push its `main` there unless `push` is False
         (an origin with no integration branch). Returns the origin; a second call returns the same one."""
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         if self._origin is not None:
             return self._origin
         o = tempfile.TemporaryDirectory()
