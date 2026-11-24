@@ -8,8 +8,9 @@ import subprocess
 import time
 import unittest
 
+from tests.helpers import PLANE_ROOT
 from tests.parallel_claims_fixture import ParallelFixture
-from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
+from tests.team_hosting_fixture import HOOK, TeamCase
 
 
 class Runner(ParallelFixture, unittest.TestCase):
@@ -94,7 +95,7 @@ class Hook(TeamCase):
                                                               "lease_holder": "runner", "waiting_on": None}))
 
     def hook(self):
-        r = subprocess.run(["bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp"], capture_output=True,
+        r = subprocess.run(["bash", HOOK, "--queue-root", self.q, "--ccp", PLANE_ROOT / "bin" / "ccp"], capture_output=True,
                            text=True, input=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": "runner",
                                                         "cwd": str(self.prod.root)}), env=self.env)
         return r.returncode, r.stderr

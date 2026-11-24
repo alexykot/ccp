@@ -6,7 +6,8 @@ import unittest
 
 from ccp import config, tasklog
 from tests.helpers import as_lead
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
 SOURCE = "src/feature.py"

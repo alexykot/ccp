@@ -9,8 +9,9 @@ from pathlib import Path
 
 from ccp import config
 from ccp import prompt as prompt_mod
+from tests.helpers import PLANE_ROOT
 from tests.render_helpers import phase_values
-from tests.toolkit_fixture import PLANE, ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 A = "a" * 40
 CHANGE_ROUNDS = (("implement", ("--base", "abc1234")),
@@ -60,7 +61,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
     def test_the_verifier_is_told_the_flag_that_runs_the_prs_own_hooks(self):
         _run_id, text = self.render("verify", "--pr", "7", "--head", A)
         self.assertIn("`--own-hooks`", text)
-        self.assertIn("--own-hooks", (PLANE / "plugin/agents/delivery-verifier.md").read_text())
+        self.assertIn("--own-hooks", (PLANE_ROOT / "plugin/agents/delivery-verifier.md").read_text())
 
     def test_with_no_mutate_command_a_seat_breaks_code_in_a_mutation_worktree_it_removes(self):
         run_id, text = self.render("verify", "--pr", "7", "--head", A)
@@ -78,9 +79,9 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
             for named in ("wt create --kind mut --task 0002-second --sha <head>`", "wt remove <name>`", "`--lane part`"):
                 self.assertIn(named, f)
         self.assertNotIn("put the file back", text)
-        self.assertNotIn("put the file back", (PLANE / "templates/prompts/verify.md").read_text())
+        self.assertNotIn("put the file back", (PLANE_ROOT / "templates/prompts/verify.md").read_text())
         for a in ("implementer", "reviewer", "verifier"):
-            brief = (PLANE / f"plugin/agents/delivery-{a}.md").read_text()
+            brief = (PLANE_ROOT / f"plugin/agents/delivery-{a}.md").read_text()
             for named in ("ccp wt create --kind mut", "ccp wt remove <name>"):
                 self.assertIn(named, brief, (a, named))
 
@@ -124,7 +125,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
                 self.assertEqual(both, [], (res, cache))
 
     def test_the_reviewer_reads_and_runs_code_at_the_merge_base_in_a_base_worktree(self):
-        brief = (PLANE / "plugin/agents/delivery-reviewer.md").read_text()
+        brief = (PLANE_ROOT / "plugin/agents/delivery-reviewer.md").read_text()
         self.assertIn("wt create --kind base --task <task_id>", brief)
         self.assertIn("--sha <PR head> -- <command>", brief)
         self.assertNotIn("git merge-base", brief)
@@ -145,7 +146,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         _run_id, text = self.render("verify", "--pr", "7", "--head", A)
         self.assertIn('`project_id: "demo"`', text)
         self.assertIn("`findings`, a list of strings", text)
-        example = PLANE / "contracts" / "verification.example.json"
+        example = PLANE_ROOT / "contracts" / "verification.example.json"
         self.assertTrue(example.is_absolute() and example.is_file())
         self.assertIn(f"a valid example is {example})", text)
 
@@ -158,10 +159,10 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
 
     def test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command(self):
         for phase in ("implement", "fix", "ruling", "merge", "verify", "_common", "_gate"):
-            text = outside_the_fallback((PLANE / "templates/prompts" / f"{phase}.md").read_text())
+            text = outside_the_fallback((PLANE_ROOT / "templates/prompts" / f"{phase}.md").read_text())
             for gone in ("dependent-modules command", "mut worktree", "--kind mut"):
                 self.assertNotIn(gone, text, (phase, gone))
-        self.assertEqual(prompt_mod.TEMPLATES, PLANE / "templates/prompts")
+        self.assertEqual(prompt_mod.TEMPLATES, PLANE_ROOT / "templates/prompts")
 
 
 class PromptsNameTheHouseRules(ToolkitFixture, unittest.TestCase):

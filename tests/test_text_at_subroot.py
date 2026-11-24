@@ -15,7 +15,7 @@ from unittest import mock
 from ccp import adr, cli, config, tasklog
 from ccp.queue import lib, task_meta
 from tests.helpers import GIT_ENV, TASK, binding, merged_plane
-from tests.toolkit_fixture import git
+from tests.git_helpers import git
 
 TID = "0002-second"
 

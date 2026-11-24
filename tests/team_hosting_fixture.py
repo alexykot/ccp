@@ -12,9 +12,8 @@ from pathlib import Path
 from tests.helpers import binding, PLANE_ROOT, Product
 
 
-PLANE = PLANE_ROOT
-TEAM = PLANE / "scripts" / "team.sh"
-HOOK = PLANE / "plugin" / "hooks" / "runner-idle.sh"
+TEAM = PLANE_ROOT / "scripts" / "team.sh"
+HOOK = PLANE_ROOT / "plugin" / "hooks" / "runner-idle.sh"
 
 
 class TeamCase(unittest.TestCase):
@@ -50,7 +49,7 @@ class TeamCase(unittest.TestCase):
         d = tempfile.TemporaryDirectory()
         self.addCleanup(d.cleanup)
         (Path(d.name) / "sitecustomize.py").write_text(
-            f"import sys\nsys.path.insert(0, {str(PLANE)!r})\nfrom ccp import config\n"
+            f"import sys\nsys.path.insert(0, {str(PLANE_ROOT)!r})\nfrom ccp import config\n"
             f"config.{table}[{key!r}] = {value!r}\n")
         self.env["PYTHONPATH"] = os.pathsep.join(p for p in (d.name, os.environ.get("PYTHONPATH")) if p)
 

@@ -13,9 +13,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, lifecycle, prompt, report, verify
-from tests.helpers import Product, as_lead
+from tests.helpers import Product, as_lead, PLANE_ROOT
 from tests.report_helpers import approve_verdict as approve
-from tests.toolkit_fixture import PLANE, ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 PASSAGE = "docs/spec/01-model.md §3.5: a new rule that close also waits on the lead's word"
 SECOND = "contracts/x.schema.json: a new required key"
@@ -25,7 +25,7 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
     """A task with no `sign_off:` and a verdict that lists text beyond its intent."""
 
     def verdict(self, head: str, beyond: list[str]) -> None:
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head, spec_beyond_intent=beyond)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it", "produced_by": "verifier"}]
@@ -223,7 +223,7 @@ class Briefs(unittest.TestCase):
                              ("plugin/agents/delivery-reviewer.md", "## Spec beyond intent"),
                              ("templates/prompts/verify.md", "spec_beyond_intent"),
                              ("plugin/agents/delivery-verifier.md", "spec_beyond_intent")):
-            self.assertIn(needle, (PLANE / path).read_text(), path)
+            self.assertIn(needle, (PLANE_ROOT / path).read_text(), path)
 
     def test_the_review_report_lines_name_the_section(self):
         product = Product()

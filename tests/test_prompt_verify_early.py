@@ -10,7 +10,8 @@ import unittest
 from ccp import adr, verify
 from tests.helpers import as_lead
 from tests.report_helpers import approve_verdict, MARKED_BLOCK, MARKED_CHECK_ID as CHECK, MARKED_TASK_ID as TASK
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 OPERATOR_GATE = f"{TASK}-1"
 

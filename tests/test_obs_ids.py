@@ -10,8 +10,7 @@ from datetime import datetime, timezone
 from ccp import architect
 from tests.helpers import PLANE_ROOT
 
-PLANE = PLANE_ROOT
-sys.path.insert(0, str(PLANE / "scripts" / "observability"))
+sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
 
 import spec_maintainer as sm  # noqa: E402
 

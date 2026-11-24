@@ -9,7 +9,8 @@ import unittest
 from unittest import mock
 
 from ccp import config, lifecycle
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class Merging(ToolkitFixture, unittest.TestCase):
@@ -45,9 +46,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         return self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
 
     def one_runner(self) -> None:
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["parallel"] = {"max_in_flight": 1}
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg.update(parallel={"max_in_flight": 1}))
         git(self.main, "commit", "-qam", "one runner")
         git(self.main, "push", "-q", "origin", "HEAD:main")
 

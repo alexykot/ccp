@@ -14,8 +14,9 @@ from unittest import mock
 
 from ccp import cli, health, report, runs, verify
 from tests.review_flow import ReviewFlow
-from tests.helpers import GIT_ENV
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.helpers import GIT_ENV, PLANE_ROOT
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 SECOND_CHECK = """- id: `cmd-02`
   story: As an operator, I run it again.
@@ -137,7 +138,7 @@ class Resolution(ReviewFlow, ToolkitFixture, unittest.TestCase):
                         "--note", "conflicted merge, resolution review", *extra)
 
     def record(self, head: str, checks: list[dict], verdict: str = "approve"):
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head, verdict=verdict, checks=checks)
         rec.pop("checked_at", None)
         f = Path(self._tmp.name) / "verdict.json"
@@ -436,7 +437,7 @@ class Resolution(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual(tuple(action.choices), (*runs.PHASES, "env"))
         out = subprocess.run(["git", "grep", "-n", "-e", '"implement", "fix", "merge", "ruling", "review", "verify"',
                               "-e", '"implement", "review", "fix", "merge", "ruling", "verify"', "--", "ccp"],
-                             cwd=PLANE, capture_output=True, text=True).stdout.splitlines()
+                             cwd=PLANE_ROOT, capture_output=True, text=True).stdout.splitlines()
         self.assertEqual([x.split(":")[0] for x in out], ["ccp/runs.py"])
 
 

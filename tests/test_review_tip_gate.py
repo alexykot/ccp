@@ -9,7 +9,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, gitmerge
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class ReviewTipGate(ToolkitFixture, unittest.TestCase):

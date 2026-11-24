@@ -16,8 +16,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import suite
+from tests.helpers import PLANE_ROOT
 from tests.suite_stages_fixture import StagedFixture, _shell_py
-from tests.gate_parallel_fixture import GateFixture, MORE, OK, ROOT
+from tests.gate_parallel_fixture import GateFixture, MORE, OK
 
 
 # Two modules that each wait for the other to have started: they pass only when run at the same time.
@@ -175,7 +176,7 @@ class GivenNamesTheGateRunsOnlyThose(GateFixture):
 
 class TheWorkerCount(unittest.TestCase):
     def load(self):
-        spec = importlib.util.spec_from_file_location("gate_parallel_under_test", ROOT / "scripts/gate_parallel.py")
+        spec = importlib.util.spec_from_file_location("gate_parallel_under_test", PLANE_ROOT / "scripts/gate_parallel.py")
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         return mod
@@ -191,7 +192,7 @@ class TheWorkerCount(unittest.TestCase):
 
     def test_it_runs_every_test_module_of_the_repo(self):
         names = self.load().modules()
-        self.assertEqual(sorted(names), sorted(f"tests.{p.stem}" for p in (ROOT / "tests").glob("test_*.py")))
+        self.assertEqual(sorted(names), sorted(f"tests.{p.stem}" for p in (PLANE_ROOT / "tests").glob("test_*.py")))
 
 
     def test_names_select_from_the_suite_in_its_order_and_every_unknown_one_is_named(self):
@@ -214,7 +215,7 @@ class TheWorkerCount(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / "log"
             log.write_text(printed.getvalue())
-            out = json.loads(subprocess.run([sys.executable, str(ROOT / "scripts/gate_result.py"), str(log), "1"],
+            out = json.loads(subprocess.run([sys.executable, str(PLANE_ROOT / "scripts/gate_result.py"), str(log), "1"],
                                             capture_output=True, text=True, check=True).stdout)
         self.assertEqual((out["tests"], [m["tests"] for m in out["modules"]]), (7, [7]))
 
@@ -223,7 +224,7 @@ class TheResultFromALog(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / "log"
             log.write_text(text)
-            return json.loads(subprocess.run([sys.executable, str(ROOT / "scripts/gate_result.py"), str(log), "9"],
+            return json.loads(subprocess.run([sys.executable, str(PLANE_ROOT / "scripts/gate_result.py"), str(log), "9"],
                                              capture_output=True, text=True, check=True).stdout)
 
     def test_the_counts_are_summed_over_every_module(self):
@@ -279,7 +280,7 @@ class TheRunRecordsTheModules(StagedFixture, unittest.TestCase):
         self.assertEqual(suite.read_result(p), (None, "`modules` is not a list"))
 
     def test_the_schema_names_the_modules_field(self):
-        props = json.loads((ROOT / "contracts/suite_result.schema.json").read_text())["properties"]
+        props = json.loads((PLANE_ROOT / "contracts/suite_result.schema.json").read_text())["properties"]
         self.assertEqual(props["modules"]["items"]["required"], ["name", "seconds", "tests"])
 
 

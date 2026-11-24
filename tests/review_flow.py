@@ -2,15 +2,21 @@
 
 `ReviewFlow`, `SkipFlow` and `PhaseFlow` mix into a `ToolkitFixture` `TestCase` (`class X(ReviewFlow, ToolkitFixture,
 unittest.TestCase)`): they drive a claimed `0002-second` through review, fix and verify rounds, so a module
-that needs a round inherits them and never borrows a method off another module's test class."""
+that needs a round inherits them and never borrows a method off another module's test class.
+
+`ReviewFlow` mixes in before `ToolkitFixture`: `run_phase`, `review`, `fix`, `verdict`, `verify_round`, and
+`commit` in a worktree. `SkipFlow` adds a proof command and the task's worktree, for `verify.skip_review`
+(`reviewed`, `push`, `verify`, its own `commit` and `fix`; `PROOF`, `SKIP_REVIEW_PLANE`)."""
 from __future__ import annotations
 
 import json
 import tempfile
 from pathlib import Path
 
+from tests.helpers import PLANE_ROOT
 from tests.report_helpers import done_report
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 A, B = "a" * 40, "b" * 40
 
@@ -38,7 +44,7 @@ class ReviewFlow:
         return self.run_phase("fix", head, f"PR: #7\nHead: {to}")
 
     def verdict(self, head: str, verdict: str = "approve"):
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head, verdict=verdict)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": verdict == "approve", "evidence": "ran it",

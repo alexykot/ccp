@@ -17,7 +17,8 @@ from tests.helpers import PLANE_ROOT, REVIEW_REGISTER as REGISTER, Product, tagg
 from tests.report_helpers import done_report
 from tests.review_flow import A, ReviewFlow
 from tests.team_hosting_fixture import TeamCase
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 RERUN = "re-measure its figures"  # the stale-Context line's ask (tasklog.stale_context)
 

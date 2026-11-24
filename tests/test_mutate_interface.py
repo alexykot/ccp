@@ -12,7 +12,8 @@ import unittest
 from pathlib import Path
 
 from ccp import config, mutate, runs
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 CALC = "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n\n\ndef unused(a):\n    return a * 2\n"
 ONE = """import unittest

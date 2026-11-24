@@ -88,9 +88,7 @@ class ReaderFixture(ToolkitFixture):
         usage.cache_path(self.cmd).write_text(json.dumps(keys))
 
     def plane(self, **blocks) -> None:
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg.update(blocks)
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg.update(blocks))
 
     def claim(self, tid: str):
         return self.ccp("tasks", "claim", tid, root=self.main)

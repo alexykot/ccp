@@ -15,8 +15,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, lifecycle, wt
-from tests.helpers import binding, GIT_ENV
-from tests.toolkit_fixture import PLANE, git
+from tests.helpers import binding, GIT_ENV, PLANE_ROOT
+from tests.git_helpers import git
 from tests.wt_fixture import WtFixture
 
 
@@ -595,7 +595,7 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         self.solo = self.main / config.WORKTREES_DIR / "runner"  # `worktrees.dir` is the constant; the runner is `runner` in it (§8.3)
 
     def spawn(self, *extra: str):
-        r = subprocess.run(["bash", str(PLANE / "scripts" / "team.sh"), "runner", "spawn", "--scope", "0002-second", *extra],
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / "team.sh"), "runner", "spawn", "--scope", "0002-second", *extra],
                            capture_output=True, text=True, env=dict(os.environ))
         return r.returncode, (json.loads(r.stdout) if r.stdout.strip().startswith("{") else None), r.stderr
 

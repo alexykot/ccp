@@ -18,17 +18,18 @@ from unittest import mock
 from ccp import adr, architect, cli, config, schema, tasklog, usage, verify, wt
 from ccp.queue import lib
 from ccp.schema import schema_errors
-from tests.helpers import Product, binding
+from tests.helpers import Product, binding, PLANE_ROOT
 from tests.architect_fixture import FINDING, Harness
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 from tests.wt_fixture import WtFixture
 
-sys.path.insert(0, str(PLANE / "scripts/observability"))
+sys.path.insert(0, str(PLANE_ROOT / "scripts/observability"))
 import spec_maintainer  # noqa: E402
 
 
 def contract(name: str) -> dict:
-    return json.loads((PLANE / "contracts" / name).read_text())
+    return json.loads((PLANE_ROOT / "contracts" / name).read_text())
 
 
 class WorktreeContract(WtFixture, unittest.TestCase):
@@ -110,7 +111,7 @@ class QueueWriters(unittest.TestCase):
         self.env.pop("PROJECT_YAML", None)
 
     def script(self, name: str, *argv: str) -> dict:
-        r = subprocess.run(["bash", str(PLANE / "scripts" / name), *argv], capture_output=True, text=True, env=self.env)
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / name), *argv], capture_output=True, text=True, env=self.env)
         self.assertEqual(r.returncode, 0, r.stderr)
         return json.loads(r.stdout)
 
@@ -157,7 +158,7 @@ class Examples(unittest.TestCase):
     def test_the_allowance_example_validates_and_the_reader_parses_its_windows(self):
         rec = contract("allowance.example.json")
         self.assertEqual(schema_errors(rec, contract("allowance.schema.json")), [])
-        wins, ok, code, retry = usage._run(f"cat '{PLANE / 'contracts/allowance.example.json'}'")
+        wins, ok, code, retry = usage._run(f"cat '{PLANE_ROOT / 'contracts/allowance.example.json'}'")
         self.assertEqual((ok, code, retry), (True, 0, 60))
         self.assertEqual([(w["name"], w["pct"]) for w in wins],
                          [(w["name"], w["pct"]) for w in rec["windows"]])
@@ -182,7 +183,7 @@ class Examples(unittest.TestCase):
         self.assertEqual(architect.ar.validate_triage(rec, rec["review_id"]), [])
 
     def test_the_task_file_example_validates_and_ccp_tasks_check_accepts_it(self):
-        text = (PLANE / "contracts/task_file.example.md").read_text()
+        text = (PLANE_ROOT / "contracts/task_file.example.md").read_text()
         fm = tasklog.frontmatter(text)
         self.assertEqual(schema_errors(fm, contract("task_file.schema.json")), [])
         self.assertEqual(fm["status"], "pending")
@@ -198,7 +199,7 @@ class Examples(unittest.TestCase):
 
 class InitContracts(unittest.TestCase):
     def test_the_plane_json_binding_and_machine_file_ccp_init_writes_validate(self):
-        ccp = [str(PLANE / "bin/ccp")]
+        ccp = [str(PLANE_ROOT / "bin/ccp")]
         env = {k: v for k, v in os.environ.items() if k not in ("QUEUE_ROOT", "PROJECT_YAML")}
         made = subprocess.run([*ccp, "sandbox", "create", "--", "--project-id", "demo", "--language", "python"],
                               capture_output=True, text=True, env=env)
@@ -264,7 +265,7 @@ class GateResultContract(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             f = Path(d) / "gate.log"
             f.write_text(log)
-            r = subprocess.run([sys.executable, str(PLANE / "scripts/gate_result.py"), str(f), "7"],
+            r = subprocess.run([sys.executable, str(PLANE_ROOT / "scripts/gate_result.py"), str(f), "7"],
                                capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         result = json.loads(r.stdout)
@@ -418,7 +419,7 @@ class Checker(unittest.TestCase):
                 for i, sub in enumerate(node.get(key) or []):
                     walk(sub, f"{where}/{key}/{i}", name)
 
-        files = sorted((PLANE / "contracts").glob("*.schema.json"))
+        files = sorted((PLANE_ROOT / "contracts").glob("*.schema.json"))
         self.assertGreaterEqual(len(files), 20)
         for f in files:
             walk(json.loads(f.read_text()), "#", f.name)

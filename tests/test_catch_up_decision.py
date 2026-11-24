@@ -18,7 +18,7 @@ from ccp import config, lifecycle, queue, verify
 from ccp.lifecycle import catch_up_blocked, catch_up_precondition
 from ccp.queue import lib
 from tests.helpers import Product
-from tests.toolkit_fixture import git
+from tests.git_helpers import git
 
 
 class NoDeclaredPaths(unittest.TestCase):

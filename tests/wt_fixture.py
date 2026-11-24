@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class WtFixture(ToolkitFixture):

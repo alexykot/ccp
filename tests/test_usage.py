@@ -17,7 +17,6 @@ from ccp.queue import lib
 from tests.helpers import binding, PLANE_ROOT, Product
 from tests.ledger_helpers import api_request as req, FoldRuns, T0
 
-PLANE = PLANE_ROOT
 
 
 def kv(**a):
@@ -734,7 +733,7 @@ class OtelCli(unittest.TestCase):
             (root / ".claude").mkdir(parents=True)
             yml = Path(d) / "demo.yaml"
             yml.write_text(binding(product_root=root))
-            sync = ["bash", str(PLANE / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--check"]
+            sync = ["bash", str(PLANE_ROOT / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--check"]
             (root / ".claude/settings.json").write_text(json.dumps({"enabledPlugins": {"ccp@ccp": True}}))
             clean = subprocess.run(sync, capture_output=True, text=True)
             self.assertNotIn("telemetry", clean.stdout + clean.stderr)

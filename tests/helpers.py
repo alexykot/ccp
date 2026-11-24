@@ -1,4 +1,18 @@
-"""Build throwaway product checkouts for the `ccp` tests."""
+"""Build throwaway product checkouts for the `ccp` tests, and the small constants and builders they share.
+
+`Product` is a temp product root with a plane config and helpers to add tasks and files; most modules build on
+it. `binding(**keys)` is the text of a binding, `project_id: demo` first, then each key: a test that needs a
+binding writes it with this, and only a test of the binding's format or of `ccp init`'s output keeps literal
+text. A test names the worktrees directory as `config.WORKTREES_DIR`.
+
+The constants and builders are each named for what they make: `PLANE_ROOT` (the plane checkout, and the only name
+a test gives it), `GIT_ENV` (git's identity: a test identity, no global or system config), `LEAD_ENV` and
+`as_lead()` (the environment with the lead's `ACTOR`, for a command only the lead may run), `as_actor(value)`
+(`ACTOR` set to another value, or unset), `file_tree` and the rest.
+
+This module loads no `ccp` module on import, so the fence in `tests/__init__.py` comes first. It imports none of
+the four `*_helpers.py` modules, and a test module imports a helper from the module that holds it: an edit to one
+concern then marks only its importers affected."""
 from __future__ import annotations
 
 import copy

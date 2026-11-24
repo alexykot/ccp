@@ -11,8 +11,10 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, verify
+from tests.helpers import PLANE_ROOT
 from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, SkipFlow
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):
@@ -284,7 +286,7 @@ class SkipReviewSetting(ToolkitFixture, unittest.TestCase):
         self.assertIsNone(config.load(self.main).verify["skip_review"])
 
     def test_the_schema_has_the_setting(self):
-        schema = json.loads((PLANE / "contracts/plane_config.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         verify = schema["properties"]["verify"]["properties"]
         self.assertEqual(set(verify), set(config.VERIFY_DEFAULTS))
         self.assertEqual(set(verify["skip_review"]["properties"]), config.SKIP_REVIEW_KEYS)

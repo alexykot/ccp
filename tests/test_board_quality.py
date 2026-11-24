@@ -45,8 +45,7 @@ class Quality(QualityBase, unittest.TestCase):
 
     def test_the_architect_figures_are_the_ones_the_triggers_use(self):
         slots = 3
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "parallel": {"max_in_flight": slots, "schedule": "paths"}}))
+        self.edit_plane(lambda cfg: cfg.update(parallel={"max_in_flight": slots, "schedule": "paths"}))
         self.arch_on()
         self.a_pass()
         for task in ("0002-second", "0002-second", "0003-tidy"):

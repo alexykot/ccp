@@ -10,7 +10,8 @@ import unittest
 from contextlib import redirect_stderr
 
 from ccp import config
-from tests.init_fixture import PLANE, InitCase
+from tests.helpers import PLANE_ROOT
+from tests.init_fixture import InitCase
 
 
 class SessionSettings(InitCase):
@@ -94,7 +95,7 @@ class SessionSettings(InitCase):
 
 class LeadKnob(unittest.TestCase):
     def test_the_binding_contract_carries_the_window_and_its_default(self):
-        schema = json.loads((PLANE / "contracts/project.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/project.schema.json").read_text())
         window = schema["properties"]["lead"]["properties"]["auto_compact_window"]
         self.assertEqual(window["default"], config.LEAD_DEFAULTS["auto_compact_window"])
         self.assertEqual(window["type"], "integer")

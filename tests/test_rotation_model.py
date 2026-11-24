@@ -14,11 +14,10 @@ from tests.helpers import binding, PLANE_ROOT
 from tests.ledger_helpers import api_request as req
 from tests.team_hosting_fixture import TeamCase
 
-PLANE = PLANE_ROOT
 
 
 def declared_model() -> str:
-    text = (PLANE / "plugin/agents/delivery-runner.md").read_text()
+    text = (PLANE_ROOT / "plugin/agents/delivery-runner.md").read_text()
     return re.search(r"^model:\s*(\S+)", text.split("\n---", 1)[0], re.M).group(1)
 
 

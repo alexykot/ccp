@@ -6,7 +6,8 @@ from __future__ import annotations
 import json
 import time
 
-from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
+from tests.helpers import PLANE_ROOT
+from tests.team_hosting_fixture import HOOK, TeamCase
 
 
 def iso(t: float) -> str:
@@ -23,7 +24,7 @@ class IdleHookRotation(TeamCase):
         (self.q / "project.yaml").write_text(yaml + "runner:\n  rotate_at_context_tokens: 100000\n")
 
     def hook(self, name):
-        r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp",
+        r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE_ROOT / "bin" / "ccp",
                          stdin=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": name,
                                            "cwd": str(self.prod.root)}))
         return r.returncode, r.stderr
@@ -87,7 +88,7 @@ class IdleHookRotation(TeamCase):
         self.span("runner", 120000, time.time() - 60)
         stub = self.prod.root / "ccp-stub.sh"  # a ccp that knows no rotation-due: the hook drives as before
         stub.write_text(f"#!/usr/bin/env bash\nif [ \"$3 $4\" = \"tasks rotation-due\" ]; then exit 2; fi\n"
-                        f"exec \"{PLANE / 'bin' / 'ccp'}\" \"$@\"\n")
+                        f"exec \"{PLANE_ROOT / 'bin' / 'ccp'}\" \"$@\"\n")
         stub.chmod(0o755)
         r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", stub,
                          stdin=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": "runner",
@@ -112,7 +113,7 @@ class IdleHookHeldTask(TeamCase):
                                                       "in_flight": in_flight}))
 
     def hook(self):
-        r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp",
+        r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE_ROOT / "bin" / "ccp",
                          stdin=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": "runner",
                                            "cwd": str(self.prod.root)}))
         return r.returncode, r.stderr

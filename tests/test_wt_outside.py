@@ -8,8 +8,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, lifecycle, prompt, wt
-from tests.helpers import Product
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.helpers import Product, PLANE_ROOT
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 LEGACY_OFF = {"worktree_dir": None, "worktree_links": [".venv"], "post_close": ["touch closed-{nnnn}"]}
 
@@ -110,7 +111,7 @@ class Sibling(SiblingFixture, unittest.TestCase):
         head = git(impl, "rev-parse", "HEAD")
         self.open_pr()
         self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it", "produced_by": "verifier"}]

@@ -11,8 +11,9 @@ from unittest import mock
 
 from ccp import config, tasklog
 from ccp.queue import lib
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
-from tests.helpers import as_lead
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
+from tests.helpers import as_lead, PLANE_ROOT
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
 
@@ -41,7 +42,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         return [e for e in self.events() if (e["type"], e["op"]) == ("sign_off", "recorded")]
 
     def verify_at(self, head: str, name: str) -> None:
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it", "produced_by": "verifier"}]

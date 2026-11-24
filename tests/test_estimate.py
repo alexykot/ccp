@@ -16,7 +16,8 @@ from ccp import config, estimate
 from tests.helpers import GIT_ENV, TASK, Product
 from tests.board_drill_fixture import Fixture
 from tests.board_quality_fixture import HOSTILE
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 from tests.estimate_fixture import EstimatePage, body, entry
 
 

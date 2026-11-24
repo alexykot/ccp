@@ -34,10 +34,9 @@ class ParallelFixture(ToolkitFixture):
         (self.q / "work.json").write_text(json.dumps({"status": "running"}))
 
     def plane(self, **par):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
         machine_file(self, allowance_cmd=f"cat '{self.reading}'")
-        cfg["parallel"] = {"schedule": "paths", **par}  # the default schedule is `clashes`: these tests are about paths
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        # the default schedule is `clashes`: these tests are about paths
+        self.edit_plane(lambda cfg: cfg.update(parallel={"schedule": "paths", **par}))
 
     def five(self, pct):
         self.reading.write_text(json.dumps({"five_hour": {"utilization": pct}, "seven_day": {"utilization": 5}}))

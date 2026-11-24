@@ -11,10 +11,10 @@ import unittest
 from pathlib import Path
 
 from tests.git_helpers import git, run
-from tests.helpers import binding, PLANE_ROOT as PLANE, RUN_CHECKOUT_SCRIPT as SCRIPT
+from tests.helpers import binding, PLANE_ROOT, RUN_CHECKOUT_SCRIPT as SCRIPT
 
 OLD_CCP = "#!/bin/sh\nexit 0\n"  # the old rules: every check passes
-NEW_CCP = f'#!/bin/sh\nexec python3 "{PLANE}/bin/ccp" "$@"\n'  # the new rules: this plane's ccp
+NEW_CCP = f'#!/bin/sh\nexec python3 "{PLANE_ROOT}/bin/ccp" "$@"\n'  # the new rules: this plane's ccp
 BAD_ADR = "---\nstatus: bogus\n---\n# An ADR\n"
 
 
@@ -42,7 +42,7 @@ class ReleaseChecksProducts(unittest.TestCase):
         # The run checkout's binding parser, present and untracked as a clean checkout's code is: the
         # release reads each binding through it.
         (self.run_dir / "scripts/observability").mkdir(parents=True)
-        shutil.copy(PLANE / "scripts/observability/lib.py", self.run_dir / "scripts/observability/lib.py")
+        shutil.copy(PLANE_ROOT / "scripts/observability/lib.py", self.run_dir / "scripts/observability/lib.py")
         self.env = {"CCP_RUN_CHECKOUT": str(self.run_dir), "CCP_BIN_LINK": str(self.d / "bin/ccp"),
                     "CCP_BINDINGS_DIR": str(self.run_dir / "projects")}
 
@@ -65,7 +65,7 @@ class ReleaseChecksProducts(unittest.TestCase):
         cfg = {"project_id": name, **({"adr": {"dir": "docs/adr"}} if adr else {})}
         (root / "docs/delivery/plane.json").write_text(json.dumps(cfg))
         git(root, "init", "-q", "-b", branch)
-        r = run([str(PLANE / "bin/ccp"), "--root", str(root), "tasks", "index"])
+        r = run([str(PLANE_ROOT / "bin/ccp"), "--root", str(root), "tasks", "index"])
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         git(root, "add", "docs")
         git(root, "commit", "-qm", "conforming")

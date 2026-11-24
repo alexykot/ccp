@@ -12,8 +12,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, verify
+from tests.helpers import PLANE_ROOT
 from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, ReviewFlow, SkipFlow
-from tests.toolkit_fixture import PLANE, ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 A, B, C = "a" * 40, "b" * 40, "c" * 40
 CLEAN = "Severity: BLOCKER=0 MAJOR=0 MINOR=2 NIT=0"
@@ -263,7 +264,7 @@ class SkipAfterCleanOff(Rounds, unittest.TestCase):
                 self.assertIn("verify.skip_review_after_clean must be true or false", str(cm.exception))
 
     def test_the_schema_has_the_setting(self):
-        schema = json.loads((PLANE / "contracts/plane_config.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         knob = schema["properties"]["verify"]["properties"]["skip_review_after_clean"]
         self.assertEqual((knob["type"], knob["default"]), ("boolean", config.VERIFY_DEFAULTS["skip_review_after_clean"]))
 

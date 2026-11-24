@@ -6,8 +6,8 @@ import json
 import unittest
 
 from ccp import config, drill, report, suite, tasklog
+from tests.helpers import PLANE_ROOT
 from tests.suite_fixture import PY, SuiteFixture
-from tests.toolkit_fixture import PLANE
 from tests.verify_cache_fixture import CacheFixture
 
 SECTION = "`verify.accept_cache`"
@@ -36,10 +36,10 @@ class Config(CacheFixture, unittest.TestCase):
         self.assertIsNone(config.load(self.main).verify["accept_cache"])
 
     def test_the_schema_has_the_block_and_the_gate_counts(self):
-        schema = json.loads((PLANE / "contracts/plane_config.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         ac = schema["properties"]["verify"]["properties"]["accept_cache"]["properties"]
         self.assertEqual(set(ac), set(config.ACCEPT_CACHE_DEFAULTS))
-        runs = json.loads((PLANE / "contracts/verification.schema.json").read_text())
+        runs = json.loads((PLANE_ROOT / "contracts/verification.schema.json").read_text())
         item = runs["properties"]["gate"]["properties"]["runs"]["items"]["properties"]
         self.assertTrue({"ran", "cached", "cold", "modules_ran", "modules_cached"} <= set(item))
 

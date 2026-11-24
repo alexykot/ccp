@@ -13,9 +13,10 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, prompt, submit, suite
+from tests.helpers import PLANE_ROOT
 from tests.report_helpers import done_report
 from tests.review_flow import CLEAN, MAJOR, PROOF, SKIP_REVIEW_PLANE, PhaseFlow, SkipFlow, A, B
-from tests.toolkit_fixture import PLANE, ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 MINOR_ONLY = "BLOCKER=0 MAJOR=0 MINOR=2 NIT=0"
 
@@ -334,7 +335,7 @@ class Failures(unittest.TestCase):
         self.assertEqual([f.split(":")[0] for f in failed], list(submit.ITEMS))
 
     def test_the_items_are_the_standing_dods_formal_submit_items(self):
-        text = (PLANE / "dod" / "standing.yaml").read_text()
+        text = (PLANE_ROOT / "dod" / "standing.yaml").read_text()
         block = re.search(r"- id: formal_submit\n(.*?)(?=\n  - id: |\Z)", text, re.S)
         must = re.search(r"\n    must:\n((?:      - .*\n)+)", block.group(1) if block else "")
         self.assertIsNotNone(must)
@@ -374,7 +375,7 @@ class Script(unittest.TestCase):
             stub = Path(d) / "ccp"
             stub.write_text('#!/bin/sh\necho "$@" > "$(dirname "$0")/argv"\nexit 4\n')
             stub.chmod(0o755)
-            r = subprocess.run(["bash", str(PLANE / "scripts/formal-submit.template.sh"), "0009-x"], capture_output=True,
+            r = subprocess.run(["bash", str(PLANE_ROOT / "scripts/formal-submit.template.sh"), "0009-x"], capture_output=True,
                                text=True, env={**os.environ, "PATH": f"{d}:{os.environ['PATH']}"})
             self.assertEqual(r.returncode, 4, r.stderr)
             self.assertEqual((Path(d) / "argv").read_text().split(), ["tasks", "submit", "0009-x"])

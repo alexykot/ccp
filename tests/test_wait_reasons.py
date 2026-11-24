@@ -22,20 +22,19 @@ from ccp.queue import QueueError
 from tests.helpers import as_lead, PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
-PLANE = PLANE_ROOT
-sys.path.insert(0, str(PLANE / "scripts" / "observability"))
+sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
 
 import lib  # noqa: E402
 import spec_maintainer as sm  # noqa: E402
 
-WRITER = PLANE / "scripts" / "observability" / "set-waiting-on.sh"
+WRITER = PLANE_ROOT / "scripts" / "observability" / "set-waiting-on.sh"
 TASK = "0001-a"
 
 
 def spec_reasons() -> tuple[list[str], list[str]]:
     """The backticked names inside the parentheses after `reason` in §23.2's `waiting_on` `set` row: those before
     the `;`, and those after it."""
-    text = (PLANE / "docs" / "spec" / "04-observability.md").read_text()
+    text = (PLANE_ROOT / "docs" / "spec" / "04-observability.md").read_text()
     row = next(x for x in text.splitlines() if x.startswith("| `waiting_on` | `set` |"))
     inside = re.search(r"`reason` \(([^)]*)\)", row)
     assert inside is not None, row
@@ -46,7 +45,7 @@ def spec_reasons() -> tuple[list[str], list[str]]:
 
 class OneTable(unittest.TestCase):
     def test_the_task_contract_enum_is_lib_s_table(self) -> None:
-        schema = json.loads((PLANE / "contracts" / "task.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts" / "task.schema.json").read_text())
         enum = [x for x in schema["properties"]["waiting_on"]["enum"] if x is not None]
         self.assertEqual(sorted(enum), sorted(lib.WAIT_REASONS + lib.WAIT_READ_ONLY))
         self.assertFalse(set(lib.WAIT_REASONS) & set(lib.WAIT_READ_ONLY))

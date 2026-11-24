@@ -10,7 +10,8 @@ from unittest import mock
 from ccp import config, followups, refs, runs, tasklog
 from ccp.queue import lib
 from tests.helpers import as_lead
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 def record(run_id: str, *texts: str, outcomes: dict[int, dict] | None = None) -> dict:

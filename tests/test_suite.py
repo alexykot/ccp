@@ -15,9 +15,9 @@ from unittest import mock
 from pathlib import Path
 
 from ccp import board, config, suite
-from tests.helpers import Product
+from tests.helpers import Product, PLANE_ROOT
 from tests.report_helpers import done_report
-from tests.suite_fixture import CCP, FAILING_MODULE, PLANE, PY, SuiteFixture, TALLY_SUMMARY, _start_log, ccp_proc
+from tests.suite_fixture import CCP, FAILING_MODULE, PY, SuiteFixture, TALLY_SUMMARY, _start_log, ccp_proc
 
 
 def rule_item(text: str, marker: str) -> str:
@@ -618,7 +618,7 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         # §14.1 (amended 2026-10-22): the rule is stated once, in the prompt; a definition names the
         # command only in its evidence bullet (§13.1)
         for a in ("implementer", "reviewer", "verifier"):
-            defn = (PLANE / f"plugin/agents/delivery-{a}.md").read_text()
+            defn = (PLANE_ROOT / f"plugin/agents/delivery-{a}.md").read_text()
             self.assertEqual(defn.count("ccp suite run"), 1, a)
             self.assertNotIn("inside a script", defn, a)
 
@@ -875,7 +875,7 @@ class GateFromSuite(SuiteFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
 
     def record(self, gate_runs: list[dict], head: str = "a" * 40):
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", project_id="demo", head_sha=head)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
@@ -1255,7 +1255,7 @@ class CallerEnvironment(SuiteFixture, unittest.TestCase):
         self.assertEqual([x["op"] for x in self.rows()], ["started", "ended"])
 
     def test_bin_ccp_sets_no_variable(self):
-        text = (PLANE / "bin" / "ccp").read_text()
+        text = (PLANE_ROOT / "bin" / "ccp").read_text()
         self.assertNotIn("PYTHONPATH=", text)
         self.assertNotIn("os.environ", text)
 
@@ -1344,7 +1344,7 @@ class ResultContract(SuiteFixture, unittest.TestCase):
         self.assertEqual(suite.read_result(p)[1], "not a JSON object")
 
     def test_the_schema_names_every_counter_read(self):
-        schema = json.loads((PLANE / "contracts/suite_result.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/suite_result.schema.json").read_text())
         self.assertTrue(set(suite.RESULT_INTS) | {"seconds", "failures"} <= set(schema["properties"]))
 
 
@@ -1394,11 +1394,11 @@ class ReviewFixes(SuiteFixture, unittest.TestCase):
             config.load(self.runner)
 
     def test_no_module_wording_is_left_in_the_contracts_and_prompts(self):
-        pc = json.loads((PLANE / "contracts/plane_config.schema.json").read_text())
+        pc = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         self.assertNotIn("modules_ran", pc["properties"]["verify"]["properties"]["accept_cache"]["description"])
-        vs = json.loads((PLANE / "contracts/verification.schema.json").read_text())
+        vs = json.loads((PLANE_ROOT / "contracts/verification.schema.json").read_text())
         self.assertNotIn("modules_ran", vs["properties"]["gate"]["properties"]["runs"]["items"]["properties"]["suite_id"]["description"])
-        self.assertNotIn("modules ran", (PLANE / "templates/prompts/review.md").read_text())
+        self.assertNotIn("modules ran", (PLANE_ROOT / "templates/prompts/review.md").read_text())
 
 
 class LaneRoles(SuiteFixture, unittest.TestCase):

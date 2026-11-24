@@ -148,8 +148,7 @@ class Prefer(ToolkitFixture, unittest.TestCase):
         self.assertEqual(self.work()["next_tasks"], ["0004-fourth"])
 
     def test_next_takes_the_preference_ahead_of_the_review_points_refactors(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {"shape_from_task": "0001"}}))
+        self.edit_plane(lambda cfg: cfg.update(architect={"shape_from_task": "0001"}))
         self.write("docs/delivery/tasks/0007-tidy.md", TASK.format(tid="0007-tidy", title="Tidy", status="pending", deps="",
                                                                    ver="*Append-only.*").replace('spec_refs: ["S1"]', 'spec_refs: []\nkind: refactor\nrule_refs: ["E1"]'))
         (self.q / "architect.json").write_text(json.dumps({"reviews": {}, "last": {"done_count": 99, "at": "2099-01-01T00:00:00Z"}}))

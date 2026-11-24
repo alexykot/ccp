@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 from ccp import config, doclang, wt
-from tests.toolkit_fixture import git
+from tests.git_helpers import git
 from tests.wt_fixture import WtFixture
 
 

@@ -20,7 +20,8 @@ from unittest import mock
 from ccp import report, runs
 from tests.helpers import DOWNTIME_FIELD as DOWNTIME, GIT_ENV
 from tests.report_helpers import done_report, implement_report, REPORT_HEAD as HEAD
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 # What every report carries, whatever the table says (§13.4): a phase whose prompt lacks one is wrong.
 EVERY_REPORT = ("Outcome:", "Prompt:", "Suite:", "## Friction")

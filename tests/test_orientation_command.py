@@ -15,8 +15,7 @@ from unittest import mock
 from ccp import cli
 from tests.helpers import PLANE_ROOT, Product
 
-PLANE = PLANE_ROOT
-HOOK = PLANE / "plugin" / "hooks" / "orientation.sh"
+HOOK = PLANE_ROOT / "plugin" / "hooks" / "orientation.sh"
 
 
 def hook_text(root: Path) -> str:

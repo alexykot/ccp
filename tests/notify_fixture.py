@@ -1,15 +1,14 @@
 """A scratch product whose notify command appends a line to a file. A fixture module: it holds no tests."""
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 from unittest import mock
 
 from ccp import config, tasklog
 
-from tests.helpers import PLANE_ROOT
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 # One line per run: the trigger, project, task, id, reason, and the line ccp composes, `|`-separated
@@ -30,9 +29,7 @@ class ChannelFixture(ToolkitFixture):
         self.addCleanup(self.out_env.stop)
 
     def set_plane(self, **blocks) -> None:
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg.update(blocks)
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg.update(blocks))
 
     def tag(self, *tids: str) -> None:
         """Give each task `review_point: R1`, commit and push it, and bring the runner worktree along."""
@@ -47,4 +44,3 @@ class ChannelFixture(ToolkitFixture):
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
 
 
-PLANE = PLANE_ROOT

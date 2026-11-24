@@ -14,7 +14,6 @@ from pathlib import Path
 from tests.helpers import PLANE_ROOT
 
 
-ROOT = PLANE_ROOT
 SCRIPTS = ("gate.sh", "gate_parallel.py", "gate_result.py")
 OK = """
 import unittest
@@ -40,7 +39,7 @@ class GateFixture(unittest.TestCase):
         (self.repo / "scripts").mkdir(parents=True)
         (self.repo / "tests").mkdir()
         for s in SCRIPTS:
-            shutil.copy(ROOT / "scripts" / s, self.repo / "scripts" / s)
+            shutil.copy(PLANE_ROOT / "scripts" / s, self.repo / "scripts" / s)
         (self.repo / "tests" / "__init__.py").write_text("")
         (self.repo / ".gitignore").write_text("__pycache__/\n")  # as the plane's own repo has it
         self.meet = Path(self._tmp.name) / "meet"

@@ -13,7 +13,7 @@ from pathlib import Path
 from ccp import board, plan, tasklog
 from tests.helpers import TASK, Product
 from tests.board_quality_fixture import HOSTILE, STUB, QualityBase, _hostile
-from tests.toolkit_fixture import git
+from tests.git_helpers import git
 
 
 def _task(p: Product, tid: str, status: str = "pending", deps: list[str] | None = None, extra: str = "",
@@ -312,8 +312,7 @@ class Rendered(QualityBase, unittest.TestCase):
         return r.stdout
 
     def test_every_plan_string_renders_as_text(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "adr": {}}))
+        self.edit_plane(lambda cfg: cfg.update(adr={}))
         self.write("docs/adr/0003-x.md", "---\nid: ADR-0003\ntitle: \"t\"\nstatus: superseded\nsuperseded_by: ADR-0004\n"
                                          "date: 2026-09-01\nin_force: \"none\"\n---\n# ADR-0003 — t\n")
         self.write("docs/adr/0004-y.md", "---\nid: ADR-0004\ntitle: \"u\"\nstatus: accepted\ndate: 2026-09-02\n---\n# ADR-0004 — u\n")

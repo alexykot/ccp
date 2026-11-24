@@ -11,9 +11,10 @@ from unittest import mock
 from ccp import config, prompt as prompt_mod
 from ccp.queue import QueueError
 from tests import helpers
-from tests.helpers import TASK, binding, as_lead
+from tests.helpers import TASK, binding, as_lead, PLANE_ROOT
 from tests.report_helpers import done_report
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
     # ------------------------------------------------------------------ waits, scope, proposals
@@ -277,7 +278,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         time.sleep(1.2)
         self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
@@ -301,9 +302,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
 
     def test_close_after_a_failed_reconcile_finishes_without_merging_again(self):
         # the failing hook lands before the task's branch is cut, so its head contains the tip (§16.5 rule 4)
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["reconcile"]["hooks"] = ["exit 3"]
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=["exit 3"]), self.runner)
         git(self.runner, "commit", "-qam", "a failing hook")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         head = self._to_approved_pr()
@@ -315,8 +314,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertTrue(merged)
         git(self.runner, "fetch", "-q", "origin")  # close left the runner worktree where it was (§10.5)
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
-        cfg["reconcile"]["hooks"] = []
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=[]), self.runner)
         git(self.runner, "commit", "-qam", "the hook fixed")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
@@ -403,9 +401,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertEqual([op for t, op in self.ops() if t == "waiting_on"], ["set", "clear"])
 
     def test_next_says_why_it_returns_a_refactor_outside_the_scope(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["architect"] = {"shape_from_task": "0001", "refactor_in_scope": True}
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg.update(architect={"shape_from_task": "0001", "refactor_in_scope": True}))
         self.write("docs/delivery/tasks/0003-tidy.md", TASK.format(tid="0003-tidy", title="Tidy", status="pending", deps="",
                                                                    ver="*Append-only.*").replace('spec_refs: ["S1"]', 'spec_refs: []\nkind: refactor\nrule_refs: ["E1"]'))
         self.write("docs/delivery/tasks/0002-second.md", TASK.format(tid="0002-second", title="Second", status="done", deps='"0001-first"',
@@ -417,9 +413,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertIn("refactor_in_scope", out + err)
 
     def test_next_under_deps_says_which_scope_task_needs_the_refactor(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["architect"] = {"shape_from_task": "0001"}  # §20: "deps" is the default
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg.update(architect={"shape_from_task": "0001"}))  # §20: "deps" is the default
         refactor = lambda tid: TASK.format(tid=tid, title="Tidy", status="pending", deps="", ver="*Append-only.*").replace(  # noqa: E731
             'spec_refs: ["S1"]', 'spec_refs: []\nkind: refactor\nrule_refs: ["E1"]')
         self.write("docs/delivery/tasks/0003-tidy.md", refactor("0003-tidy"))
@@ -440,8 +434,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertTrue(out.startswith("0005-uses"), out + err)  # 0004-unrelated waits for the next review point
 
     def test_next_takes_the_review_points_refactors_first_and_says_why(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {"shape_from_task": "0001"}}))
+        self.edit_plane(lambda cfg: cfg.update(architect={"shape_from_task": "0001"}))
         self.write("docs/delivery/tasks/0003-tidy.md", TASK.format(tid="0003-tidy", title="Tidy", status="pending", deps="",
                                                                    ver="*Append-only.*").replace('spec_refs: ["S1"]', 'spec_refs: []\nkind: refactor\nrule_refs: ["E1"]'))
         (self.q / "work.json").write_text(json.dumps({"status": "running", "scope": ["0003-tidy", "0002-second"],
@@ -618,7 +611,7 @@ class OwnPlaneJson(ToolkitFixture, unittest.TestCase):
     PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "worktrees": {"links": [".venv", "own"]}}
 
     def test_the_template_holds_the_classs_own_plane_json(self):
-        self.assertEqual(json.loads((self.main / "docs/delivery/plane.json").read_text()), self.PLANE_JSON)
+        self.assertEqual(json.loads((self.main / config.CONFIG_REL).read_text()), self.PLANE_JSON)
         self.assertEqual(config.load(self.main).worktrees["links"], [".venv", "own"])
 
 

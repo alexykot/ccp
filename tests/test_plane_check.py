@@ -16,8 +16,7 @@ from pathlib import Path
 from ccp import queue
 from tests.helpers import PLANE_ROOT
 
-PLANE = PLANE_ROOT
-CCP = PLANE / "bin" / "ccp"
+CCP = PLANE_ROOT / "bin" / "ccp"
 
 
 # Every top-level name the plane writes or still reads in a queue, as a file or a directory.
@@ -62,7 +61,7 @@ class SandboxCase(unittest.TestCase):
         """The four entries of an earlier generation's queue: two at the root, two scripts."""
         files = {"run-task.sh": "#!/bin/sh\necho old\n", "old-briefs/0001.md": "an old brief\n",
                  "scripts/queue/claim.sh": "#!/bin/sh\nclaim\n",
-                 "scripts/gate.sh": (PLANE / "scripts/gate.sh").read_text() + "echo extra\n"}
+                 "scripts/gate.sh": (PLANE_ROOT / "scripts/gate.sh").read_text() + "echo extra\n"}
         for rel, text in files.items():
             self.put(rel, text)
         return files
@@ -200,7 +199,7 @@ class Archive(SandboxCase):
         with open(self.sb["binding"], "a") as fh:
             fh.write("auth_check:\n  script: scripts/auth-check.sh\n")
         auth = self.put("scripts/auth-check.sh", "#!/bin/sh\nexit 0\n")
-        gate = self.put("scripts/gate.sh", (PLANE / "scripts/gate.sh").read_text())
+        gate = self.put("scripts/gate.sh", (PLANE_ROOT / "scripts/gate.sh").read_text())
         code, body, err = self.ccp("plane", "check", "--archive")
         self.assertEqual(code, 0, err)
         self.assertEqual((body["scripts"], body["root"], [r["path"] for r in body["archived"]], body["not_moved"]),

@@ -10,11 +10,13 @@ import unittest
 from pathlib import Path
 
 from ccp import config, otel, prompt, runs, usage
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.helpers import PLANE_ROOT
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 from tests.verify_cache_fixture import CacheFixture
 from tests.render_helpers import phase_values as values, PROMPT_TEMPLATES as TEMPLATES, render_phase_values as render
 
-AGENTS = PLANE / "plugin" / "agents"
+AGENTS = PLANE_ROOT / "plugin" / "agents"
 WORKER_TOOLS = {
     "implementer": "Bash, Read, Edit, Write, Grep, Glob, SendMessage, ToolSearch",
     "reviewer": "Bash, Read, Write, Grep, Glob, SendMessage, ToolSearch",

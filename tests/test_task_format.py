@@ -8,8 +8,7 @@ import unittest
 from ccp import parallel, tasklog
 from tests.helpers import PLANE_ROOT, Product
 
-ROOT = PLANE_ROOT
-SCHEMA = json.loads((ROOT / "contracts/task_file.schema.json").read_text())
+SCHEMA = json.loads((PLANE_ROOT / "contracts/task_file.schema.json").read_text())
 
 
 def front(p: Product, tid: str, old: str, new: str) -> None:
@@ -27,7 +26,7 @@ class Schema(unittest.TestCase):
         self.assertEqual(refused, set(tasklog.RUNTIME_KEYS))
 
     def test_the_template_frontmatter_is_covered(self):
-        tmpl = (ROOT / "templates/docs-delivery/TEMPLATE-task.md").read_text()
+        tmpl = (PLANE_ROOT / "templates/docs-delivery/TEMPLATE-task.md").read_text()
         head = tmpl.split("\n---\n", 1)[0]
         keys = set(re.findall(r"^#?\s*([a-z_]+):", head, re.M)) - {"task_id"}  # commented examples too
         keys |= {"task_id"}
@@ -35,7 +34,7 @@ class Schema(unittest.TestCase):
         self.assertEqual(missing, set())
 
     def test_the_template_carries_the_canonical_sections_in_order(self):
-        tmpl = (ROOT / "templates/docs-delivery/TEMPLATE-task.md").read_text()
+        tmpl = (PLANE_ROOT / "templates/docs-delivery/TEMPLATE-task.md").read_text()
         heads = re.findall(r"^## (.+)$", tmpl, re.M)
         self.assertEqual(heads, list(tasklog.SECTIONS))
 

@@ -9,7 +9,6 @@ from pathlib import Path
 
 from tests.helpers import PLANE_ROOT
 
-ROOT = PLANE_ROOT
 WORD = "zzleakword" + "qq"  # split: this file is tracked too
 
 
@@ -19,7 +18,7 @@ class LeakCheckLookup(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / "repo"
         (self.repo / "scripts").mkdir(parents=True)
-        shutil.copy(ROOT / "scripts/leak-check.sh", self.repo / "scripts/leak-check.sh")
+        shutil.copy(PLANE_ROOT / "scripts/leak-check.sh", self.repo / "scripts/leak-check.sh")
         (self.repo / "notes.txt").write_text(f"a line with {WORD} in it\n")
         subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
         subprocess.run(["git", "-C", str(self.repo), "add", "."], check=True)

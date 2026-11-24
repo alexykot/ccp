@@ -9,7 +9,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, lifecycle, prhost
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.helpers import PLANE_ROOT
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
@@ -43,9 +45,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("merge-0002", git(self.main, "worktree", "list"))
 
     def test_a_failed_reconcile_is_discarded_by_the_rerun_in_the_merge_worktree(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["reconcile"]["hooks"] = ["touch hook-ran && exit 3"]
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=["touch hook-ran && exit 3"]), self.runner)
         git(self.runner, "commit", "-qam", "a failing hook")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         git(self.main, "pull", "-q", "origin", "main")
@@ -56,8 +56,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertEqual(self._state(self.main), before)
         merge_wt = self.main / config.WORKTREES_DIR / "merge-0002"
         self.assertTrue((merge_wt / "hook-ran").exists())  # the half-done reconcile is in close's own worktree
-        cfg["reconcile"]["hooks"] = []
-        (self.main / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=[]))
         git(self.main, "commit", "-qam", "the hook fixed")
         git(self.main, "pull", "-q", "--rebase", "origin", "main")
         git(self.main, "push", "-q", "origin", "main")
@@ -71,17 +70,14 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertFalse(merge_wt.exists())
 
     def test_a_rerun_after_a_failed_reconcile_takes_the_pr_number_as_it_was_given(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["reconcile"]["hooks"] = ["test -f hook-ok"]
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=["test -f hook-ok"]), self.runner)
         git(self.runner, "commit", "-qam", "a hook that fails first")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         git(self.main, "pull", "-q", "origin", "main")
         self._to_approved_pr()
         code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", f"0{self.PR}", root=self.main)  # the host reads 01 as 1
         self.assertEqual(code, 1, out + err)
-        cfg["reconcile"]["hooks"] = []
-        (self.main / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=[]))
         git(self.main, "commit", "-qam", "the hook fixed")
         git(self.main, "pull", "-q", "--rebase", "origin", "main")
         git(self.main, "push", "-q", "origin", "main")
@@ -169,9 +165,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
 
     def test_a_reused_merge_worktree_gets_a_links_path_added_since_the_failed_close_made_it(self):
         seen = self.main.parent / "hook-seen"
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["reconcile"]["hooks"] = ["exit 3"]
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=["exit 3"]), self.runner)
         git(self.runner, "commit", "-qam", "a failing hook")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         git(self.main, "pull", "-q", "origin", "main")
@@ -182,9 +176,8 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertTrue(merge_wt.is_dir())
         self.write("tools/marker", "linked in\n")  # untracked and ignored, in the main checkout only
         self.write(".gitignore", (self.main / ".gitignore").read_text() + "tools/\n")
-        cfg["worktrees"]["links"] = [".venv", "tools"]
-        cfg["reconcile"]["hooks"] = [f"cat tools/marker > {seen}"]
-        (self.main / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        self.edit_plane(lambda cfg: (cfg["worktrees"].update(links=[".venv", "tools"]),
+                                     cfg["reconcile"].update(hooks=[f"cat tools/marker > {seen}"])))
         git(self.main, "commit", "-qam", "a new links path and a hook that reads it")
         git(self.main, "pull", "-q", "--rebase", "origin", "main")
         git(self.main, "push", "-q", "origin", "main")
@@ -194,9 +187,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("tools", body["committed"])
 
     def test_a_failed_close_leaves_a_merge_worktree_that_wt_list_shows_and_gc_keeps_while_leased(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["reconcile"]["hooks"] = ["exit 3"]
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=["exit 3"]), self.runner)
         git(self.runner, "commit", "-qam", "a failing hook")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         self._to_approved_pr()
@@ -242,7 +233,7 @@ class CloseListsChecksNotAsWritten(ToolkitFixture, unittest.TestCase):
         gates.mkdir(parents=True)
         (gates / "1.json").write_text(json.dumps({"task_id": "0002-second", "escalation_id": "0002-second-1",
                                                   "class": "other", "status": "closed", "decision": "approved"}))
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "check-01", "pass": True, "as_written": False,
@@ -282,7 +273,7 @@ class CloseNamesCarriedChecks(ToolkitFixture, unittest.TestCase):
     def test_the_verification_line_names_the_checks_carried_from_an_earlier_approval(self):
         head = self._to_approved_pr()
         earlier = git(self.main / config.WORKTREES_DIR / "impl-0002", "rev-parse", "HEAD~1")
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": cid, "ran": False, "pass": None, "rests_on": f"approve at {earlier}",

@@ -12,10 +12,10 @@ import unittest
 from pathlib import Path
 
 from ccp.queue import lib
-from tests.helpers import Product, binding
-from tests.team_hosting_fixture import HOOK, PLANE, TEAM, TeamCase
+from tests.helpers import Product, binding, PLANE_ROOT
+from tests.team_hosting_fixture import HOOK, TEAM, TeamCase
 
-ASK = PLANE / "scripts" / "spec-maintainer-ask.sh"
+ASK = PLANE_ROOT / "scripts" / "spec-maintainer-ask.sh"
 
 
 class TestRunner(TeamCase):
@@ -361,7 +361,7 @@ class TestTeamLeadQuestions(TeamCase):
 
 class TestIdleHook(TeamCase):
     def hook(self, name="runner", **extra):
-        r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp",
+        r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE_ROOT / "bin" / "ccp",
                          stdin=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": name,
                                            "cwd": str(self.prod.root), **extra}))
         self.stderr = r.stderr
@@ -605,7 +605,7 @@ class TestKeepBodyImport(unittest.TestCase):
         self.addCleanup(q.cleanup)
         (Path(q.name) / "project.yaml").write_text(binding(product_root=prod.root))
         with mock.patch.object(sys, "path", list(sys.path)):
-            spec = importlib.util.spec_from_file_location("team_keep_body", PLANE / "scripts/observability/team.py")
+            spec = importlib.util.spec_from_file_location("team_keep_body", PLANE_ROOT / "scripts/observability/team.py")
             team = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(team)
             self.assertEqual(team.keep_body(Path(q.name)), ["--keep-body"])
@@ -613,7 +613,7 @@ class TestKeepBodyImport(unittest.TestCase):
             for _ in range(3):
                 self.assertEqual(team.keep_body(Path(q.name)), ["--keep-body"])
             self.assertEqual(sys.path, after_one)
-            self.assertIn(str(PLANE), sys.path)
+            self.assertIn(str(PLANE_ROOT), sys.path)
 
 
 class TestAgentModels(unittest.TestCase):
@@ -621,7 +621,7 @@ class TestAgentModels(unittest.TestCase):
     its effort, so nothing depends on the lead session's settings."""
 
     def front(self, name):
-        text = (PLANE / "plugin" / "agents" / f"{name}.md").read_text()
+        text = (PLANE_ROOT / "plugin" / "agents" / f"{name}.md").read_text()
         self.assertTrue(text.startswith("---\n"), name)
         from ccp import runs  # noqa: PLC0415
         return runs.agent_frontmatter(text)
@@ -632,13 +632,13 @@ class TestAgentModels(unittest.TestCase):
             self.assertEqual((f["name"], f["model"], f.get("effort")), (name, model, effort), name)
 
     def test_runner_launches_workers_by_type_with_a_model_only_as_printed(self):
-        brief = (PLANE / "plugin" / "agents" / "delivery-runner.md").read_text()
+        brief = (PLANE_ROOT / "plugin" / "agents" / "delivery-runner.md").read_text()
         for worker in ("delivery-implementer", "delivery-reviewer", "delivery-verifier"):
             self.assertIn(f"`{worker}` subagent", brief)
         self.assertIn("Pass `model` in the Agent call\nonly when `ccp prompt` prints it", brief)  # §2.4
 
     def test_a_single_runner_is_told_to_make_its_missing_worktree_with_ccp(self):
-        brief = (PLANE / "plugin" / "agents" / "delivery-runner.md").read_text()
+        brief = (PLANE_ROOT / "plugin" / "agents" / "delivery-runner.md").read_text()
         single = brief.split("## Several runners", 1)[0]  # §12.1: the part a runner with no slot follows
         self.assertIn("`ccp tasks worktree`", single)
 
@@ -648,7 +648,7 @@ class TestArchitectInTemplates(unittest.TestCase):
     metrics, and gives implementers the house rules; every worker reports friction."""
 
     def brief(self, name):
-        return " ".join((PLANE / "plugin" / "agents" / f"{name}.md").read_text().split())
+        return " ".join((PLANE_ROOT / "plugin" / "agents" / f"{name}.md").read_text().split())
 
     def test_acceptance_7_runner_handles_exit_4(self):
         b = self.brief("delivery-runner")
@@ -660,7 +660,7 @@ class TestArchitectInTemplates(unittest.TestCase):
         # and `ccp prompt` gives every worker the house rules.
         self.assertIn("`ccp report <run_id> <report path>`", b)
         self.assertIn("(SPEC §13.4)", b)
-        common = (PLANE / "templates" / "prompts" / "_common.md").read_text()
+        common = (PLANE_ROOT / "templates" / "prompts" / "_common.md").read_text()
         self.assertIn("{{#rules_doc}}- Read the house rules, {{rules_doc}}", common)
 
     def test_workers_read_the_rules(self):
@@ -691,7 +691,7 @@ class TheRunnerSpawnFollowsCcpsDefault(TeamCase):
 class TestSync(TeamCase):
     def test_installs_agent_and_executable_hook(self):
         yml = self.q / "project.yaml"
-        r = subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
                             "--allow-dirty"], capture_output=True, text=True)
         if "is not committed" in r.stderr:
             self.skipTest("templates not committed yet")
@@ -705,7 +705,7 @@ class TestSync(TeamCase):
         self.assertEqual(lines[0], "#!/usr/bin/env bash")
         self.assertTrue(lines[1].startswith("# Managed copy of control-plane `plugin/hooks/runner-idle.sh`"))
         self.assertTrue(os.access(hook, os.X_OK))
-        chk = subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
+        chk = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
                               "--check"], capture_output=True, text=True)
         self.assertNotIn("DRIFT .claude/hooks", chk.stdout)
 
@@ -714,7 +714,7 @@ class TestSync(TeamCase):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"shape_from_task": "0001"}}))
         self.patch_default("ARCHITECT_DEFAULTS", "rules_doc", "docs/HOUSE-RULES.md")
         yml = self.q / "project.yaml"
-        chk = subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
+        chk = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
                               "--check"], capture_output=True, text=True, env=self.env)
         if "is not committed" in chk.stderr:
             self.skipTest("templates not committed yet")
@@ -722,7 +722,7 @@ class TestSync(TeamCase):
 
     def test_architect_skill_replaces_the_two_old_ones(self):
         yml = self.q / "project.yaml"
-        sync = ["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--allow-dirty"]
+        sync = ["bash", str(PLANE_ROOT / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--allow-dirty"]
         header = "> Managed copy of control-plane `plugin/skills/docs-audit/SKILL.md` at abc1234. Edit it.\n"
         self.prod.write(".claude/skills/docs-audit/SKILL.md", "---\nname: docs-audit\n---\n\n" + header)
         self.prod.write(".claude/skills/architecture-review/SKILL.md", "---\nname: architecture-review\n---\nmine\n")

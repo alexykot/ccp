@@ -15,7 +15,8 @@ from unittest import mock
 
 from ccp import config, dryrun, tasklog
 from tests.helpers import TASK, Product
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 CHECKS = """- id: `cmd-01`
   story: As a writer, my check's command runs.

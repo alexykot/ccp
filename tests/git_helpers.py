@@ -1,4 +1,12 @@
-"""The git runner the tests share. Holds no tests."""
+"""The git runner the tests share. Holds no tests.
+
+`git(cwd, *args, env=None, raw=False)` is the one runner, and a test module takes it from here, never from a
+fixture module: an edit to it then marks the tests that run it affected. It runs `git -C <cwd>` with `GIT_ENV` (a
+test identity, no global or system config) and `env`, fails the test naming the command and its stderr on a
+non-zero exit, and returns stdout stripped, or as written with `raw=True`. A new test defines no runner of its own.
+
+`run(cmd, **kw)` runs any command with `GIT_ENV` and returns a `CompletedProcess`; `commit(root, msg, at, *extra)`
+makes a commit at the epoch second `at`; `HEALTH_T0` is the epoch the health tests count from."""
 from __future__ import annotations
 
 import os

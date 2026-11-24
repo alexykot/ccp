@@ -11,8 +11,7 @@ from pathlib import Path
 
 from tests.helpers import PLANE_ROOT
 
-PLANE = PLANE_ROOT
-CCP = PLANE / "bin" / "ccp"
+CCP = PLANE_ROOT / "bin" / "ccp"
 
 
 class SandboxCase(unittest.TestCase):

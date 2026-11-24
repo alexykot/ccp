@@ -12,12 +12,11 @@ from pathlib import Path
 
 from tests.helpers import binding, PLANE_ROOT
 
-ROOT = PLANE_ROOT
 
 
 def ccp(*args: str) -> subprocess.CompletedProcess[str]:
     env = {k: v for k, v in os.environ.items() if k not in ("QUEUE_ROOT", "CCP_LEAK_DENYLIST")}
-    return subprocess.run([sys.executable, str(ROOT / "bin/ccp"), "--root", str(ROOT), *args],
+    return subprocess.run([sys.executable, str(PLANE_ROOT / "bin/ccp"), "--root", str(PLANE_ROOT), *args],
                           capture_output=True, text=True, env=env, timeout=300)
 
 
@@ -35,9 +34,9 @@ class SelfHosting(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
-def house_check(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess:
+def house_check(*args: str, cwd: Path = PLANE_ROOT) -> subprocess.CompletedProcess:
     """A run of `scripts/house_checks.py`, the programs architect.checks calls, in `cwd`."""
-    return subprocess.run([sys.executable, "-B", str(ROOT / "scripts/house_checks.py"), *args], cwd=cwd,
+    return subprocess.run([sys.executable, "-B", str(PLANE_ROOT / "scripts/house_checks.py"), *args], cwd=cwd,
                           capture_output=True, text=True)
 
 
@@ -49,7 +48,7 @@ class TestModulesImportNoTestModule(unittest.TestCase):
         return self.check(cwd).returncode
 
     def test_no_test_module_of_the_plane_imports_another(self):
-        self.assertEqual(self.run_check(ROOT), 0)
+        self.assertEqual(self.run_check(PLANE_ROOT), 0)
 
     def test_the_check_finds_each_way_to_import_a_test_module(self):
         for line in ("from tests.test_a import X", "from tests import test_a", "import tests.test_a",
@@ -73,6 +72,16 @@ class TestModulesImportNoTestModule(unittest.TestCase):
             subprocess.run(["git", "init", "-q", str(repo)], check=True)
             subprocess.run(["git", "-C", str(repo), "add", "tests"], check=True)
             self.assertEqual(self.run_check(repo), 0)
+
+    def test_a_test_name_imported_from_another_package_is_not_a_test_import(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "tests").mkdir()
+            (repo / "tests" / "test_b.py").write_text("from helpers import test_data\n")
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "-C", str(repo), "add", "tests"], check=True)
+            r = self.check(repo)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_the_check_skips_a_tracked_test_file_it_cannot_read_and_says_so(self):
         with tempfile.TemporaryDirectory() as d:
@@ -231,9 +240,9 @@ class ReviewFixes(unittest.TestCase):
 
     def test_orientation_in_the_planes_own_repo_is_one_line(self):
         def run(root: Path) -> str:
-            return subprocess.run(["bash", str(ROOT / "plugin/hooks/orientation.sh")], capture_output=True,
+            return subprocess.run(["bash", str(PLANE_ROOT / "plugin/hooks/orientation.sh")], capture_output=True,
                                   text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": str(root)}).stdout
-        self.assertIn("Control-plane development session", run(ROOT))
+        self.assertIn("Control-plane development session", run(PLANE_ROOT))
         prod = self.tmp / "prod"
         (prod / "docs/delivery").mkdir(parents=True)
         (prod / "docs/delivery/plane.json").write_text('{"project_id": "p"}')
@@ -244,7 +253,7 @@ class ReviewFixes(unittest.TestCase):
     def test_runner_idle_logs_nothing_where_no_runner_ran(self):
         q = self.tmp / "q"
         q.mkdir()
-        r = subprocess.run(["bash", str(ROOT / "plugin/hooks/runner-idle.sh"), "--queue-root", str(q), "--ccp", "ccp"],
+        r = subprocess.run(["bash", str(PLANE_ROOT / "plugin/hooks/runner-idle.sh"), "--queue-root", str(q), "--ccp", "ccp"],
                            input='{"teammate_name": "runner"}', capture_output=True, text=True)
         self.assertEqual(r.returncode, 0)
         self.assertFalse((q / "observability").exists())
@@ -254,7 +263,7 @@ class ReviewFixes(unittest.TestCase):
             env = {k: v for k, v in os.environ.items() if k != "CCP_LEAK_DENYLIST"}
             if env_val is not None:
                 env["CCP_LEAK_DENYLIST"] = env_val
-            return subprocess.run(["bash", str(ROOT / "scripts/leak-check.sh")], capture_output=True, env=env).returncode
+            return subprocess.run(["bash", str(PLANE_ROOT / "scripts/leak-check.sh")], capture_output=True, env=env).returncode
         self.assertEqual(run(None), 0)
         self.assertEqual(run(str(self.tmp / "missing")), 2)
         bad = self.tmp / "bad"
@@ -263,7 +272,7 @@ class ReviewFixes(unittest.TestCase):
         named = self.tmp / "named"
         named.write_text("(unclosed-" + "denylisted\n")
         env = {**{k: v for k, v in os.environ.items() if k != "CCP_LEAK_DENYLIST"}, "CCP_LEAK_DENYLIST": str(named)}
-        r = subprocess.run(["bash", str(ROOT / "scripts/leak-check.sh")], capture_output=True, text=True, env=env)
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts/leak-check.sh")], capture_output=True, text=True, env=env)
         self.assertEqual(r.returncode, 2)
         self.assertNotIn("denylisted", r.stdout + r.stderr)  # a bad pattern is reported, never printed
         ok = self.tmp / "ok"
@@ -274,7 +283,7 @@ class ReviewFixes(unittest.TestCase):
         import shutil
         repo = self.tmp / "repo"
         (repo / "scripts").mkdir(parents=True)
-        shutil.copy(ROOT / "scripts/leak-check.sh", repo / "scripts/leak-check.sh")
+        shutil.copy(PLANE_ROOT / "scripts/leak-check.sh", repo / "scripts/leak-check.sh")
         (repo / "notes.txt").write_text("LEAKCHECKWORD and LeakCheckCase; leakcheckwords\n")
         subprocess.run(["git", "init", "-q", str(repo)], check=True)
         subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
@@ -312,7 +321,7 @@ class ReviewFixes(unittest.TestCase):
             "ERROR: setUpClass (tests.t.D)",
             "ERROR: test_c (tests.u.E)",
             "Ran 12 tests in 1.0s", "", "FAILED (failures=1, errors=2, skipped=3)", ""]))
-        out = json.loads(subprocess.run([sys.executable, str(ROOT / "scripts/gate_result.py"), str(log), "7"],
+        out = json.loads(subprocess.run([sys.executable, str(PLANE_ROOT / "scripts/gate_result.py"), str(log), "7"],
                                         capture_output=True, text=True).stdout)
         self.assertEqual(out["tests"], 12)
         self.assertEqual(out["skipped"], 3)

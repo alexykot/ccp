@@ -12,7 +12,8 @@ from ccp import config, report, runs, verify
 from tests.helpers import binding, MIGRATION_FIELD as MIGRATION
 from tests.report_helpers import done_report, implement_report, REPORT_HEAD as HEAD
 from tests.review_flow import ReviewFlow
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 A, B = "a" * 40, "b" * 40
 RULING = "Lead ruling: the field is optional."

@@ -1,4 +1,9 @@
-"""The reports, verdicts and marked-check text the tests share. Holds no tests."""
+"""The reports, verdicts and marked-check text the tests share. Holds no tests.
+
+`done_report(phase, *lines)` is the text of a done report of a phase that `ccp report` accepts, with the section
+the phase needs when done: a test that files a done report for something else writes it with this. The rest:
+`implement_report`, `approve_verdict`, `judge_merge_ok`, `held_otherwise`, `HEAD_A`, `HEAD_B` and the marked-check
+text (`MARKED_CHECK_ID`, `MARKED_TASK_ID`, `MARKED_BLOCK`)."""
 from __future__ import annotations
 
 from datetime import datetime, timezone

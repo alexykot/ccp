@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 from tests.git_helpers import git, run
-from tests.helpers import binding, GIT_ENV, PLANE_ROOT as PLANE, RUN_CHECKOUT_SCRIPT as SCRIPT
+from tests.helpers import binding, GIT_ENV, PLANE_ROOT, RUN_CHECKOUT_SCRIPT as SCRIPT
 
 TASK = """---
 task_id: {tid}
@@ -73,7 +73,7 @@ class ReleaseLeavesAnUpgradeNotice(unittest.TestCase):
         self.plane_task("pending", "the task is in flight")
         run(["git", "clone", "-q", str(self.origin), str(self.run_dir)])
         for rel in CODE:
-            shutil.copytree(PLANE / rel, self.run_dir / rel, ignore=shutil.ignore_patterns("__pycache__"))
+            shutil.copytree(PLANE_ROOT / rel, self.run_dir / rel, ignore=shutil.ignore_patterns("__pycache__"))
         (self.run_dir / "projects").mkdir()
         self.env = {"CCP_RUN_CHECKOUT": str(self.run_dir), "CCP_BIN_LINK": str(self.d / "link/ccp"),
                     "CCP_BINDINGS_DIR": str(self.run_dir / "projects")}
@@ -97,7 +97,7 @@ class ReleaseLeavesAnUpgradeNotice(unittest.TestCase):
         (root / "docs/delivery/tasks/.gitkeep").write_text("")
         (root / "docs/delivery/plane.json").write_text(json.dumps({"project_id": name, **plane_json}))
         git(root, "init", "-q", "-b", "main")
-        r = run([str(PLANE / "bin/ccp"), "--root", str(root), "tasks", "index"])
+        r = run([str(PLANE_ROOT / "bin/ccp"), "--root", str(root), "tasks", "index"])
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         git(root, "add", "docs")
         git(root, "commit", "-qm", "conforming")
@@ -107,7 +107,7 @@ class ReleaseLeavesAnUpgradeNotice(unittest.TestCase):
         return root, q
 
     def ccp(self, root: Path, q: Path, *args: str) -> subprocess.CompletedProcess:
-        return run([str(PLANE / "bin/ccp"), "--root", str(root), *args], env={"QUEUE_ROOT": str(q)})
+        return run([str(PLANE_ROOT / "bin/ccp"), "--root", str(root), *args], env={"QUEUE_ROOT": str(q)})
 
     def pending(self, root: Path, q: Path) -> list[dict]:
         r = self.ccp(root, q, "notify", "pending")

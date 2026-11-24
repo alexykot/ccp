@@ -12,11 +12,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-from tests.init_fixture import CCP, InitCase, PLANE
+from tests.helpers import PLANE_ROOT
+from tests.init_fixture import CCP, InitCase
 
-TEAM = PLANE / "scripts" / "team.sh"
-HOOK = PLANE / "plugin" / "hooks" / "runner-idle.sh"
-sys.path.insert(0, str(PLANE / "scripts" / "observability"))
+TEAM = PLANE_ROOT / "scripts" / "team.sh"
+HOOK = PLANE_ROOT / "plugin" / "hooks" / "runner-idle.sh"
+sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
 import lib  # noqa: E402
 
 from ccp import config  # noqa: E402
@@ -32,12 +33,12 @@ class Adopt(InitCase):
         self.assertEqual(code, 0, res)
         for rel in FOOTPRINT:
             self.assertTrue((self.repo / rel).is_file(), rel)
-        self.assertEqual((self.repo / "docs/PROJECT.md").read_text(), (PLANE / "templates/docs-project/PROJECT.md").read_text())
+        self.assertEqual((self.repo / "docs/PROJECT.md").read_text(), (PLANE_ROOT / "templates/docs-project/PROJECT.md").read_text())
         self.assertEqual(json.loads((self.repo / "docs/delivery/plane.json").read_text()),
                          {"project_id": "demo",
                           "architect": {"shape_from_task": "0001"}, **ccp_init.STARTER_CONFIG})
         self.assertEqual((self.repo / "docs/ENGINEERING.md").read_text(),
-                         (PLANE / "templates/docs-project/starter-rules.md").read_text())
+                         (PLANE_ROOT / "templates/docs-project/starter-rules.md").read_text())
         self.assertIn(f"{config.WORKTREES_DIR}/", (self.repo / ".gitignore").read_text().splitlines())
         settings = json.loads((self.repo / ".claude/settings.json").read_text())
         self.assertEqual(settings, {**ccp_init.ANCHOR, "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000, "model": "opus",
@@ -157,7 +158,7 @@ class Adopt(InitCase):
         self.assertEqual(code, 0, res)
         self.assertIn("docs/ENGINEERING.md", res["written"])
         self.assertEqual((self.repo / "docs/ENGINEERING.md").read_text(),
-                         (PLANE / "templates/docs-project/starter-rules.md").read_text())
+                         (PLANE_ROOT / "templates/docs-project/starter-rules.md").read_text())
         cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
         self.assertEqual({k: cfg[k] for k in ccp_init.STARTER_CONFIG}, ccp_init.STARTER_CONFIG)
         r = self.ccp("docs", "check")
@@ -207,7 +208,7 @@ class OneSource(unittest.TestCase):
         self.assertIn(f'"{ccp_init.CLAUDE_LINE}"', " ".join(text.split()))
 
     def section(self, path: str, heading: str) -> str:
-        text = (PLANE / path).read_text()
+        text = (PLANE_ROOT / path).read_text()
         start = text.index(heading)
         return text[start:text.index("\n#", start + len(heading))]
 
@@ -285,7 +286,7 @@ class NoClobber(InitCase):
         self.binding.write_text(self.binding.read_text() + "notes: mine\n")
         code, res = self.init("--project-id", "demo", "--force")
         self.assertEqual(code, 0, res)
-        self.assertEqual((self.repo / "docs/SPEC.md").read_text(), (PLANE / "templates/docs-project/SPEC.md").read_text())
+        self.assertEqual((self.repo / "docs/SPEC.md").read_text(), (PLANE_ROOT / "templates/docs-project/SPEC.md").read_text())
         self.assertNotIn("notes: mine", self.binding.read_text().splitlines())
         self.assertEqual(json.loads((self.repo / ".claude/settings.json").read_text())["env"]["MINE"], "x")
 
@@ -309,7 +310,7 @@ class Adoption(InitCase):
     def test_writing_the_binding_records_one_event_and_a_rerun_none(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
         [ev] = self.adopted()
-        head = subprocess.run(["git", "-C", str(PLANE), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        head = subprocess.run(["git", "-C", str(PLANE_ROOT), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
         self.assertEqual((ev["project_id"], ev["task_id"], ev["actor"]), ("demo", "", "operator"))
         self.assertEqual(ev["payload"], {"plane": head, "binding": "written"})
         self.assertEqual(lib.validate_event(ev), [])
@@ -648,7 +649,7 @@ class KeptIndex(InitCase):
         self.assertEqual(index.read_text(), "# an earlier generation's index\ntasks: []\n")
 
     def test_the_readme_says_an_existing_index_is_kept(self):
-        readme = (PLANE / "README.md").read_text()
+        readme = (PLANE_ROOT / "README.md").read_text()
         start = readme.index("### 2. Adopt a product")
         text = " ".join(readme[start:readme.index("\n#", start + 1)].split())
         self.assertIn("`INDEX.yaml` when there is none (an existing one is kept and listed as kept; "
@@ -763,7 +764,7 @@ class OneBinding(InitCase):
         tid = "0001-hello-delivery-log"
         (self.queue / "work.json").write_text(json.dumps({"status": "running", "scope": [tid], "waiting_on": None}))
         (self.repo / f"docs/delivery/tasks/{tid}.md").write_text(
-            (PLANE / f"templates/docs-delivery/example-tasks/{tid}.md").read_text().replace("status: done", "status: pending"))
+            (PLANE_ROOT / f"templates/docs-delivery/example-tasks/{tid}.md").read_text().replace("status: done", "status: pending"))
         self.assertEqual(self.ccp("tasks", "index").returncode, 0)
         fake = Path(self._d.name) / "bin"
         fake.mkdir()

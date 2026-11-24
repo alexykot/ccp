@@ -18,7 +18,8 @@ from unittest import mock
 
 from ccp import config
 from tests.review_flow import PROOF, SkipFlow
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 PROVE = '"$PROOF_BIN" {task_id} {reviewed} {head} {from}'
 

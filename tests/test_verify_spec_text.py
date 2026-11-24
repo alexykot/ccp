@@ -15,7 +15,8 @@ from unittest import mock
 
 from ccp import cli, tasklog, verify
 from tests.helpers import GIT_ENV, Product, as_lead
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 PASSAGE = ("A task whose brief sign-off is due and not recorded is passed over the same way, and stderr names "
            "the missing sign-off, so the runner takes the next task it can claim.")

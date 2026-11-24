@@ -16,7 +16,8 @@ from unittest import mock
 from ccp import board, cli
 from tests.helpers import machine_file, PLANE_ROOT, TASK
 from tests.ledger_helpers import epoch_iso as _iso, good_then_failed
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 import unittest
 
 
@@ -95,8 +96,7 @@ class Board(ToolkitFixture, unittest.TestCase):
     def test_refactors_waiting_outside_the_scope_and_the_oldest_age(self):
         b = json.loads(Path(self.ccp("board", "build")[1]["board"]).read_text())
         self.assertIsNone(b["now"]["refactors_waiting"])  # no architect block: kind is not read (§20)
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {"shape_from_task": "0001"}}))
+        self.edit_plane(lambda cfg: cfg.update(architect={"shape_from_task": "0001"}))
         for tid, created in (("0003-old", "2026-09-01"), ("0004-new", "2026-10-01")):
             self.write(f"docs/delivery/tasks/{tid}.md", TASK.format(tid=tid, title="Tidy", status="pending", deps="", ver="*Append-only.*")
                        .replace('spec_refs: ["S1"]', 'kind: refactor\nrule_refs: ["E1"]').replace("created: 2026-09-30", f"created: {created}"))

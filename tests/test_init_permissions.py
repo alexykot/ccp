@@ -12,10 +12,10 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
 from ccp import cli, config, init
-from tests.init_fixture import PLANE, InitCase
-from tests.helpers import file_tree as tree
+from tests.init_fixture import InitCase
+from tests.helpers import file_tree as tree, PLANE_ROOT
 
-SCHEMA = PLANE / "contracts" / "plane_config.schema.json"
+SCHEMA = PLANE_ROOT / "contracts" / "plane_config.schema.json"
 
 
 def denied(rule: str, cmd: str) -> bool:
@@ -50,7 +50,7 @@ class Permissions(InitCase):
         self.adopt("--gate", "python3 -m unittest discover -s tests")
         block = self.block()
         allow = block["allow"]
-        team, ask = PLANE / "scripts" / "team.sh", PLANE / "scripts" / "spec-maintainer-ask.sh"
+        team, ask = PLANE_ROOT / "scripts" / "team.sh", PLANE_ROOT / "scripts" / "spec-maintainer-ask.sh"
         for cmd in ("ccp", str(team), str(ask)):
             self.assertIn(f"Bash({cmd}:*)", allow)
             self.assertIn(f"Bash(QUEUE_ROOT={self.queue} {cmd}:*)", allow)
@@ -257,7 +257,7 @@ class AdoptionChecklist(unittest.TestCase):
             "notify", "docs.starter_rules", "architect.checks", "verify.accept_cache", "mutate.command", "report.required_fields")
 
     def keys(self) -> list[str]:
-        text = (PLANE / "README.md").read_text()
+        text = (PLANE_ROOT / "README.md").read_text()
         start = text.index("#### Adoption checklist")
         section = text[start:text.index("\n#", start + 1)]
         out = []

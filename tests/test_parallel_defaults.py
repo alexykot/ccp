@@ -8,12 +8,11 @@ import unittest
 from ccp import config, parallel
 from tests.helpers import PLANE_ROOT
 
-PLANE = PLANE_ROOT
 
 
 class ParallelDefaults(unittest.TestCase):
     def test_settings_without_a_loaded_config_is_a_copy_of_the_defaults(self):
-        cfg = config.Config(root=PLANE, project_id="demo", task_log={}, package_docs=None)
+        cfg = config.Config(root=PLANE_ROOT, project_id="demo", task_log={}, package_docs=None)
         self.assertIsNone(cfg.parallel)
         got = parallel.settings(cfg)
         self.assertEqual(got, config.PARALLEL_DEFAULTS)

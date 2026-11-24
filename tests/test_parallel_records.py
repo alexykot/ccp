@@ -8,7 +8,7 @@ import unittest
 
 from ccp import board, config, forecast, lifecycle, tasklog
 from tests.parallel_claims_fixture import ParallelFixture, task
-from tests.toolkit_fixture import git
+from tests.git_helpers import git
 
 NOW = 1_800_000_000.0
 

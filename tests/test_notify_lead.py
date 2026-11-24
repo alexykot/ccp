@@ -15,8 +15,8 @@ from unittest import mock
 
 from ccp import cli, config
 from ccp.queue import lib
-from tests.helpers import Product, binding, machine_file
-from tests.notify_fixture import PLANE, ChannelFixture
+from tests.helpers import Product, binding, machine_file, PLANE_ROOT
+from tests.notify_fixture import ChannelFixture
 from tests.toolkit_fixture import ToolkitFixture
 
 LEAD = {"tool": "mail-send", "to": "operator@example.invalid"}
@@ -285,7 +285,7 @@ class Gates(unittest.TestCase):
         self.env.pop("PROJECT_YAML", None)
 
     def run_script(self, *argv: str) -> subprocess.CompletedProcess:
-        r = subprocess.run(["bash", str(PLANE / "scripts/team.sh"), *argv], capture_output=True, text=True,
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts/team.sh"), *argv], capture_output=True, text=True,
                            env=self.env)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r
@@ -315,7 +315,7 @@ class Gates(unittest.TestCase):
         self.assertEqual(got, [("decision", "0001-a", eid)])
 
     def test_a_needs_operator_answer_records_one_pending_decision(self):
-        r = subprocess.run(["bash", str(PLANE / "scripts/spec-maintainer-ask.sh"), "raise", "--raised-by", lib.RUNNER,
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts/spec-maintainer-ask.sh"), "raise", "--raised-by", lib.RUNNER,
                             "--task-id", "0001-a", "--text", "Which?", "--inconsistency", "task vs SPEC",
                             "--spec-refs", "S1", "--tried", "x"], capture_output=True, text=True, env=self.env)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -326,7 +326,7 @@ class Gates(unittest.TestCase):
             "question_for_operator": "A or B?", "guidance": None, "answered_by": "spec_maintainer",
             "session_id": "lead", "answered_at": "2026-09-30T20:00:00Z", "supersedes": None}))
         for _ in range(2):
-            r = subprocess.run(["bash", str(PLANE / "scripts/spec-maintainer-ask.sh"), "process", qid],
+            r = subprocess.run(["bash", str(PLANE_ROOT / "scripts/spec-maintainer-ask.sh"), "process", qid],
                                capture_output=True, text=True, env=self.env)
             self.assertEqual(r.returncode, 0, r.stderr)
         evs = [json.loads(x) for x in (self.q / "observability/events.jsonl").read_text().splitlines()]

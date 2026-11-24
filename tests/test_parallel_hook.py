@@ -8,7 +8,8 @@ import subprocess
 import time
 import unittest
 
-from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
+from tests.helpers import PLANE_ROOT
+from tests.team_hosting_fixture import HOOK, TeamCase
 
 
 class SlotHook(TeamCase):
@@ -34,7 +35,7 @@ class SlotHook(TeamCase):
                                                       "in_flight": ["0001-a"], "runners": slots}))
 
     def hook(self, name):
-        r = subprocess.run(["bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp"], capture_output=True,
+        r = subprocess.run(["bash", HOOK, "--queue-root", self.q, "--ccp", PLANE_ROOT / "bin" / "ccp"], capture_output=True,
                            text=True, input=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": name,
                                                         "cwd": str(self.prod.root)}), env=self.env)
         return r.returncode, r.stderr
@@ -82,7 +83,7 @@ class SlotHook(TeamCase):
         self.assertEqual(self.hook("runner-2-x")[0], 0)  # nothing left for runner-2: next exits 7
 
     def hook_with(self, name, **extra):
-        r = subprocess.run(["bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp"], capture_output=True,
+        r = subprocess.run(["bash", HOOK, "--queue-root", self.q, "--ccp", PLANE_ROOT / "bin" / "ccp"], capture_output=True,
                            text=True, input=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": name,
                                                         "cwd": str(self.prod.root), **extra}), env=self.env)
         return r.returncode, r.stderr
