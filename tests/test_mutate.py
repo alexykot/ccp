@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shlex
 import signal
 import subprocess
@@ -15,7 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
-from ccp import config, mutate, runs
+from ccp import config, doclang, mutate, runs
 from ccp.queue import QueueError
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
@@ -182,6 +183,12 @@ class Outcomes(MutateFixture, unittest.TestCase):
         self.assertEqual([(r["mutant"], r["outcome"]) for r in self.rows()],
                          [(1, "survived"), (2, "killed"), (3, "survived")])
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
+    def test_each_mutant_prints_one_line_on_stderr(self):
+        code, _, out, err = self.mutate("calc.py:a * 2=>a * 3", "calc.py:a + b=>a - b")
+        self.assertEqual(code, 1, err)
+        self.assertTrue(out.rstrip().endswith("}"))  # the JSON whole on stdout
+        self.assertEqual(err.splitlines(), [f"mutant 1: survived ({ADD})", f"mutant 2: killed ({ADD})"])
 
     def test_a_patch_is_a_mutant(self):
         (self.mut / "calc.py").write_text(CALC.replace("a + b", "a + b + 1"))
@@ -674,6 +681,52 @@ class Unbuilt(MutateFixture, unittest.TestCase):
         code, body, _, err = self.mutate("calc.py:a * 2=>a * 3")
         self.assertEqual((code, body["survived"], body["unbuilt"], body["killed"]), (1, 1, 0, 0), err)
         self.assertEqual(self.rows()[0]["outcome"], "survived")
+
+
+# A test's FAIL section whose assertion message quotes a child program's syntax error in the test's own fixture file
+QUOTED_SYNTAX_ERROR = """\
+======================================================================
+FAIL: test_skips (tests.test_house.Imports.test_skips)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/w/rev-1/tests/test_house.py", line 92, in test_skips
+    self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+AssertionError: 1 != 0 : E4: skipped tests/test_a.py: [Errno 2] No such file or directory: 'tests/test_a.py'
+Traceback (most recent call last):
+  File "<string>", line 4, in <module>
+  File "/usr/lib/python3/ast.py", line 46, in parse
+    return compile(source, filename, mode, flags,
+  File "tests/test_b.py", line 1
+    def (
+        ^
+SyntaxError: invalid syntax
+
+----------------------------------------------------------------------
+Ran 4 tests in 3.282s
+
+FAILED (failures=1)
+"""
+
+
+class UnbuiltLines(unittest.TestCase):
+    """The did-not-build decision on plain values: a pack's source-location line counts only when its `path` group
+    names a file the mutant touched."""
+
+    def unbuilt(self, text: str, files: list[str]) -> bool:
+        pats = [re.compile(p) for p in doclang.get("python").unbuilt_re]
+        return mutate.says_unbuilt(text, pats, files)
+
+    def test_a_frame_counts_only_when_it_names_a_file_the_mutant_touched(self):
+        self.assertFalse(self.unbuilt(QUOTED_SYNTAX_ERROR, ["docs/delivery/plane.json"]))
+        self.assertTrue(self.unbuilt(QUOTED_SYNTAX_ERROR, ["tests/test_b.py"]))
+        frame = '  File "/w/rev-1/ccp/x.py", line 5\n'
+        self.assertTrue(self.unbuilt(frame, ["ccp/x.py"]))
+        self.assertTrue(self.unbuilt(frame, ["./ccp/x.py"]))
+        self.assertTrue(self.unbuilt(frame, ["ccp//x.py"]))
+        self.assertFalse(self.unbuilt(frame, ["ccp/y.py", "x.py.bak", "p/x.py"]))
+        failed_import = "ImportError: Failed to import test module: tests.test_x\n"
+        self.assertTrue(self.unbuilt(failed_import, []))
+        self.assertTrue(self.unbuilt(failed_import, ["ccp/y.py"]))
 
 
 class RevertInAShallowWorktree(MutateFixture, unittest.TestCase):

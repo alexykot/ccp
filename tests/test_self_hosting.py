@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -36,24 +35,15 @@ class SelfHosting(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
-def e4_import_check() -> str:
-    """The part of the architect's `E4` command that finds a test module importing another: a shell test that
-    passes when it finds none in the test files git tracks."""
-    return e4_part("from tests")
-
-
-def e4_part(marker: str) -> str:
-    """The one part of the architect's `E4` command, parts joined by ` && `, that holds `marker`."""
-    cmd = next(c["cmd"] for c in json.loads((ROOT / "docs/delivery/plane.json").read_text())["architect"]["checks"]
-               if c["id"] == "E4")
-    parts = [p for p in cmd.split(" && ") if marker in p]
-    assert len(parts) == 1, parts
-    return parts[0]
+def house_check(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess:
+    """A run of `scripts/house_checks.py`, the programs architect.checks calls, in `cwd`."""
+    return subprocess.run([sys.executable, "-B", str(ROOT / "scripts/house_checks.py"), *args], cwd=cwd,
+                          capture_output=True, text=True)
 
 
 class TestModulesImportNoTestModule(unittest.TestCase):
     def check(self, cwd: Path) -> subprocess.CompletedProcess:
-        return subprocess.run(["bash", "-c", e4_import_check()], cwd=cwd, capture_output=True, text=True)
+        return house_check("e4-imports", cwd=cwd)
 
     def run_check(self, cwd: Path) -> int:
         return self.check(cwd).returncode
@@ -112,17 +102,15 @@ class TestModulesImportNoTestModule(unittest.TestCase):
 
 class LongLiteralCount(unittest.TestCase):
     def run_part(self, source: str, figure: int, bad: bool = False) -> subprocess.CompletedProcess:
-        part, n = re.subn(r"figure = \d+", f"figure = {figure}", e4_part("long-literal"))
-        self.assertEqual(n, 1)
         with tempfile.TemporaryDirectory() as d:
             scratch = Path(d) / "scratch.py"
             scratch.write_text(source)
-            files = str(scratch)
+            files = [str(scratch)]
             if bad:
                 broken = Path(d) / "broken.py"
                 broken.write_text("def (:\n")
-                files += f" {broken}"
-            r = subprocess.run(["bash", "-c", f"{part} {files}"], capture_output=True, text=True)
+                files.append(str(broken))
+            r = house_check("e4-count", "--max", str(figure), *files)
             r.broken = str(broken) if bad else ""
             return r
 
@@ -150,6 +138,36 @@ class LongLiteralCount(unittest.TestCase):
         r = self.run_part(f'self.assertIn("{"a" * 50}", x)', 1, bad=True)
         self.assertEqual((r.returncode, r.stdout), (0, ""), r.stderr)
         self.assertIn(f"E4: skipped {r.broken}: ", r.stderr)
+
+    def test_the_house_checks_name_their_figure_when_over(self):
+        for args, count in ((("e4-count", "--max", "0"), "E4 long-literal asserts"),
+                            (("e24", "--long-max", "0", "--exit-max", "0"), "E24 docstrings over 30 lines")):
+            with self.subTest(args=args):
+                r = house_check(*args)
+                self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+                [line] = r.stdout.splitlines()  # the one count over its figure on the checkout
+                name, _, over = line.rpartition(": ")
+                self.assertEqual(name, count)
+                self.assertRegex(over, r"^[1-9][0-9]* > 0$")
+
+    def test_the_docstring_counts_read_the_tracked_ccp_modules_and_skip_one_they_cannot_parse(self):
+        long_doc = '"""' + "line\n" * 31 + '"""\n'
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "ccp").mkdir()
+            (repo / "ccp" / "a.py").write_text(long_doc)
+            (repo / "ccp" / "b.py").write_text('"""It exits 2 on a refusal."""\n')
+            (repo / "ccp" / "c.py").write_text("def (:\n")
+            (repo / "ccp" / "d.py").write_text(long_doc)  # not tracked: not counted
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "-C", str(repo), "add", "ccp/a.py", "ccp/b.py", "ccp/c.py"], check=True)
+            at = house_check("e24", "--long-max", "1", "--exit-max", "1", cwd=repo)
+            self.assertEqual((at.returncode, at.stdout), (0, ""), at.stderr)
+            self.assertIn("E24: skipped ccp/c.py: ", at.stderr)
+            over = house_check("e24", "--long-max", "0", "--exit-max", "0", cwd=repo)
+            self.assertEqual(over.returncode, 1, over.stderr)
+            self.assertEqual(over.stdout.splitlines(), ["E24 docstrings over 30 lines: 1 > 0",
+                                                        "E24 docstrings stating an exit code: 1 > 0"])
 
 
 if __name__ == "__main__":

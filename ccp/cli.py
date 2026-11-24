@@ -748,8 +748,9 @@ def cmd_health(cfg: config.Config, a: argparse.Namespace) -> int:
     return health.main(cfg, a)
 
 
-def _toolkit(fn) -> object:
-    """Run a §10 toolkit command: JSON on stdout; a refusal on stderr with its exit code."""
+def _toolkit(fn, after=None) -> object:
+    """Run a §10 toolkit command: JSON on stdout, then `after(body)`'s lines, if given, on stderr; a refusal on
+    stderr with its exit code."""
     def run(cfg: config.Config, a: argparse.Namespace) -> int:
         try:
             out = fn(cfg, a)
@@ -760,6 +761,8 @@ def _toolkit(fn) -> object:
         for w in body.get("warnings") or []:
             print(f"warning: {w}", file=sys.stderr)
         print(json.dumps(body, indent=2, ensure_ascii=False))
+        for line in after(body) if after else []:
+            print(line, file=sys.stderr)
         return code
     return run
 
@@ -1143,6 +1146,11 @@ def cmd_suite_wait(cfg: config.Config, a: argparse.Namespace) -> int:
 def cmd_suite_affected(cfg: config.Config, a: argparse.Namespace) -> int:
     from ccp import suite  # noqa: PLC0415
     return suite.main_affected(cfg, a)
+
+
+def _mutate_lines(body: dict) -> list[str]:
+    from ccp import mutate  # noqa: PLC0415
+    return mutate.lines(body)
 
 
 def _mutate(cfg: config.Config, a: argparse.Namespace):
@@ -1530,7 +1538,7 @@ def build_parser() -> argparse.ArgumentParser:
                         "file apply in order, each old text once in what the earlier ones leave, so a move is two "
                         "substitutions, one that deletes the lines and one that puts them back elsewhere; any other "
                         "two parts on one file are refused")
-    p.set_defaults(fn=_toolkit(_mutate))
+    p.set_defaults(fn=_toolkit(_mutate, after=_mutate_lines))
 
     from ccp import notify  # noqa: PLC0415
     notify.add_parser(sub, _toolkit)  # §3.6: render, sent, pending, upgrade, fire

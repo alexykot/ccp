@@ -484,14 +484,35 @@ def _unbuilt_patterns(mu: dict[str, Any], pack: doclang.Pack) -> list[re.Pattern
     return [re.compile(x) for x in ([pats] if isinstance(pats, str) else pats)]
 
 
-def _says_unbuilt(log: Path, start: int, pats: list[re.Pattern[str]]) -> bool:
-    """Whether a line of one run's output (the log from `start`) matches an `unbuilt_re` pattern."""
+def _names_touched(m: re.Match[str], files: list[str]) -> bool:
+    """Whether a did-not-build match counts: always for a pattern with no group named `path`; else only when
+    that group's text is a file the mutant touched, its root-relative path or ending with `/` and that path.
+    The mutant's paths are compared as `_key` spells them, so `./ccp/x.py` is `ccp/x.py`."""
+    if "path" not in m.re.groupindex:
+        return True
+    path = m.group("path")
+    return path is not None and any(path == k or path.endswith(f"/{k}") for k in map(_key, files))
+
+
+def says_unbuilt(text: str, pats: list[re.Pattern[str]], files: list[str]) -> bool:
+    """Whether a line of a run's output `text` matches an `unbuilt_re` pattern, a pattern's `path` group naming
+    one of `files`, the mutant's (§20.6)."""
+    return any((m := p.search(ln)) and _names_touched(m, files) for ln in text.splitlines() for p in pats)
+
+
+def _says_unbuilt(log: Path, start: int, pats: list[re.Pattern[str]], files: list[str]) -> bool:
+    """`says_unbuilt` on one run's output, the log from `start`."""
     if not pats:
         return False
     with log.open("rb") as f:
         f.seek(start)
         text = f.read().decode(errors="replace")
-    return any(p.search(ln) for ln in text.splitlines() for p in pats)
+    return says_unbuilt(text, pats, files)
+
+
+def lines(body: dict[str, Any]) -> list[str]:
+    """One line per mutant of a call's result, `mutant <n>: <outcome> (<test id>)`, the test that decided it."""
+    return [f"mutant {r['mutant']}: {r['outcome']} ({r['test']})" for r in body.get("mutants") or []]
 
 
 def _failed(log: Path, start: int, pats: list[re.Pattern[str]]) -> list[str]:
@@ -641,7 +662,8 @@ def _run(cfg: Config, q: Path, run_id: str, tests: list[str], mutants: list[str]
             raise QueueError(f"mutant {n}: {', '.join(left)} could not be restored in {root}", 1)
         assert res is not None
         at = res.pop(OUTPUT_AT)
-        outcome = "survived" if res["exit_code"] == 0 else "unbuilt" if _says_unbuilt(log, at, unbuilt) else "killed"
+        outcome = ("survived" if res["exit_code"] == 0
+                   else "unbuilt" if _says_unbuilt(log, at, unbuilt, m["files"]) else "killed")
         failed = [] if outcome == "survived" else _failed(log, at, sections)
         parts = {"parts": m["parts"]} if "parts" in m else {}  # a --together mutant's parts' kinds
         row = {"at": iso(), "test": decided, "mutant": n, "kind": m["kind"], **parts, "files": m["files"],
@@ -659,4 +681,4 @@ def _run(cfg: Config, q: Path, run_id: str, tests: list[str], mutants: list[str]
     return out, 0 if killed == len(rows) else 1
 
 
-__all__ = ["log_path", "parse", "parse_file", "parse_revert", "run", "together"]
+__all__ = ["lines", "log_path", "parse", "parse_file", "parse_revert", "run", "says_unbuilt", "together"]

@@ -1441,7 +1441,7 @@
           "minItems": 1,
           "minLength": 1,
           "default": null,
-          "description": "A regular expression, or a list of them, matched against each line of a mutant's run: a run that exits non-zero with a line it matches records the mutant `unbuilt` (the code did not build or import), not `killed`. E.g. `Failed to import test module` for Python unittest. Default null: unset, the language pack's did-not-build lines (none for language `none`)."
+          "description": "A regular expression, or a list of them, matched against each line of a mutant's run: a run that exits non-zero with a line it matches records the mutant `unbuilt` (the code did not build or import), not `killed`. A pattern with a group named `path` matches a line only when that group's text is a file the mutant touched (its root-relative path, or ending with `/` and that path). E.g. `Failed to import test module` for Python unittest. Default null: unset, the language pack's did-not-build lines (none for language `none`)."
         }
       }
     },
