@@ -98,4 +98,9 @@ Measured at `bb102371`:
 
 ## Implementation notes
 
+- The count part of E4 is one `python3 -B -c` program (parts joined by ` && ` stay outside it; it holds no `from tests`). It counts each `ast.Call` whose function name starts with `assert` and one of whose positional or keyword arguments has literal text of 40+ characters (str constant; f-string constant parts joined; `+` of two texts joined; any other node counts as empty text). Files come from its command line, or `git ls-files 'tests/*.py'` with none; an unreadable or unparseable file prints `E4: skipped <path>: <message>` on stderr.
+- Figure: `figure = 482`, the count at this head (the task measured 481 at `bb102371`; 0309 landed since and added one). The new test adds no counted assert.
+- The test also runs a `+` concatenation (1 counted) besides the four forms the task names; `e4_part(marker)` in `tests/test_self_hosting.py` is the shared extraction, `e4_import_check` calls it.
+- `cfg-02` was run by hand (its step is not one backticked command): `E4 long-literal asserts: 483 > 482`, exit 1.
+
 ## Verification notes
