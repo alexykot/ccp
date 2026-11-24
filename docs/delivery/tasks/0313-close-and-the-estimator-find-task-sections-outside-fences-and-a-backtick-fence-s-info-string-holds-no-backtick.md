@@ -153,4 +153,14 @@ Measured at `b09de675` (origin/main) unless a line says otherwise. Each probe ru
 
 ## Implementation notes
 
+- 2026-11-24: built as the lead's rulings give it. `tasklog._unfenced` and `_section_end` are now `unfence` and
+  `section_end`, with every caller in `tasklog.py`, the `HEADING_RE` comment and two docstrings renamed. `FENCE_RE`'s
+  info string is `(?:(?<=~)[^\n]*|[^`\n]*)`, the comment above it saying so. `_task_file_done` and `strip_notes`
+  find their headings in `tasklog.unfence(text)` and end the section at `tasklog.section_end`; both slice the raw
+  text. `_check_placeholders` reads `_unquoted(t["_text"])`. Re-measured at `7b8aab9c`: every Context probe gave the
+  figure the task states, and `task_hash` before and after the change differs for no file in this log or in the two
+  bound products' logs (read-only). Mutants: reverting `lifecycle.py` or `estimate.py`, putting `[^\n]*` back, making
+  the tilde branch refuse a backtick, and refusing a backtick fence's info string are each killed by
+  `tests.test_section_readers_fences`.
+
 ## Verification notes
