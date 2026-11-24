@@ -100,7 +100,9 @@ All reshape phases have landed.
     as its first check.
 - **Deferred from architect pass `ar-20261122T162238Z-9098`** (record in `docs/delivery/reviews/`):
   - F03: the observability scripts called wrappers over `ccp`; with F17 above (operator, 2026-11-23).
-  - F09 and F11: done by task 0324 (`tests/helpers.py` split by concern, one shared git runner). The language
+  - F09 and F11: task 0324 split `tests/helpers.py` by concern and replaced the module-level git runners with one
+    shared runner. Left: fixture-class runners and inline git calls, and the fixtures' importers still take `git`
+    through the fixture, so an edit to the shared runner marks too few modules affected (0324 follow-ups). The language
     pack selecting only a changed name's importers is not taken: a test reaches a changed helper through another
     helper of the same module, so it would miss tests.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
