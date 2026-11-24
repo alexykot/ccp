@@ -511,7 +511,7 @@ def drain(cfg: Config, q: Path) -> int:
                 except Exception as exc:  # noqa: BLE001
                     code = 1
                     print(f"{iso()} board build failed:\n{traceback.format_exc()}", file=sys.stderr)
-                    _atomic(d / FAILED, json.dumps({"at": iso(), "error": f"{type(exc).__name__}: {exc}"[:300]}) + "\n")
+                    lib.write_atomic(d / FAILED, json.dumps({"at": iso(), "error": f"{type(exc).__name__}: {exc}"[:300]}) + "\n")
             fcntl.flock(fh, fcntl.LOCK_UN)
         if not (d / DIRTY).exists():
             return code
@@ -540,13 +540,6 @@ def _blockers(b: dict[str, Any]) -> list[str]:
     return out
 
 
-def _atomic(path: Path, text: str) -> None:
-    """One writer's tmp per process: the launchd timer and a close may build at the same moment."""
-    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    tmp.write_text(text)
-    tmp.replace(path)
-
-
 def embed(board: dict[str, Any]) -> str:
     """The board as a JS literal inside <script>. Every `<`, `>` and `&` is escaped, so no string an
     agent wrote (a gate brief, a proposal) can close the script or open an HTML comment state."""
@@ -559,8 +552,8 @@ def write(q: Path, board: dict[str, Any]) -> dict[str, str]:
     d.mkdir(parents=True, exist_ok=True)
     if isinstance(board.get("health"), dict):
         board["health"]["last_rebuild_failure"] = None  # this build is writing, so that failure is over
-    _atomic(d / "board.json", json.dumps(board, indent=2, default=sorted) + "\n")
-    _atomic(d / "index.html", PAGE.read_text().replace("/*__BOARD__*/null", embed(board)))
+    lib.write_atomic(d / "board.json", json.dumps(board, indent=2, default=sorted) + "\n")
+    lib.write_atomic(d / "index.html", PAGE.read_text().replace("/*__BOARD__*/null", embed(board)))
     (d / FAILED).unlink(missing_ok=True)
     day = board["generated_at"][:10]
     h = d / "history" / f"{day}.json"
@@ -570,7 +563,7 @@ def write(q: Path, board: dict[str, Any]) -> dict[str, str]:
     # A section that failed this build leaves its counters out; the day's earlier values stand.
     q_counts = {**((prev.get("quality") if isinstance(prev, dict) and isinstance(prev.get("quality"), dict) else None) or {}),
                 **quality.counters(board.get("quality") or {})}
-    _atomic(h, json.dumps({"date": day, "generated_at": board["generated_at"],
+    lib.write_atomic(h, json.dumps({"date": day, "generated_at": board["generated_at"],
                              "tasks_merged": board["trend"]["tasks_merged"],
                              "tokens": sum(tot[k] for k in usage.TOKENS), "cost_usd": tot["cost_usd"],
                              "coverage": board["usage"]["coverage"], "seats": {

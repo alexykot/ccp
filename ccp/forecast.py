@@ -44,7 +44,6 @@ from __future__ import annotations
 import bisect
 import json
 import math
-import os
 import random
 import re
 import time
@@ -868,6 +867,7 @@ def cached_fit(q: Path, now: float) -> tuple[dict[str, Any], list[Path], list[Pa
     """The allowance fit, re-fitted when the allowance samples change or the telemetry it read
     changed where it matters (`_still_valid`: the files, their sizes, mtimes and inodes, and any late
     row inside the fitted span)."""
+    from ccp.queue import lib  # noqa: PLC0415
     from ccp.usage import _jsonl  # noqa: PLC0415
     ap = q / "board" / "allowance.jsonl"
     plane_paths, sink_paths = telemetry_paths(q)
@@ -889,9 +889,7 @@ def cached_fit(q: Path, now: float) -> tuple[dict[str, Any], list[Path], list[Pa
     fit = allowance_fit(samples, plane, sink, upto)
     fit["session"] = session_fit(samples)
     try:
-        tmp = cp.with_suffix(f".tmp{os.getpid()}")
-        tmp.write_text(json.dumps({"key": key, "telemetry": tel, "upto": iso(upto), "at": iso(now), "fit": fit}))
-        os.replace(tmp, cp)
+        lib.write_atomic(cp, json.dumps({"key": key, "telemetry": tel, "upto": iso(upto), "at": iso(now), "fit": fit}))
     except OSError:
         pass
     return fit, plane_paths, sink_paths
