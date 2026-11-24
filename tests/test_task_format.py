@@ -82,8 +82,8 @@ class Sections(unittest.TestCase):
             new.write_text(new.read_text().replace("## Context (not verified)", "## Context (not checked)"))
             p.index()
             self.assertEqual(tasklog.check(p.cfg), [])
-            self.assertEqual(tasklog._section(new.read_text(), tasklog.SEC_CONTEXT).strip(), "- background")
-            self.assertEqual(tasklog._section(new.read_text(), "Context (not verified)").strip(), "- background")
+            self.assertEqual(tasklog.section(new.read_text(), tasklog.SEC_CONTEXT).strip(), "- background")
+            self.assertEqual(tasklog.section(new.read_text(), "Context (not verified)").strip(), "- background")
         finally:
             p.cleanup()
 

@@ -47,7 +47,7 @@ def enabled(cfg: Config) -> bool:
 
 def in_item(text: str) -> str:
     """The Scope section's **In:** item, up to the next item (`**Out:**`)."""
-    scope = tasklog._section(text, tasklog.SEC_SCOPE) or ""
+    scope = tasklog.section(text, tasklog.SEC_SCOPE) or ""
     out: list[str] = []
     inside = False
     for line in scope.splitlines():

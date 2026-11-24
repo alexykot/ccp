@@ -59,11 +59,28 @@ class SectionReadersFences(unittest.TestCase):
 
     def test_a_backtick_fences_info_string_holds_no_backtick(self):
         span = (f"## Scope\n\n{FENCE}x{FENCE} is a span.\n\n## dod_checks\n\nc\n\n{IMPL}\n\n{FENCE}\nn\n{FENCE}\n")
-        self.assertEqual(tasklog._section(span, "dod_checks"), "\n\nc\n\n")
+        self.assertEqual(tasklog.section(span, "dod_checks"), "\n\nc\n\n")
         tilde = "## Scope\n\n~~~ a`b\n## dod_checks\n~~~\n"
-        self.assertIsNone(tasklog._section(tilde, "dod_checks"))
+        self.assertIsNone(tasklog.section(tilde, "dod_checks"))
         info = f"## Scope\n\n{FENCE}py\n## dod_checks\n{FENCE}\n"
-        self.assertIsNone(tasklog._section(info, "dod_checks"))
+        self.assertIsNone(tasklog.section(info, "dod_checks"))
+
+    def test_every_reader_finds_a_heading_line_ending_in_cr(self):
+        task = TASK.format(tid="0001-x", title="A task", status="pending", deps="", ver="*Append-only.*")
+        real = task.rindex(IMPL) + len(IMPL)
+        crlf = (task[:real] + "\n\n- built it" + task[real:]).replace("\n", "\r\n")
+        self.assertEqual(tasklog.section(crlf, tasklog.SEC_CHECKS),
+                         tasklog.section(task, tasklog.SEC_CHECKS).replace("\n", "\r\n"))
+        stripped = estimate.strip_notes(crlf)
+        self.assertNotIn(IMPL, stripped)
+        self.assertNotIn("- built it", stripped)
+        self.assertIn(f"## {tasklog.SEC_CHECKS}", stripped)
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "0001-x.md"
+            p.write_bytes(crlf.encode())
+            lifecycle._task_file_done(p, "- NOTE", "2026-02-02")
+            out = p.read_bytes().decode()
+        self.assertIn("- NOTE", out.rsplit(VERIFY, 1)[1])
 
 
 if __name__ == "__main__":

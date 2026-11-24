@@ -95,8 +95,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E20** One function judges whether a verdict lets a head merge: `ccp verify merge-ok`, `ccp verify
   check` and `ccp tasks close` call it, and `ccp verify record` refuses every approve it would refuse.
   check: pass — the architect compares the refusal lists of the merge-time judges
-- **E22** One parser per durable grammar: a task file's dod_checks are split and read by one tasklog
-  function; no other module matches `CHECK_RE` or re-splits the section.
+- **E22** One parser per durable grammar: one tasklog function finds a task file's sections, one splits its
+  dod_checks; no other module matches a task file's `## ` heading or `CHECK_RE`, or re-splits a section.
   check: command — architect.checks `E22`
 - **E23** One parser per reference form: an ADR-decision link (`<ADR id>[ Dn]`, as `adr_refs`,
   `requires` and `retired by` write it), a task-id reference and a task merge's subject (§10.7 rule 1)

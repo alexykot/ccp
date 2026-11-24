@@ -58,7 +58,7 @@ def task_rows(cfg: Config, q: Path, tasks: list[dict[str, Any]]) -> list[dict[st
         st = read_json(q / "tasks" / f"{tid}.json", {}) if q else {}
         st = st if isinstance(st, dict) else {}
         m = merges.get(tid) or {}
-        notes = tasklog._section(t["_text"], tasklog.SEC_VERIFY) or ""
+        notes = tasklog.section(t["_text"], tasklog.SEC_VERIFY) or ""
         pr = st.get("pr") or (PR_RE.search(m.get("subject") or "") or [None, None])[1] \
             or (NOTE_PR_RE.search(notes) or [None, None])[1]
         sha = st.get("merge_sha") or m.get("sha") or (NOTE_SQUASH_RE.search(notes) or [None, None])[1]
