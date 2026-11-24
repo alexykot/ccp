@@ -1538,7 +1538,7 @@ tasks:
     depends_on: []
     path: tasks/0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails.md
   - id: 0313-close-and-the-estimator-find-task-sections-outside-fences-and-a-backtick-fence-s-info-string-holds-no-backtick
-    status: pending
+    status: done
     title: Close's notes edit and the estimator's task text find section headings outside fenced blocks, a backtick fence's info string holds no backtick, and the placeholder check reads the unquoted text through the shared helper
     depends_on: []
     path: tasks/0313-close-and-the-estimator-find-task-sections-outside-fences-and-a-backtick-fence-s-info-string-holds-no-backtick.md
