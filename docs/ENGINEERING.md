@@ -25,14 +25,13 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   plain-value test cuts that branch's end-to-end test in the same change.
   check: pass — the architect looks for branches reachable only through a fixture repo, and for refusals
   tested both on plain values and end to end; the health summary's slowest modules point at them
-- **E21** A dod_check proves behaviour with the head's own tool: a check of a `ccp` command runs the
-  checkout's `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A
-  check that runs tests runs them through `bin/ccp suite run --lane <part lane> -- <command>` and pins a
-  named test by giving its id to that command, so the run's exit code decides, never by a grep of the runner's
-  text or a bare test runner's output (skill line lands with 0317). A check that needs a modified copy (a planted
-  fault) names `ccp mutate` where it can run one test (§20.6), else a `ccp wt create --kind mut` worktree, never a
-  hand `git worktree add`. Signed SPEC text
-  is proved by `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row.
+- **E21** A dod_check proves behaviour with the head's own tool: a check of a `ccp` command runs the checkout's
+  `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A check that runs tests runs
+  them through `bin/ccp suite run --lane <part lane> -- <command>` and pins a named test by giving its id to that
+  command, so the run's exit code decides, never by a grep of the runner's text or a bare test runner's output. A
+  check that needs a modified copy (a planted fault) names `ccp mutate` where it can run one test (§20.6), else a
+  `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text is proved by
+  `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row.
   check: pass — the architect and the reviewer read new tasks' dod_checks
 
 ## Publishing
@@ -82,8 +81,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   the file, by literal name or by `CONFIG_REL`, and never defaults a key itself. A command that
   records into plane.json edits its text through ccp/jsonedit.py.
   check: command — architect.checks `E16`
-- **E17** One module resolves and parses a product's binding; every other reader calls it.
-  check: pass — the architect looks for binding regexes outside that module
+- **E17** One module, scripts/observability/lib.py, resolves and parses a product's binding; every other reader calls it.
+  check: command — architect.checks `E17` (the parser); pass — the architect looks for binding paths resolved outside lib.py
 - **E18** A language's facts (its doc conventions, test-output patterns including the line that says the code did
   not build or import, the command that runs named tests or one test, and import reading) live in its language
   pack (ccp/doclang); plane.json may override them. Core code names no language and no test runner.
@@ -140,11 +139,12 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - Line grammars that are not references stay with their reader (E23): ccp/adr.py's `DECISION_RE` (a decision's
   state line) and `_DEC_HEAD` and `_DEC_MARK` (the line grammar of a decision's heading and mark; its other decision
   patterns derive from them).
-- The gate's test cache keys every module on all the inputs it shares (every tracked and untracked
-  file but the test modules), not on what it imports: one source edit reruns every
-  module (scripts/gate_parallel.py).
+- The gate's test cache keys every module on all the inputs it shares (every tracked and untracked file but the
+  test modules), not on what it imports: one source edit reruns every module (scripts/gate_parallel.py).
 - Health's before-review conflict catch-up figures (`ccp/health.py` `conflict_catch_ups`) are the
   whole implement or fix rounds' wall time and tokens, as §27.1 says and the text line labels them:
   no round records a merge step's own cost (ar-20261121T174754Z-7df5 F12).
 - The architect's prompt lists every friction note since the last pass, the runner's `allow-overdue` override
   rows included (§19.6: all the notes go to the pass); only the due trigger leaves overrides out (ar-20261123T230912Z-197a F09).
+- Close's overlap refusal keeps its end-to-end test: it alone kills a mutant that drops the tip's files from the catch-up's (b) call (E15; ar-20261124T034246Z-e089 F11).
+- Dry-run's placeholder pattern also lists a redirection such as `sort <in >out` or `<<EOF >f` as not run: safe, as it runs nothing (0320; ar-20261124T034246Z-e089).
