@@ -1,7 +1,7 @@
 ---
 task_id: 0318-module-docstrings-state-no-exit-codes-or-spec-grammar-and-the-queue-readme-loses-its-stale-rules
 title: The suite, mutate, report, init, sandbox, architect and rules module docstrings state no exit code, refusal list or SPEC grammar, E24's two counts drop to match, and the queue README loses its stale Rules table
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E24", "E10"]
@@ -132,3 +132,5 @@ As the runner passed it (lead, 2026-11-24, spec question `sm-20261124T012740Z-c6
   files with no frontmatter (`ccp tasks migrate`). Docstrings and the one figure only; no code changed.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #376 head `8d3eaf2` (squash `fb06104`): APPROVE. Passed: doc-01, cfg-01, doc-02, code-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0318-module-docstrings-state-no-exit-codes-or-spec-grammar-and-the-queue-readme-loses-its-stale-rules.json.
+
