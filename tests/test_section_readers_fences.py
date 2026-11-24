@@ -30,6 +30,16 @@ class SectionReadersFences(unittest.TestCase):
         self.assertIn("- NOTE", out.rsplit(VERIFY, 1)[1])
         self.assertIn(f"## Scope\n\n{fenced}\nScope tail.\n\n{VERIFY}\n", out)
 
+    def test_close_ends_the_verification_notes_at_the_next_unfenced_heading(self):
+        notes = f"{VERIFY}\n\nFirst note.\n\n{FENCE}\n## X\n{FENCE}\n"
+        text = f"---\ntask_id: 0001-x\nstatus: pending\nupdated: 2026-01-01\n---\n\n{notes}\n## Later\n\nlater\n"
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "0001-x.md"
+            p.write_text(text)
+            lifecycle._task_file_done(p, "- NOTE", "2026-02-02")
+            out = p.read_text()
+        self.assertTrue(out.endswith(f"\n{notes}- NOTE\n\n## Later\n\nlater\n"), out)
+
     def test_the_estimators_text_keeps_a_fenced_notes_heading_and_drops_the_real_notes(self):
         kept = f"## Scope\n\n{FENCE}\n{IMPL}\n{FENCE}\n\nScope tail.\n\n## dod_checks\n\n- id: x\n\n"
         self.assertEqual(estimate.strip_notes(f"{kept}{IMPL}\n\nIMPL\n\n{VERIFY}\n\nVER\n"), kept)
@@ -40,6 +50,12 @@ class SectionReadersFences(unittest.TestCase):
         self.assertEqual(estimate.task_hash(noted), estimate.task_hash(task))
         self.assertNotEqual(estimate.task_hash(task.replace(f"{FENCE}\n{IMPL}\n{FENCE}", f"{FENCE}\n## Other\n{FENCE}")),
                             estimate.task_hash(task))
+
+    def test_the_estimators_text_ends_a_real_notes_section_at_the_next_unfenced_heading(self):
+        kept = "## Scope\n\ns\n\n"
+        rest = "## dod_checks\n\nd\n"
+        notes = f"{IMPL}\n\n{FENCE}\n## X\n{FENCE}\nTAIL\n\n"
+        self.assertEqual(estimate.strip_notes(kept + notes + rest), kept + rest)
 
     def test_a_backtick_fences_info_string_holds_no_backtick(self):
         span = (f"## Scope\n\n{FENCE}x{FENCE} is a span.\n\n## dod_checks\n\nc\n\n{IMPL}\n\n{FENCE}\nn\n{FENCE}\n")
