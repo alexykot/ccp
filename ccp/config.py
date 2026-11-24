@@ -1406,21 +1406,22 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     out["suite"] = _suite(raw.get("suite"))
     out["models"] = _models(raw.get("models"))
     bad = []
-    if not isinstance(raw.get("task_log", {}).get("index", True), bool):
+    tl = raw.get("task_log") or {}  # a block given as null takes the defaults, as `_merge` gives them
+    if not isinstance(tl.get("index", True), bool):
         bad.append("task_log.index must be true or false")
-    kinds = raw.get("task_log", {}).get("kinds", TASK_LOG_DEFAULTS["kinds"])
+    kinds = tl.get("kinds", TASK_LOG_DEFAULTS["kinds"])
     if not isinstance(kinds, dict) or not kinds or not all(
             isinstance(k, str) and isinstance(v, dict) and set(v) <= set(KIND_KEYS)
             and all(isinstance(v.get(x, []), list) and all(isinstance(i, str) for i in v.get(x, []))
                     for x in ("refs_any", "forbid")) for k, v in kinds.items()):
         bad.append("task_log.kinds must map each kind to {refs_any: [lists], forbid: [lists]}")
-    td = raw.get("task_log", {}).get("dir", TASK_LOG_DEFAULTS["dir"])
-    if not (isinstance(td, str) and td.strip()):
+    td = tl.get("dir", TASK_LOG_DEFAULTS["dir"])
+    if not (isinstance(td, str) and td.strip()) or td.startswith("/") or ".." in Path(td).parts:
         bad.append("task_log.dir must be a path relative to the product root; delete the key to take the constant")
-    rd = raw.get("task_log", {}).get("reviews_dir", "reviews")
+    rd = tl.get("reviews_dir", "reviews")
     if not (isinstance(rd, str) and rd.strip()) or rd.startswith("/") or ".." in Path(rd).parts:
         bad.append("task_log.reviews_dir must be a path relative to task_log.dir")
-    if not isinstance(raw.get("task_log", {}).get("dry_run", False), bool):
+    if not isinstance(tl.get("dry_run", False), bool):
         bad.append("task_log.dry_run must be true or false")
     sp = raw.get("spec_paths", list(SPEC_PATHS_DEFAULT))
     if not isinstance(sp, list) or not all(isinstance(x, str) and x.strip() and not x.startswith("/")

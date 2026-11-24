@@ -1578,7 +1578,7 @@ tasks:
     depends_on: []
     path: tasks/0320-dry-run-lists-a-placeholder-step-as-not-run-and-here-prints-each-step-s-whole-output.md
   - id: 0321-one-tasklog-reader-finds-a-task-file-s-sections-and-a-null-task-log-block-loads-as-its-defaults
-    status: pending
+    status: done
     title: One public tasklog reader finds a task file's sections, close and the estimator call it and E22 checks it; the Context number scan blanks fences through unfence; a null task_log block loads as its defaults and an absolute or .. task_log.dir is refused at load
     depends_on: []
     path: tasks/0321-one-tasklog-reader-finds-a-task-file-s-sections-and-a-null-task-log-block-loads-as-its-defaults.md

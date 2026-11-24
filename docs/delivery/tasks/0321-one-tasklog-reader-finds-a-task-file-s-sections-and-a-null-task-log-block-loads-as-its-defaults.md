@@ -1,7 +1,7 @@
 ---
 task_id: 0321-one-tasklog-reader-finds-a-task-file-s-sections-and-a-null-task-log-block-loads-as-its-defaults
 title: One public tasklog reader finds a task file's sections, close and the estimator call it and E22 checks it; the Context number scan blanks fences through unfence; a null task_log block loads as its defaults and an absolute or .. task_log.dir is refused at load
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S8", "S20"]
@@ -153,4 +153,18 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 
 ## Implementation notes
 
+- Re-measured at `8d016bea` (the one commit since `9691fd9c` touched only `docs/ENGINEERING.md`, which stays at 150
+  lines, and `docs/delivery/plane.json`, which added `E17`): the three heading searches, the three
+  `tasklog._section(` callers in `ccp/`, `FENCE_RE.sub` twice in `ccp/tasklog.py`, E22's old cmd and no
+  `task_log.dir` in `docs/spec` all as the Context states.
+- `ccp/tasklog.py`: `section_span` and `section` replace `_section_at` and `_section`; `checks`,
+  `unmeasured_numbers` (now `unfence` on the Context body), `_signed_sections`, `stale_context`, the §31.1 Scope read
+  and `check`'s section reads call them. `strip_notes` and close's notes edit call `section_span`; `parallel.in_item`,
+  `plan` and the estimator's dod_checks read call `section`.
+- `ccp/config.py` `_toolkit` reads the block once as `raw.get("task_log") or {}`; `task_log.dir` is refused, with the
+  message it had, when it starts with `/` or has a `..` part, as `reviews_dir` is.
+- E22's text and `architect.checks` `E22` are the Context's, word for word; `docs/ENGINEERING.md` stays at 150 lines.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #387 head `d72cda8` (squash `b2c2149`): APPROVE. Passed: code-01, code-02, code-03, cmd-01, cmd-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0321-one-tasklog-reader-finds-a-task-file-s-sections-and-a-null-task-log-block-loads-as-its-defaults.json.
+

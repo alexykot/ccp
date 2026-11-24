@@ -1,7 +1,7 @@
 """The plane.json blocks' keys and defaults are written once, in `config.BLOCK_DEFAULTS`; this is the one test
 that holds `contracts/plane_config.schema.json` to it: the schema lists exactly the registry's blocks and each
-block's keys, and every `default` it states is the code's value. A `task_log.dir` that is not a path is refused
-at load (§8.1)."""
+block's keys, and every `default` it states is the code's value. A `task_log.dir` that is not a path relative to the
+product root is refused at load, and a `task_log` block given as null loads as the defaults (§8.1)."""
 from __future__ import annotations
 
 import io
@@ -60,6 +60,22 @@ class PlaneConfigDefaults(unittest.TestCase):
 
     def test_a_task_log_dir_that_is_not_a_path_is_refused_at_load(self):
         for bad in (None, "", 5):
+            with self.subTest(dir=bad):
+                p = Product({"project_id": "demo", "language": "none", "task_log": {"dir": bad}}, bare=True)
+                self.addCleanup(p.cleanup)
+                with redirect_stderr(io.StringIO()), self.assertRaises(config.ConfigError) as cm:
+                    config.load(p.root)
+                self.assertIn("task_log.dir", str(cm.exception))
+
+    def test_a_null_task_log_block_loads_as_the_defaults(self):
+        p = Product({"project_id": "demo", "language": "none", "task_log": None}, bare=True)
+        self.addCleanup(p.cleanup)
+        with redirect_stderr(io.StringIO()):
+            cfg = config.load(p.root)
+        self.assertEqual(cfg.task_log, config.TASK_LOG_DEFAULTS)
+
+    def test_an_absolute_or_parent_task_log_dir_is_refused_at_load(self):
+        for bad in ("/tmp/x", "../x", "docs/../../x"):
             with self.subTest(dir=bad):
                 p = Product({"project_id": "demo", "language": "none", "task_log": {"dir": bad}}, bare=True)
                 self.addCleanup(p.cleanup)

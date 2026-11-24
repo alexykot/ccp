@@ -147,10 +147,8 @@ def _append(q: Path, row: dict[str, Any]) -> None:
 def strip_notes(text: str) -> str:
     """The task as written before the work: the runtime sections and volatile frontmatter left out."""
     for name in NOTES:
-        unfenced = tasklog.unfence(text)  # a `## ` line inside a fenced block is quoted text, no heading
-        m = re.search(rf"^## {re.escape(name)}[ \t]*$", unfenced, re.M)
-        if m:
-            text = text[:m.start()] + text[tasklog.section_end(unfenced, m.end()):]
+        if span := tasklog.section_span(text, name):
+            text = text[:span[0]] + text[span[2]:]
     if text.startswith("---\n") and (end := text.find("\n---\n", 4)) != -1:
         fm = [ln for ln in text[4:end].splitlines() if ln.split(":", 1)[0].strip() not in VOLATILE]
         text = "---\n" + "\n".join(fm) + text[end:]
@@ -238,7 +236,7 @@ def features(cfg: Config, t: dict[str, Any], rev: str | None = None) -> dict[str
     for c in checks:
         k = c.rsplit("-", 1)[0]
         kinds[k] = kinds.get(k, 0) + 1
-    body = tasklog._section(text, tasklog.SEC_CHECKS) or ""
+    body = tasklog.section(text, tasklog.SEC_CHECKS) or ""
     adrs = sorted({n for r in tasklog._as_list(t.get("adr_refs")) if (n := tasklog.adr_number(str(r), cfg)) is not None})
     return {"kind": tasklog.kind_of(t), "family": family(tid, cfg), "areas": areas[:20],
             "cited_paths": len(lines), "cited_lines": sum(lines.values()),
