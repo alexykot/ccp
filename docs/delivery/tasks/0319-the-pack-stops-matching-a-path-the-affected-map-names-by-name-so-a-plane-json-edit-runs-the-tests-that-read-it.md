@@ -1,7 +1,7 @@
 ---
 task_id: 0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it
 title: A changed path that plane.json suite.affected_map matches is no longer matched to tests by its name, so the language pack stops marking every test that names the file while a changed test module and a module's importers still count, and this repo maps its own plane.json to the tests that read it
-status: pending
+status: done
 renamed_from: 0319-a-path-the-affected-map-names-is-the-map-s-alone-so-a-plane-json-edit-runs-the-tests-that-read-it
 kind: feature
 depends_on: []
@@ -134,3 +134,5 @@ Measured at `bb102371`:
   over every alias of `PLANE_ROOT` the tests define; it finds those two modules and no other.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #393 head `37f7541` (squash `40230cc`): APPROVE. Passed: cmd-01, code-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it.json.
+
