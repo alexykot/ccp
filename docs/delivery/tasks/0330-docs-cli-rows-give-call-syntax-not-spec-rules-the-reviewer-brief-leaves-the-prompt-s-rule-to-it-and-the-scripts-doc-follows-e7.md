@@ -110,4 +110,13 @@ Measured at `db68df5b`:
 
 ## Implementation notes
 
+- Premises re-measured at 49fc0406 before building: 16 docs/cli rows over 300 bytes, 13 exit-code lines, 2 `beyond intent` hits in the reviewer brief, 2 `scripts/CLAUDE.md` hits: unchanged.
+- docs/cli: 19 rows rewritten (the 16 long ones, plus the exit-code rows `tasks migrate`, `tasks prefer`, `tasks hold`, `tasks sign-off`, `tasks ruling`, `tasks checks`, `team.sh runner spawn --dry-run`, and `ccp board status`'s "exits non-zero"). Who is said inside the row's own text where a file has no Who column, and only in the rows rewritten.
+- `ccp prompt` is four rows, not one: its syntax alone is about 280 bytes, so the one row cannot hold the 300-byte limit with its who and §. Row 1 has the flags every phase takes; `--allow-unreviewed-fix`, `--mode resolution` and `--waived` each sit on a row naming the one phase that takes them. `tests.test_cli_reference` credits flags per command, so it passes as before.
+- Clauses kept because no § states them, shortened: `ccp init`'s `--starter-rules` is a no-op (the flag must stay in the syntax; only the parser's help says it), `ACTOR=design-seat` for the lead's writing commands (`tasks prefer`, `hold`, `sign-off`, `ruling`, `follow-up`), `tasks next --json` carries `passed_over`, `tasks follow-up` run again replaces the outcome.
+- Left as they were, outside the rows: the "Exit 1 on a PR-host error ... 2 on a usage error" line under `## Pull requests` in `02-delivery.md` (capital E, so E25's grep does not match it) and the closing `Exit codes for these commands follow §10's contract` paragraph of `03-quality.md`.
+- E25 in `docs/ENGINEERING.md` and `architect.checks` `E25` in `docs/delivery/plane.json` as the task gives them; `docs/ENGINEERING.md` stays at 150 lines.
+- The reviewer brief's Spec-beyond-intent bullet is gone; `templates/prompts/review.md` still carries the instruction. `tests/test_sign_off_beyond_intent.py` no longer pins the reviewer brief for it.
+- `scripts/CLAUDE.md`: title and last line as given.
+
 ## Verification notes
