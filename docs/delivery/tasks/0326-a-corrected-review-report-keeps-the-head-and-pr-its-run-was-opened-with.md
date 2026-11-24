@@ -1,7 +1,7 @@
 ---
 task_id: 0326-a-corrected-review-report-keeps-the-head-and-pr-its-run-was-opened-with
 title: A corrected report keeps the head and PR its run was opened with when its phase's report gives no such line, so a verify after a clean review, a correction and a clean catch-up merge round passes
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S15"]
@@ -78,4 +78,22 @@ Measured at `cd3a6bf5`:
 
 ## Implementation notes
 
+- `ccp/report.py`: `phase_keys(phase, mode)` gives the `PARSED_KEYS` within the union of `Section.stored` over
+  `sections_for(phase, mode)`; `submit`'s correction branch pops only those (a verify's `verdict` and `head` still
+  kept). A review correction now keeps the `head` and `pr` the run was opened with; implement, fix, merge and ruling
+  corrections still replace them. A verify correction now also keeps the `pr` it was opened with (a verify report
+  has no `PR:` line), which follows from the ruled union.
+- Re-measured at `7bd2fc42`: the `PARSED_KEYS`/phases command prints the same; `report fields` is still the one
+  §13.4 line; 1706f4b1 touched only `tests/test_prompt_rounds.py`'s imports.
+- Tests: `Correction.test_a_corrected_review_keeps_the_head_and_pr_it_was_opened_with`, `PhaseKeys` (plain values),
+  `Rounds.test_a_merge_round_after_a_corrected_review_needs_no_new_review` (`ccp prompt verify` and
+  `ccp verify record` after a clean review, its correction and a merge round that left the change alone).
+- Fix round 1 (review MINOR-1, NIT-1): `Resolution.test_a_correction_with_no_resolution_line_drops_the_earlier_one`
+  corrects a contained resolution review to `Outcome: blocked` and checks the run keeps no `resolution` or
+  `affected_checks`, so `submit` must pass the run's mode to `phase_keys`. The Correction test's `unreviewed_fix`
+  assertion now asks about another head and expects the refusal to name the kept head, which passes only when the
+  correction kept it.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #399 head `6985702` (squash `59e53ce`): APPROVE. Passed: code-01, code-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0326-a-corrected-review-report-keeps-the-head-and-pr-its-run-was-opened-with.json.
+
