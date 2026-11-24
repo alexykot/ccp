@@ -111,6 +111,24 @@ class RunAffected(AffectedProduct, unittest.TestCase):
         self.assertIsNone(self.part_args())
 
 
+class RunAffectedWithAStagedPartLane(AffectedProduct, unittest.TestCase):
+    """The same product declaring its part lane with stages: `--affected` runs that lane as declared."""
+
+    LANES = {"gate": [PY, "-c", GATE], "part": [{"name": "unit", "cmd": "touch part-ran"}]}
+
+    def test_affected_runs_a_staged_part_lane_as_declared(self):
+        self.p.write(".gitignore", "part-args.json\ngate-ran\npart-ran\n")
+        git(self.p.root, "commit", "-qam", "ignore the marker")
+        self.p.write("pkg/a.py", "X = 3\n")
+        r = self.ccp("suite", "run", "--affected", "--summary")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((self.p.root / "part-ran").exists())
+        started = self.rows("started")
+        self.assertEqual([s["lane"] for s in started], ["part"])
+        self.assertEqual([(e["suite_id"], e["exit_code"]) for e in self.rows("ended")], [(started[0]["suite_id"], 0)])
+        self.assertFalse((self.p.root / "gate-ran").exists())
+
+
 class AffectedUsage(unittest.TestCase):
     """`--affected` and `--since` against the other flags, on the parsed values (`suite.affected_usage`)."""
 

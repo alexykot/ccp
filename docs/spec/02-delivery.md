@@ -859,13 +859,15 @@ Claude Code). A cold gate run must fit that limit with room to spare.
 
 `ccp suite affected [--since <ref> | --paths <path>…]` prints the test modules a change touches, one
 per line, sorted, so a worker picks the `part` lane from them after a merge or a fix instead of
-guessing. It runs nothing and records nothing. `ccp suite run --affected [--since <ref>]` takes the same change and runs, recorded as any run (§14.4), what the stderr line below names: the part lane with the modules, or the full lane when the line says so. With no module touched it runs and records nothing, says so on stderr and exits 0; with no line to run it exits 2. It takes no `--lane` and no command after `--`, and `--since` without `--affected` exits 2, nothing run.
+guessing. It runs nothing and records nothing. `ccp suite run --affected [--since <ref>]` takes the same change and runs, recorded as any run (§14.4), what the stderr line below names: the part lane with the modules, the part lane as declared when it has stages, or the full lane when the line says so. With no module touched it runs and records nothing, says so on stderr and exits 0; with no line to run it exits 2. It takes no `--lane` and no command after `--`, and `--since` without `--affected` exits 2, nothing run.
 After the list it prints, on stderr, the command that runs them on the `part` role's lane
 (`ccp suite run --lane <part lane> -- <command> <modules>`). The `<command>` is the argv
 plane.json `suite.lanes` gives the part role's lane, when it gives one as an argv, which then
 takes the module names as its last arguments; else the language's command, for a language whose
-command it names (Python: `python3 -m unittest`); stdout keeps the list alone. With the language's
-command, when the list holds more than a fixed share of the suite's test modules (a constant in
+command it names (Python: `python3 -m unittest`); stdout keeps the list alone. When plane.json gives
+the part role's lane stages, which take no command (§14.2), the line is
+`ccp suite run --lane <part lane>`, the lane as declared, whatever the list holds. With the
+language's command, when the list holds more than a fixed share of the suite's test modules (a constant in
 code; the pack counts the suite), the stderr line says instead to skip the pre-gate and run the
 `full` role's lane: that command runs its modules one after another, and past that share it is
 slower than the full lane. A declared part lane, and a product that maps tests with

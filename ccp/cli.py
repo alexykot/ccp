@@ -1464,7 +1464,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--lane", help="a short label; alone, the argv plane.json suite.lanes names for it")
     p.add_argument("--affected", action="store_true",
                    help="run what `ccp suite affected` names on stderr: the part lane with the test modules the change "
-                        "touches, or the full lane when it says so; no --lane and no command after `--` (SPEC §14.7)")
+                        "touches, the part lane as declared when it has stages, or the full lane when it says so; no "
+                        "--lane and no command after `--` (SPEC §14.7)")
     p.add_argument("--since", metavar="REF", help="with --affected, the change, as `ccp suite affected --since` reads "
                                                   "it; REF... is the change since REF's merge base with HEAD")
     p.add_argument("--run", help="the run it belongs to (<task_id>/<phase>[-n], as the prompt names it)")

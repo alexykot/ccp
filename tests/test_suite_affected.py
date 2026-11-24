@@ -153,14 +153,30 @@ class Affected(Scratch, unittest.TestCase):
         _, _, err = self.run_cli("--paths", "pkg/a.py")
         self.assertEqual(self.ran_with(err), "--lane quick -- python3 -m unittest tests.test_a")
 
-    def test_a_staged_part_lane_counts_as_none_declared(self):
+    def test_a_staged_part_lane_runs_as_declared(self):
         self.lanes({"gate": ["true"], "part": [{"name": "unit", "cmd": "make unit"}]})
+        staged = "ccp suite affected: the part lane has stages and takes no modules: run it with: ccp suite run --lane part\n"
+        code, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual((code, lines, err), (0, ["tests.test_a"], staged))
+        self.touch_three_of_eight()  # past the share: still the part lane as declared, never the full lane
+        code, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual((code, lines, err), (0, ["tests.test_a", "tests.test_b", "tests.test_filler1"], staged))
+
+    def test_the_staged_line_names_the_lane_the_product_gives_the_part_role(self):
+        self.lanes({"gate": ["true"], "quick": [{"name": "unit", "cmd": "make unit"}]}, roles={"part": "quick"})
         _, _, err = self.run_cli("--paths", "pkg/a.py")
-        self.assertEqual(self.ran_with(err), "--lane part -- python3 -m unittest tests.test_a")
-        self.touch_three_of_eight()
-        _, _, err = self.run_cli("--paths", "pkg/a.py")
-        self.assertEqual(err, "ccp suite affected: 3 of 8 test modules: skip the pre-gate and run the full lane: "
-                              "ccp suite run --lane gate\n")
+        self.assertEqual(self.ran_with(err), "--lane quick")
+
+    def test_a_declared_part_lane_never_counts_the_suite(self):
+        def no_count(*_):
+            raise AssertionError("the suite was counted")
+        counted = replace(py_pack.PACK, suite_size=no_count)
+        for part in (["scripts/gate.sh"], [{"name": "unit", "cmd": "make unit"}]):
+            with self.subTest(part=part):
+                self.lanes({"gate": ["true"], "part": part})
+                with mock.patch.dict(doclang.PACKS, {"python": lambda: counted}):
+                    code, lines, err = self.run_cli("--paths", "pkg/a.py")
+                self.assertEqual((code, lines), (0, ["tests.test_a"]), err)
 
     def test_a_declared_part_lane_runs_them_where_the_language_names_no_command(self):
         self.lanes({"gate": ["true"], "part": ["scripts/gate.sh"]})
