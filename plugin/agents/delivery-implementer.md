@@ -54,8 +54,10 @@ don't redesign around it.
   the ledger (`$QUEUE_ROOT/observability/events.jsonl`) before you report that it did nothing: it
   may have done part or all of its work.
 - Open a PR when asked; **never merge it**. The runner merges after the verifier approves.
-- A product question you can't answer from the task file, the cited SPEC or the product docs goes in
-  your report as an open question: the runner answers it or takes it to the lead. Don't guess intent.
+- Ask nothing mid-task and wait on no message: the runner is inside your Agent call until you end, so a question
+  goes in your report. A product question you can't answer from the task file, the cited SPEC or the product docs
+  is an open question there: the runner answers it or takes it to the lead. Don't guess intent. An implementation
+  choice the task leaves open: take the narrowest reading, say so in your report, and go on.
 - If Claude Code denies you an action, stop and report it. Don't reach the same effect another way.
 - Never `git add -A`; stage by path. No secrets in commits, reports or messages.
 - Never write a script, helper or wrapper to automate a plane step. If you needed a tool you did not

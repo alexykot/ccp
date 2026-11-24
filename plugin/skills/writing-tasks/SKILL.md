@@ -132,6 +132,10 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   fault and the product declares `mutate.command` or its language pack has a per-test runner,
   otherwise a `ccp wt create --kind mut` worktree at the head, removed with `ccp wt remove`; never
   the branch's own worktree and never a hand `git worktree add`.
+- **A revert check leaves an unchanged line between the changes it tells apart.** `ccp mutate --revert
+  <path>:<ranges>` puts back the hunks `git diff -U0` shows, and `-U0` joins changes on adjacent lines into one
+  hunk. So a fixture whose check reverts one change and keeps another puts at least one unchanged line between
+  them: changes at lines 2, 4 and 6 of a seven-line file, never at 2, 3 and 5.
 - **A speed check states an absolute target**, never "as fast as before".
 - **A check that runs tests runs them through `ccp suite run`**
   (`ccp suite run --lane <part lane> -- <test command> <tests>`; `CCP_DEV=1 ./bin/ccp suite run …` in the

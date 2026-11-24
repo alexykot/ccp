@@ -29,6 +29,5 @@ Append Implementation notes to the task file and change nothing else in it (not 
 Open a PR to {{integration}} with `QUEUE_ROOT={{queue_root}} {{ccp}} pr open --branch task/{{task_id}} --title "Task {{nnnn}}: <short title>" --body-file <file>`, the body beginning with the line `Task: {{task_id}}`.
 Commit WIP on the task branch as you go.
 
-Questions: an implementation choice (how to build it) is the runner's.
-Send it to `{{runner}}` with SendMessage and carry on with what does not depend on the answer; if no answer has come by the time you would finish, make the choice, document it and flag it.
+Questions: an implementation choice the task leaves open is yours: take the narrowest reading and flag it in your report.
 A product or spec question: stop that part and put it in your report.

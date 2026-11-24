@@ -61,7 +61,6 @@ class NoteAndEnv(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234", "--supersede")
         self.assertEqual(code, 0, out + err)
         text = Path(body["prompt_path"]).read_text()
-        self.assertIn("Send it to `runner-2` with SendMessage", text)
         self.assertIn("no messages to anyone except the runner teammate, `runner-2`.", text)
         self.assertIn("Send the runner teammate, `runner-2`, a message", text)
         self.assertNotIn("`runner`", text)

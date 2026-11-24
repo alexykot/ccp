@@ -131,8 +131,9 @@ ids), tell the lead in one line: the run and how many. The lead decides each one
 5. **Implement.** `ccp prompt implement <task_id>`, then make the Agent call it prints: a
    `delivery-implementer` subagent in the task worktree. For a
    `kind: refactor` task the prompt carries the refactor DoD itself.
-6. **Questions from the implementer.** Implementation choices are yours: answer by `SendMessage`.
-   Spec questions go to the lead (below). Unsure: spec.
+6. **Questions from the implementer** come in its report: you are inside its Agent call until it ends. On an
+   implementation choice the implementer takes the narrowest reading and flags it: accept it, or give your choice in
+   the fix round's `--note` (`ccp prompt fix`) once review has run. Spec questions go to the lead (below). Unsure: spec.
 7. **Review.** `ccp prompt review <task_id> --pr <n> --head <sha>`: a fresh `delivery-reviewer` subagent with
    no implementer context. It refuses (exit 2) a PR whose body does not contain the task id: repair the
    body first (`ccp pr edit <n> --body-file <file>`), then ask again. It also refuses (exit 4) a head whose merge of the tip would conflict (SPEC §15.2): `ccp prompt merge` first, then review the new head. When it finds a BLOCKER or MAJOR, `ccp prompt fix <task_id> --pr <n> --head <sha>`
