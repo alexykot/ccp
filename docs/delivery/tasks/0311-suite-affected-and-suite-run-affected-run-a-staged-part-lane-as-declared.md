@@ -133,4 +133,18 @@ Covers the open follow-up `0299-the-pre-gate-and-review-run-what-the-branch-touc
 
 ## Implementation notes
 
+- `ccp/suite.py`: a private `_declared_part_lane` returns what `suite.lanes` gives the part role's lane (an argv or
+  stages, a non-empty list) or None; `declared_part_argv` reads it. `affected_plan` gives a staged part lane
+  `(part lane, None, "part")` before the share rule; the full lane past the share is now `(full lane, None, "full")`,
+  so a lane-own plan's third element names the role it runs as and `affected_hint` and `affected_run` tell the two
+  apart without comparing lane names (the two roles may share a lane). `affected_modules` skips the pack's
+  `suite_size` whenever `_declared_part_lane` is set.
+- Tests: `test_a_staged_part_lane_counts_as_none_declared` became `test_a_staged_part_lane_runs_as_declared` (one module
+  and past the share); beside it `test_the_staged_line_names_the_lane_the_product_gives_the_part_role` (a `roles.part`
+  lane) and `test_a_declared_part_lane_never_counts_the_suite` (argv and stages, a pack whose `suite_size` raises).
+  `tests/test_suite_run_affected.py` gains `RunAffectedWithAStagedPartLane.test_affected_runs_a_staged_part_lane_as_declared`;
+  the `ended` row carries no lane, so the test reads the lane from the `started` row and matches the `ended` row by
+  `suite_id`.
+- SPEC §14.7: the two signed passages, as written; `--affected`'s help and the `ccp suite affected` row as ruled.
+
 ## Verification notes
