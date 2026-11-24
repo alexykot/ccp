@@ -124,6 +124,18 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
         self.assertIn(PART_EMPTY, lanes)
         self.assertNotIn("<modules>", lanes)
 
+    def test_a_staged_part_lane_names_suite_run_affected(self):
+        stages = [{"name": "unit", "cmd": "true"}]
+        staged = {"lanes": {"part": stages, "gate": stages}}
+        c = dataclasses.replace(config.load(self.runner), suite=staged)
+        for phase in ("implement", "review"):
+            self.assertIn("ccp suite run --affected", prompt_mod.suite_lanes(c, phase), phase)
+        # the staged gate lane gets no such tail: the verify line names it once, for the part lane
+        self.assertEqual(prompt_mod.suite_lanes(c, "verify").count("ccp suite run --affected"), 1)
+        # nor does an undeclared part lane, which takes the command after `--`
+        bare = dataclasses.replace(c, suite={"lanes": {}})
+        self.assertNotIn("ccp suite run --affected", prompt_mod.suite_lanes(bare, "implement"))
+
 
 class GateOnlyLanes(ReviewFlow, ToolkitFixture, unittest.TestCase):
     """A product with one test command declares it once, as the gate lane: the full role runs that lane."""

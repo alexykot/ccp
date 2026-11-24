@@ -608,7 +608,7 @@ shows.
 - **Cache lifetime.** `experimental.cacheTtl: 1h` in every delivery definition covers worker
   subagents; the runner teammate's comes from `subagentPromptCacheTtl` in settings (§2.4). `ccp usage`
   shows the 1-hour cache writes (`W-1H`) per run and seat.
-- **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's `architect.checks` commands (rendered from plane.json), or, when plane.json `suite.lanes` declares a `pregate` lane, that lane through `ccp suite run --lane pregate` in their place, and `ccp suite run --affected --since origin/<integration>...` (§14.7), which runs the part lane on the modules the branch's own change touches or, when that change reaches most of the suite, the full lane in place of the pre-gate. It never stands in for the full suite, which runs on the final code and must be green.
+- **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's `architect.checks` commands (rendered from plane.json), or, when plane.json `suite.lanes` declares a `pregate` lane, that lane through `ccp suite run --lane pregate` in their place, and `ccp suite run --affected --since origin/<integration>...` (§14.7), which runs what §14.7 names for the branch's own change: the part lane on the modules it touches, the part lane as declared when plane.json gives it stages, or, when that change reaches most of the suite, the full lane in place of the pre-gate. It never stands in for the full suite, which runs on the final code and must be green.
 - **Exploration hygiene.** What the task cites is read in full; a listing, search or log likely past
   about 200 lines goes to a scratch file and is read in slices; independent reads go as parallel tool
   calls in one turn.

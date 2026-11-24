@@ -145,7 +145,8 @@ def suite_lanes(cfg: Config, phase: str) -> str:
     """§14.1: the phase's lanes, by role. A lane plane.json `suite.lanes` declares (an argv or stages) runs
     as `--lane <lane>` with nothing after `--`, so the worker runs what the product declares; a lane it does
     not declare takes the command after `--`. The part role's lane declared as an argv takes that argv and the
-    module names after `--`, or `ccp suite run --affected` picks them (§14.7): with nothing after it, it runs them all."""
+    module names after `--`, or `ccp suite run --affected` picks them (§14.7): with nothing after it, it runs them all.
+    The part role's lane declared with stages is also run by `ccp suite run --affected`, as declared (§14.7)."""
     from ccp.config import SUITE_ROLES, lane_for  # noqa: PLC0415
     from ccp.suite import declared_part_argv  # noqa: PLC0415
     declared = (cfg.suite or {}).get("lanes") or {}
@@ -160,6 +161,8 @@ def suite_lanes(cfg: Config, phase: str) -> str:
             continue
         v[r] = f"`--lane {lane}`" + (" with nothing after `--`" if own else "")
         v[f"{r}_for"], v[f"{r}_as"] = (": ", ", as plane.json gives it") if own else (" for ", "")
+        if own and r == "part":
+            v[f"{r}_as"] += ", or `ccp suite run --affected`, which runs it as declared"
     return SUITE_LANES[phase].format(**v)
 
 

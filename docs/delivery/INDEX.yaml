@@ -1613,7 +1613,7 @@ tasks:
     depends_on: []
     path: tasks/0327-init-keeps-an-empty-task-log-in-git-and-checks-build-scratch-products-with-sandbox-create.md
   - id: 0328-the-fail-fast-rule-and-the-worker-prompt-name-suite-run-affected-for-a-staged-part-lane
-    status: pending
+    status: done
     title: §13.5's Fail fast rule says what ccp suite run --affected runs for a staged part lane, the worker prompt names --affected for one, and a language pack's affected reader is typed with the named keyword suite passes
     depends_on: []
     path: tasks/0328-the-fail-fast-rule-and-the-worker-prompt-name-suite-run-affected-for-a-staged-part-lane.md

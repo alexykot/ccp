@@ -2063,9 +2063,9 @@ def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[l
 def affected_modules(cfg: Config, since: str | None, paths: list[str] | None
                      ) -> tuple[list[str], list[str], int, str | None]:
     """(the changed paths, the test modules they touch, the suite's test-module count when `affected_plan`
-    needs it (else 0: plane.json declares the part role's lane), the language's test command): what
-    `ccp suite affected` and `ccp suite run --affected` both work from. A QueueError when the change or its
-    tests cannot be read."""
+    needs it (else 0: no module touched, no pack count, or plane.json declares the part role's lane), the
+    language's test command): what `ccp suite affected` and `ccp suite run --affected` both work from. A
+    QueueError when the change or its tests cannot be read."""
     changed, mods = affected(cfg, since, paths)
     pack = doclang.for_tests(cfg)
     total = 0
