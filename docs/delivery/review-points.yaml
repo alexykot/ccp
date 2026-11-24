@@ -175,8 +175,9 @@ review_points:
   - id: R30
     name: follow-ups of 0299 and 0308
     goal: "The open worker follow-ups of 0299 and 0308: worker briefs naming ccp suite run --affected in place of the suite affected hand-off, the log texts following §14.4's pruning of every suite-run log, the full-log test closing its pipe and lib naming its retired review event types; and ccp suite affected and suite run --affected running a part lane declared with stages as declared, with its signed §14.7 sentence."
-    status: current
+    status: closed
     opened: "2026-11-23"
+    closed: "2026-11-24"
   - id: R31
     name: follow-ups of 0300 and 0304
     goal: "The open worker follow-ups of 0300 and 0304 and the lead's notes on them: every atomic write through one helper with a unique temporary name, so two concurrent writers of one file both succeed and a failed write leaves no temporary file; close's notes edit and the estimator's task text finding section headings outside fenced blocks, with a backtick fence's info string holding no backtick; and the task-writing guidance on a revert check's hunks, with an implementer's questions going in its report."
@@ -186,15 +187,17 @@ review_points:
   - id: R32
     name: eleventh architect pass fixes
     goal: "Findings of architect pass ar-20261123T230912Z-197a and the open follow-ups of 0296 and 0305: a task_log.dir that is not a path refused at load, tests for notify's unreadable plane.json, close's not_merged call and suite run's --affected flag rules, and the architect fixture waiting for its detached passes; E4 counting every long-literal assert form and naming its figure; one mutation route in the review prompt, token-pinned prompt tests, checks that pin a test by its id and removal checks that miss the replacing text; module docstrings with no exit codes or SPEC grammar and the queue README's stale rules gone; a path the affected map matches no longer matched to tests by its name, with its signed §14.7 sentence; and a measured premise narrowed to one that sets a task's scope, with the task check's warning on any Context number gone and its signed §5.5 and §21.1 passages."
-    status: planned
+    status: closed
     opened: "2026-11-24"
+    closed: "2026-11-24"
   - id: R33
     name: twelfth architect pass fixes
     goal: "Findings of architect pass ar-20261124T034246Z-e089 and the open follow-ups of 0306, 0307, 0313 and 0315: tasks dry-run listing a placeholder step as not run and printing each step's whole output with --here, with its signed §21.1 passage, and the worker and runner briefs naming the command they mean; one tasklog reader of a task file's sections that close and the estimator call, with E22 checking it, and a null task_log block loading as its defaults; the house-check programs in one tracked script, and ccp mutate filing unbuilt only on the mutant's own files with one line per mutant, with its signed §20.6 passages; the package docs naming lib.py's roles and the queue-write route, the architect's queue files written atomically and the tracked queue directory gone; and tests/helpers.py split by concern with one shared git runner."
-    status: planned
+    status: closed
     opened: "2026-11-24"
+    closed: "2026-11-24"
   - id: R34
     name: thirteenth architect pass fixes
     goal: "Findings of architect pass ar-20261124T205520Z-4ce8, the open follow-ups of 0311, 0319, 0322 and 0324, and the accepted plane proposal on review runs: a corrected review report keeping the head and PR its run was opened with, so a verify after a clean catch-up merge round passes; ccp init keeping an empty task log in git, and checks building a scratch product with ccp sandbox create; the Fail fast rule and the worker prompt naming suite run --affected for a staged part lane, with its signed §13.5 passage, and the affected reader typed with its named keyword; the tests editing plane.json through one helper, naming the plane root once and taking git from its own module, with the retirement guards that have no reader gone; and docs/cli rows giving call syntax, not SPEC rules, with E25 checking it, the reviewer brief leaving its prompt's rule to it and the scripts doc following E7."
-    status: planned
+    status: current
     opened: "2026-11-24"
