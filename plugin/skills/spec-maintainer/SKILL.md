@@ -79,7 +79,7 @@ a minor point, rule and record your reasoning.
   Marking a task `dropped` is the one exception. `ccp tasks check --lease` names such an edit before
   you push.
 - **A ruling never replaces a check step; it says what the verifier holds instead** (its `held_instead`,
-  plane SPEC §15.4), so the check text stays the signed one.
+  plane SPEC §15.4), so the check text stays as written.
 
 ## Answer file
 

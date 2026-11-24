@@ -56,8 +56,12 @@ Measured at `146cae57` (origin/main after R28, R29 and R31 closed):
     line reads `- only 2 call sites exist` gives no warning naming its file, and `ccp tasks check` exits 0.
   - `tests/test_tasklog_context_checks.py`, class `QuotedRulings`: goes whole (it holds only the quoted-block
     exception of the warning).
-  - `tests/test_stale_context_audience.py`, class `TasksCheck`: its fixture's third task (`0003-c`, "a number with no
-    command") and the assertion that its warning stays go; the stale warnings it tests are unchanged.
+  - `tests/test_stale_context_audience.py`, class `TasksCheck`: its fixture's third task (`0003-c`) keeps a warning
+    of another kind, so `test_stale_names_each_task_and_no_other_warning` still tells `--stale` from the plain check.
+    Ruled: its Context line becomes `- gated on 0004` and the fixture adds a pending task `0004-d` (not measured, no
+    paths), so `0003-c` draws the prose-prerequisite warning (§21.1: a task names a later task as a prerequisite in
+    prose). The class docstring and the "the other warnings stay" assertion name that warning (`"names 0004-d"`), not
+    the number warning; the stale warnings it tests are unchanged.
 - **The prose rule.** No file says "sets scope" yet. Ruled text:
   - `plugin/skills/writing-tasks/SKILL.md`, the bullet "**A measured premise names its measurement.**" becomes:
     "**A premise that sets scope names its measurement.** A premise sets scope when it is the list of sites the task
@@ -80,7 +84,8 @@ Measured at `146cae57` (origin/main after R28, R29 and R31 closed):
 ## Scope
 
 - **In:** `ccp/tasklog.py` (`unmeasured_numbers` and the constants above removed, its call in `warnings`);
-  `tests/test_tasklog.py`; `tests/test_tasklog_context_checks.py`; `tests/test_stale_context_audience.py`;
+  `tests/test_tasklog.py`; `tests/test_tasklog_context_checks.py`; `tests/test_stale_context_audience.py` (fixture task `0003-c` given a
+  prose-prerequisite warning in place of the number warning, and task `0004-d` added);
   `tests/test_plugin.py`; `plugin/skills/writing-tasks/SKILL.md`; `plugin/agents/delivery-implementer.md`;
   `templates/prompts/implement.md`; `docs/spec/01-model.md` (§5.5) and `docs/spec/03-quality.md` (§21.1), the
   passages below.
@@ -109,50 +114,44 @@ Measured at `146cae57` (origin/main after R28, R29 and R31 closed):
 ## dod_checks
 
 - id: `code-01`
-  story: As a task writer, a number in Context with no command on its line raises no warning.
+  story: As a task writer, a number in Context with no command on its line raises no warning, and the premise docs state the narrowed rule.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).
   steps:
-    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_tasklog.TaskLogTest.test_a_number_in_context_without_a_command_raises_no_warning`.
+    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_tasklog.TaskLogTest.test_a_number_in_context_without_a_command_raises_no_warning tests.test_plugin.MeasuredPremises`.
   expect: exit 0.
-  dry run: n/a — the test is new.
+  dry run (`146cae57`): exit 1 (the first test does not exist yet; `tests.test_plugin.MeasuredPremises` fails at the base's docs once `PREMISE_DOCS` holds "sets scope").
 - id: `cmd-01`
   story: As the lead, this repo's task check names no Context number.
-  setup: A checkout of the PR head (any seat) and a scratch `QUEUE_ROOT` `<q>`.
+  setup: A checkout of the PR head (any seat).
   steps:
-    1. Run `QUEUE_ROOT=<q> CCP_DEV=1 ./bin/ccp tasks check 2>&1 | grep -c 'Context states a number'`.
+    1. Run `QUEUE_ROOT=$(mktemp -d) CCP_DEV=1 ./bin/ccp tasks check 2>&1 | grep -c 'Context states a number'`.
   expect: prints `0`.
   dry run (`146cae57`): printed `5`.
 - id: `code-02`
   story: As a plane developer, the warning's code is gone, not left unused.
   setup: A checkout of the PR head (any seat).
   steps:
-    1. Run `git show 146cae57:ccp/tasklog.py | grep -cwE 'unmeasured_numbers|CONTEXT_NUMBER_RE|NOT_MEASURED_RE|WORD_DATE_RE|QUOTED_RE'`.
-    2. Run `git grep -nwP 'unmeasured_numbers|CONTEXT_NUMBER_RE|NOT_MEASURED_RE|WORD_DATE_RE|QUOTED_RE' -- ccp tests`.
+    1. Run `git show 146cae57:ccp/tasklog.py | grep -cwE 'unmeasured_numbers|CONTEXT_NUMBER_RE|NOT_MEASURED_RE|LIST_MARKER_RE|WORD_DATE_RE|QUOTED_RE|_MONTH|_NUM|_UNIT'`.
+    2. Run `git grep -nwP 'unmeasured_numbers|CONTEXT_NUMBER_RE|NOT_MEASURED_RE|LIST_MARKER_RE|WORD_DATE_RE|QUOTED_RE|_MONTH|_NUM|_UNIT' -- ccp tests`.
   expect: step 1 prints a number above 0 (the pattern finds the code at the base); step 2 prints nothing.
-  dry run (`146cae57`): step 1 printed `10`; step 2 printed 10 lines, all in `ccp/tasklog.py`.
+  dry run (`146cae57`): step 1 printed `16`; step 2 printed 16 lines, all in `ccp/tasklog.py`.
 - id: `doc-01`
-  story: As a task writer, the skill and the implementer's briefs state the narrowed rule.
+  story: As a task writer, the skill and the implementer's briefs state the narrowed rule, and the old wording is gone.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `grep -c 'sets scope' plugin/skills/writing-tasks/SKILL.md templates/prompts/implement.md plugin/agents/delivery-implementer.md`.
-    2. Run `grep -c 'states a number with no backticked command' plugin/skills/writing-tasks/SKILL.md`.
-    3. Run ``grep -c 'when `ccp tasks check --stale` names it' plugin/skills/writing-tasks/SKILL.md``.
-  expect: step 1 prints a count of 1 or more for each of the three files; step 2 prints `0`; step 3 prints `1`.
-  dry run (`146cae57`): step 1 printed 0 for each; step 2 printed `1`; step 3 printed `0`.
-- id: `code-03`
-  story: As a plane developer, the tests that hold the stale warning and the premise docs still pass.
-  setup: As `code-01`.
-  steps:
-    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_tasklog tests.test_tasklog_context_checks tests.test_stale_context_audience tests.test_plugin.MeasuredPremises`.
-  expect: exit 0.
-  dry run (`146cae57`): exit 0 (the tests before the change).
+    2. Run `grep -cF -e '(a count, a size, a list of sites' -e 'A measured premise names its measurement' plugin/skills/writing-tasks/SKILL.md templates/prompts/implement.md plugin/agents/delivery-implementer.md`.
+    3. Run `grep -c 'states a number with no backticked command' plugin/skills/writing-tasks/SKILL.md`.
+    4. Run ``grep -c 'when `ccp tasks check --stale` names it' plugin/skills/writing-tasks/SKILL.md``.
+  expect: step 1 prints a count of 1 or more for each of the three files; step 2 prints a count of 0 for each of the three files; step 3 prints `0`; step 4 prints `1`.
+  dry run (`146cae57`): step 1 printed 0 for each; step 2 printed 1 for each; step 3 printed `1`; step 4 printed `0`.
 - id: `spec-01`
   story: As the operator, §5.5 and §21.1 say what I signed.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0325`.
   expect: exit 0, both PROPOSED passages found.
-  dry run (`146cae57`): exit 1, the PROPOSED passages missing.
+  dry run: n/a — at the base there is no task 0325 (`ccp verify spec-text: no task 0325`, exit 2).
 
 ## Implementation notes
 
