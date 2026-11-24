@@ -273,7 +273,7 @@ WHOLE_SUITE_ROLES = ("gate", "full")
 # §13.5: a lane of this name in `suite.lanes` is the product's fail-fast pre-gate; the briefs name it in place
 # of the rendered `architect.checks`
 PREGATE_LANE = "pregate"
-# `log_keep_days`: summary-mode logs in the queue older than this are removed when a run starts.
+# `log_keep_days`: suite-run logs in the queue older than this are removed when a recording run starts (§14.4).
 # `suite.summary` (§14.1): what `ccp suite run` reads from the output when the gate writes no
 # result file (CCP_SUITE_RESULT, contracts/suite_result.schema.json). Each `*_re` is a regular
 # expression, or a list of them, whose first group is a number, summed over every matching line:
@@ -1617,7 +1617,7 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
         bad.append("suite.affected_map must map a path glob to a list of test ids (§14.7)")
     kd = out["suite"]["log_keep_days"]
     if isinstance(kd, bool) or not isinstance(kd, int) or kd < 1:
-        bad.append("suite.log_keep_days must be an integer >= 1 (days a summary-mode log is kept)")
+        bad.append("suite.log_keep_days must be an integer >= 1 (days a suite-run log is kept)")
     sm = out["suite"]["summary"]
     if sm is not None:
         if not isinstance(sm, dict) or set(sm) - set(SUITE_SUMMARY_DEFAULTS):

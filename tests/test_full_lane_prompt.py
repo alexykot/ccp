@@ -106,7 +106,7 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
         for phase in ("implement", "fix", "merge", "ruling", "review", "verify"):
             lanes = prompt_mod.suite_lanes(c, phase)
             self.assertIn(PART_ARGV, lanes, phase)
-            self.assertIn(", as `ccp suite affected` prints it", lanes, phase)
+            self.assertIn(", or `ccp suite run --affected` for the modules a change touches", lanes, phase)
             self.assertNotIn(PART_EMPTY, lanes, phase)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)

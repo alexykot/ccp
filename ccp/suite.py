@@ -1848,7 +1848,7 @@ def ended_summary(cfg: Config | None, started: dict[str, Any] | None, ended: dic
     else:
         out = (stage_text + "\n" if stage_text else "") \
             + summary_line(sid, code, lane, seconds, ended.get("tests"), fields, sig_name) + "\n" \
-            + (f"ccp suite: the log {log} is gone\n" if log is not None else "ccp suite: no log was kept (--full)\n")
+            + (f"ccp suite: the log {log} is gone\n" if log is not None else "ccp suite: no log was recorded for this run\n")
     if ended.get("result_problem"):
         out += f"ccp suite: {sid}: the gate's result file was not used ({ended['result_problem']})\n"
     return out

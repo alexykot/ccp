@@ -1133,7 +1133,7 @@
           "minimum": 1,
           "default": 14,
           "deprecated": true,
-          "description": "Constant, 14 (SPEC §29.3): SPEC §14.1: summary-mode logs in the queue (runs/<task>/*-suite-*.log, runs/_suite-logs/) older than this many days are removed when a `ccp suite run` starts. Default 14. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Constant, 14 (SPEC §29.3): SPEC §14.4: suite-run logs in the queue (runs/<task>/*-suite-st-*.log, runs/_suite-logs/st-*.log) older than this many days are removed when a recording `ccp suite run` starts. Default 14. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "summary": {
           "type": [
