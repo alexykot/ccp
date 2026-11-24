@@ -1968,12 +1968,18 @@ def changed_paths(root: Path, since: str | None, given: list[str] | None) -> lis
 AFFECTED_FULL_SHARE = 0.25
 
 
+def _declared_part_lane(cfg: Any) -> list[Any] | None:
+    """What plane.json `suite.lanes` gives the part role's lane (an argv or stages), or None when it gives none."""
+    lanes = (getattr(cfg, "suite", None) or {}).get("lanes")
+    given = lanes.get(lane_for(cfg, "part")) if isinstance(lanes, dict) else None
+    return given if isinstance(given, list) and given else None
+
+
 def declared_part_argv(cfg: Any) -> list[str] | None:
     """§14.7: the argv plane.json `suite.lanes` gives the part role's lane, which takes module names as its
     last arguments; None when it gives that lane none, or gives it stages."""
-    lanes = (getattr(cfg, "suite", None) or {}).get("lanes")
-    given = lanes.get(lane_for(cfg, "part")) if isinstance(lanes, dict) else None
-    if not isinstance(given, list) or not given or lane_stages(given) is not None:
+    given = _declared_part_lane(cfg)
+    if given is None or lane_stages(given) is not None:
         return None
     return [str(x) for x in given]
 
@@ -1981,15 +1987,18 @@ def declared_part_argv(cfg: Any) -> list[str] | None:
 def affected_plan(cfg: Any, mods: list[str], total: int, test_command: str | None
                   ) -> tuple[str, list[str] | None, str] | None:
     """§14.7: what runs `mods`, or None: (the lane, the command after `--` or None for the lane's own, that
-    command as the stderr line prints it). A declared part-lane argv runs them, whatever their share of the
-    `total` test modules; else the language's `test_command` does, unless they are more than
-    AFFECTED_FULL_SHARE of the suite, when the full role's lane runs instead."""
+    command as the stderr line prints it, or for the lane's own the role it runs as). A declared part-lane
+    argv runs them, whatever their share of the `total` test modules; a part lane declared with stages takes
+    no modules and runs as declared, whatever they are; else the language's `test_command` does, unless they
+    are more than AFFECTED_FULL_SHARE of the suite, when the full role's lane runs instead."""
     if not mods:
         return None
     if (argv := declared_part_argv(cfg)) is not None:
         return lane_for(cfg, "part"), [*argv, *mods], f"{shlex.join(argv)} " + " ".join(mods)
+    if _declared_part_lane(cfg) is not None:  # stages: no command after `--` (§14.2)
+        return lane_for(cfg, "part"), None, "part"
     if total and len(mods) > AFFECTED_FULL_SHARE * total:
-        return lane_for(cfg, "full"), None, ""
+        return lane_for(cfg, "full"), None, "full"
     if test_command:
         return lane_for(cfg, "part"), [*shlex.split(test_command), *mods], f"{test_command} " + " ".join(mods)
     return None
@@ -2000,6 +2009,9 @@ def affected_hint(cfg: Any, mods: list[str], total: int, test_command: str | Non
     if (plan := affected_plan(cfg, mods, total, test_command)) is None:
         return None
     lane, command, shown = plan
+    if command is None and shown == "part":
+        return ("ccp suite affected: the part lane has stages and takes no modules: run it with: "
+                f"ccp suite run --lane {lane}")
     if command is None:
         return (f"ccp suite affected: {len(mods)} of {total} test modules: skip the pre-gate and run the full lane: "
                 f"ccp suite run --lane {lane}")
@@ -2041,12 +2053,13 @@ def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[l
 def affected_modules(cfg: Config, since: str | None, paths: list[str] | None
                      ) -> tuple[list[str], list[str], int, str | None]:
     """(the changed paths, the test modules they touch, the suite's test-module count when `affected_plan`
-    needs it (else 0), the language's test command): what `ccp suite affected` and `ccp suite run --affected`
-    both work from. A QueueError when the change or its tests cannot be read."""
+    needs it (else 0: plane.json declares the part role's lane), the language's test command): what
+    `ccp suite affected` and `ccp suite run --affected` both work from. A QueueError when the change or its
+    tests cannot be read."""
     changed, mods = affected(cfg, since, paths)
     pack = doclang.for_tests(cfg)
     total = 0
-    if mods and pack.suite_size is not None and declared_part_argv(cfg) is None:
+    if mods and pack.suite_size is not None and _declared_part_lane(cfg) is None:
         total = pack.suite_size(cfg.root, _tracked_files(cfg.root))
     return changed, mods, total, pack.test_command
 
@@ -2114,7 +2127,8 @@ def affected_run(cfg: Config, a: Any) -> tuple[int | None, str | None, list[str]
               f"{doclang.for_tests(cfg).name!r} names no test command (SPEC §14.7)", file=sys.stderr)
         return 2, None, None
     lane, command, shown = plan
-    print(f"{AFFECTED_RUN}: {len(mods)} test module(s): running ccp suite run --lane {lane}"
-          + (f" -- {shown}" if command is not None else f", the full lane ({len(mods)} of {total} test modules)"),
+    how = (f" -- {shown}" if command is not None else ", the lane as declared" if shown == "part"
+           else f", the full lane ({len(mods)} of {total} test modules)")
+    print(f"{AFFECTED_RUN}: {len(mods)} test module(s): running ccp suite run --lane {lane}{how}",
           file=sys.stderr, flush=True)
     return None, lane, command

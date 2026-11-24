@@ -68,7 +68,7 @@ error, naming it; 2 on a usage error.
 | `ccp suite run [--lane L \| --affected [--since REF]] [--run <run_id> \| --task <id> [--phase P]] [--full \| --summary] [--log PATH] [-- <command>]` (also `--wait SECONDS\|auto`, `--cold`); a command after `--` that replaces the argv plane.json gives the full or gate role's lane runs after a warning; `--affected` runs what `ccp suite affected` names on stderr, with no `--lane` and no command; a recorded run keeps a log in either output mode | each worker | §14, §14.7 |
 | `ccp suite wait <suite_id> [--timeout SECONDS]` | each worker | §14.2 |
 | `ccp suite list [--task ID]` | anyone | §14.4 |
-| `ccp suite affected [--since REF \| --since A..B \| --since REF... \| --paths PATH …]` (`REF...`: since REF's merge base with `HEAD`); plane.json `suite.affected_map` adds the test ids of each glob a changed path matches; on stderr, `ccp suite run --lane <part lane> -- <command> <modules>`, the command the argv plane.json gives the part role's lane, else the language's | each worker | §14.7 |
+| `ccp suite affected [--since REF \| --since A..B \| --since REF... \| --paths PATH …]` (`REF...`: since REF's merge base with `HEAD`); plane.json `suite.affected_map` adds the test ids of each glob a changed path matches; on stderr, `ccp suite run --lane <part lane> -- <command> <modules>`, the command the argv plane.json gives the part role's lane, else the language's; a part lane with stages: `ccp suite run --lane <part lane>`, the lane as declared | each worker | §14.7 |
 
 ## Worktrees
 
