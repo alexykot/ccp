@@ -78,6 +78,28 @@ class TestModulesImportNoTestModule(unittest.TestCase):
             subprocess.run(["git", "-C", str(repo), "add", "tests"], check=True)
             self.assertEqual(self.run_check(repo), 0)
 
+    def test_the_check_skips_a_tracked_test_file_it_cannot_read_and_says_so(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "tests").mkdir()
+            (repo / "tests" / "test_a.py").write_text("x = 1\n")
+            (repo / "tests" / "test_b.py").write_text("def (\n")
+            (repo / "tests" / "test_c.py").write_text("x = 1\n")
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "-C", str(repo), "add", "tests"], check=True)
+            (repo / "tests" / "test_a.py").unlink()  # tracked, gone from the working tree
+            r = self.check(repo)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("E4: skipped tests/test_a.py: ", r.stderr)
+            self.assertIn("E4: skipped tests/test_b.py: ", r.stderr)
+            self.assertNotIn("Traceback", r.stderr)
+            (repo / "tests" / "test_c.py").write_text("from tests import test_x\n")
+            r = self.check(repo)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+            self.assertIn("tests/test_c.py:1", r.stdout)
+            self.assertIn("E4: skipped tests/test_a.py: ", r.stderr)
+            self.assertIn("E4: skipped tests/test_b.py: ", r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

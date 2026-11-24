@@ -123,10 +123,12 @@ REDIRECT_RE = re.compile(r"^[<>&]*[<>][<>&]*$")
 SHELLS = frozenset({"bash", "sh"})
 TIMEOUT_RE = re.compile(r"^\d+(\.\d+)?[smhd]?$")  # `timeout N`'s duration
 # §21.1, the bare-runner warning: where a step's command splits into simple commands, the prefixes read past
-# before its first word, and the first words that make it a `ccp` command, never a bare test run.
+# before its first word, and for each the options whose next word is their argument (a long form written
+# `--signal=KILL` is one word, so it needs no entry).
 SIMPLE_COMMAND_SEPARATORS = frozenset({"|", "||", "&&", ";"})
 RUNNER_PREFIXES = frozenset({"env", "time"})
-CCP_COMMANDS = ("ccp", "bin/ccp")
+PREFIX_OPTION_ARGS = {"env": ("-u", "-C", "-P", "--unset", "--chdir"), "time": ("-o", "-f", "--output", "--format"),
+                      "timeout": ("-k", "-s", "--kill-after", "--signal")}
 # §5: the plane template's placeholders. One left in a task file not yet done or dropped is a copy
 # not filled in. A placeholder inside a code span or a fenced block is quoted, not left, so it is not read.
 PLACEHOLDERS = ("NNNN-kebab-slug", "YYYY-MM-DD", "As a <role>", "<preconditions",
@@ -789,22 +791,34 @@ def _simple_commands(words: list[str]) -> list[list[str]]:
     return [c for c in out if c]
 
 
+def _skip_options(words: list[str], k: int, prefix: str) -> int:
+    """The index past the options that follow `prefix` at `words[k - 1]`: each word starting with `-`, and the
+    next word too when the option is one whose next word is its argument (`PREFIX_OPTION_ARGS`)."""
+    while k < len(words) and words[k].startswith("-"):
+        k += 2 if words[k] in PREFIX_OPTION_ARGS[prefix] else 1
+    return k
+
+
 def runs_bare(words: list[str], runner: list[str]) -> bool:
     """§21.1: a simple command's words run the test command whose words are `runner` outside `ccp suite run`:
-    past leading `NAME=value` words and an `env`, `time` or `timeout N` prefix, its words, less those that start
-    with `-` and are not among `runner`'s, start with `runner`'s. One that starts with `ccp` or `bin/ccp` never does."""
+    past leading `NAME=value` words and an `env`, `time` or `timeout [options] N` prefix (an option's argument
+    read past with it), its words, less those that start with `-` and are not among `runner`'s, start with
+    `runner`'s. A `timeout` not followed by a duration after its options is not read past."""
     k = 0
     while k < len(words):
         w = words[k].rsplit("/", 1)[-1]
-        if ASSIGNMENT_RE.match(words[k]) or w in RUNNER_PREFIXES:
+        if ASSIGNMENT_RE.match(words[k]):
             k += 1
-        elif w == "timeout" and k + 1 < len(words) and TIMEOUT_RE.match(words[k + 1]):
-            k += 2
+        elif w in RUNNER_PREFIXES:
+            k = _skip_options(words, k + 1, w)
+        elif w == "timeout":
+            j = _skip_options(words, k + 1, w)
+            if j >= len(words) or not TIMEOUT_RE.match(words[j]):
+                break
+            k = j + 1
         else:
             break
     rest = words[k:]
-    if rest[:1] and rest[0] in CCP_COMMANDS:
-        return False
     kept = [x for x in rest if not x.startswith("-") or x in runner]
     return kept[:len(runner)] == runner
 
