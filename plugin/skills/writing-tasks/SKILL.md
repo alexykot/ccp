@@ -123,7 +123,8 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   or at a named commit, never "at the merge base".
 - **An absence check first shows its pattern finding a known positive**, names its pathspec
   explicitly, excludes the code whose job is the removal, and covers only the Scope's paths (or the
-  Scope names every path it reaches). Use `git grep -nwP`; macOS `git grep -E` ignores `\b`.
+  Scope names every path it reaches). Use `git grep -nwP`; macOS `git grep -E` ignores `\b`. A check
+  that text was removed uses a pattern that the text replacing it does not match.
 - **A check that a branch leaves paths unchanged reads the branch's own diff**
   (`git diff origin/<integration>...HEAD -- <paths>` prints nothing), never a diff from a fixed commit.
 - **A behaviour-preserving change** (move, rename, split) is checked by the tests that already hold
@@ -139,9 +140,10 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
 - **A speed check states an absolute target**, never "as fast as before".
 - **A check that runs tests runs them through `ccp suite run`**
   (`ccp suite run --lane <part lane> -- <test command> <tests>`; `CCP_DEV=1 ./bin/ccp suite run …` in the
-  plane's own repo, as below), so the run is recorded, and pins a named test by grepping that run's
-  log; never a bare test runner's output. `ccp tasks check` warns on a step that runs the language's
-  test command bare.
+  plane's own repo, as below), so the run is recorded, and pins a named test by giving its id
+  (`<module>.<class>.<test>`) to that command, so the run's exit code says it ran and passed; never a
+  grep of the runner's text, nor a bare test runner's output. `ccp tasks check` warns on a step that
+  runs the language's test command bare.
 - **A check of a `ccp` command runs the head's `bin/ccp`** where the head carries one (the plane's own
   repo), never `ccp` on PATH, which is the released plane. Signed SPEC text is checked with
   `bin/ccp verify spec-text <task>` (`ccp verify spec-text <task>` in a product's checkout), never by a

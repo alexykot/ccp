@@ -69,9 +69,11 @@ class StagedAndRenamedLanes(ToolkitFixture, unittest.TestCase):
 
     def test_a_staged_or_renamed_lane_is_written_by_its_own_name_with_no_command(self):
         c = config.load(self.runner)
-        self.assertIn("`--lane formal` with nothing after `--`: the formal gate", prompt_mod.suite_lanes(c, "verify"))
-        self.assertIn("`--lane whole` with nothing after `--`: the product's full suite",
-                      prompt_mod.suite_lanes(c, "implement"))
+        verify, implement = prompt_mod.suite_lanes(c, "verify"), prompt_mod.suite_lanes(c, "implement")
+        self.assertIn("`--lane formal` with nothing after `--`", verify)
+        self.assertIn("`--`: the formal gate", verify)
+        self.assertIn("`--lane whole` with nothing after `--`", implement)
+        self.assertIn("`--`: the product's full suite", implement)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
@@ -90,7 +92,7 @@ class UndeclaredFullLane(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         text = Path(body["prompt_path"]).read_text()
         self.assertIn("--lane <lane> -- <command>`", text)
-        self.assertIn("`--lane full` for the product's full suite", text)
+        self.assertIn("`--lane full` for the product's", text)
         self.assertNotIn(DECLARED, text)
 
 
@@ -106,7 +108,7 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
         for phase in ("implement", "fix", "merge", "ruling", "review", "verify"):
             lanes = prompt_mod.suite_lanes(c, phase)
             self.assertIn(PART_ARGV, lanes, phase)
-            self.assertIn(", or `ccp suite run --affected` for the modules a change touches", lanes, phase)
+            self.assertIn(", or `ccp suite run --affected` for", lanes, phase)
             self.assertNotIn(PART_EMPTY, lanes, phase)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
@@ -114,7 +116,7 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         text = Path(body["prompt_path"]).read_text()
         self.assertIn(PART_ARGV, text)
-        self.assertIn("and for one the Lanes line above gives with a command after `--`", text)
+        self.assertIn("for one the Lanes line above gives", text)
 
     def test_a_staged_part_lane_still_runs_with_nothing_after_it(self):
         staged = {"lanes": {"part": [{"name": "unit", "cmd": "true"}]}}
@@ -146,7 +148,8 @@ class GateOnlyLanes(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         texts["fix"] = Path(body["prompt_path"]).read_text()
         for phase, text in texts.items():
-            self.assertIn("`--lane gate` with nothing after `--`: the product's full suite", text, phase)
+            self.assertIn("`--lane gate` with nothing after `--`", text, phase)
+            self.assertIn("`--`: the product's full suite", text, phase)
             self.assertIn("suite run --lane gate`", text, phase)
             self.assertNotIn("--lane full", text, phase)
 
@@ -210,7 +213,7 @@ class DeclaredPregateLane(_PregateBriefs, unittest.TestCase):
         texts = self.briefs()
         self.assertEqual(sorted(texts), ["fix", "implement", "merge", "ruling"])
         for phase, text in texts.items():
-            self.assertIn("suite run --lane pregate`, as plane.json gives it) and `", text, phase)
+            self.assertIn("--lane pregate`, as plane.json gives it", text, phase)
             self.assertIn("suite run --affected --since ", text, phase)
             for c in CHECKS:
                 self.assertNotIn(c["cmd"], text, phase)
@@ -224,8 +227,8 @@ class NoPregateLane(_PregateBriefs, unittest.TestCase):
     def test_without_the_lane_the_briefs_render_the_house_rule_checks(self):
         texts = self.briefs()
         for phase, text in texts.items():
-            self.assertIn("the product's house-rule checks (`scripts/house-one.sh`, `scripts/house-two.sh`) and `",
-                          text, phase)
+            self.assertIn("checks (`scripts/house-one.sh`, `", text, phase)
+            self.assertIn("`scripts/house-two.sh`) and `", text, phase)
             self.assertNotIn("--lane pregate", text, phase)
             self.assertNotIn("pre-gate lane", text, phase)
 

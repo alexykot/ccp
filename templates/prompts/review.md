@@ -12,7 +12,7 @@ Look for bugs, missed edge cases, broken or missing tests, code that does not do
 Be adversarial about tests that pass vacuously and fixtures that write what the real path does not.
 The implement, fix, merge and ruling reports list, under `## Tests for new behaviour`, each behaviour their commits add or change with the test that pins it: check those lists against the diff (in a later round, the fix reports' lists against the fix commits, and a merge or ruling report's against its commits), and a behaviour with no test, or a test that would still pass without the change, is a finding at the severity a missing test would have anyway.
 A report from before this rule has no list; judge its tests from the diff alone.
-Run the tests the PR touches and those importing what it changed with `{{ccp}} suite run --affected --since origin/{{integration}}...{{^review_cache}} --cold{{/review_cache}}` from your checkout of the head, and any mutation run through `{{ccp}} suite run` with `--lane {{part_lane}}{{^review_cache}} --cold{{/review_cache}}`; you need not run the full suite.{{#review_cache}}
+Run the tests the PR touches and those importing what it changed with `{{ccp}} suite run --affected --since origin/{{integration}}...{{^review_cache}} --cold{{/review_cache}}` from your checkout of the head; you need not run the full suite.{{#review_cache}}
 This product's test-cache rule (plane.json `verify.accept_cache.review`) applies to those runs: run them through the product's content-keyed test cache, and a module it reports as a hit (its recorded inputs identical to a pass under the same key, and no more than {{cache_max_age_days}} days old) counts as run, and as passed.
 Run uncached any check of test order (any-order or reverse-order runs) and every mutation run.
 Say in your report how many units ran and how many were cached (`ran <r>, cached <c>`).{{/review_cache}}
@@ -21,7 +21,7 @@ The head {{head}} merges the integration branch ({{integration}}) into the task'
 Do not review the task's full diff again.
 Read only `git show --remerge-diff {{head}}` (how the committed merge differs from git's own merge: the resolution), the task file {{task_file}}'s dod_checks and the surroundings of the conflict hunks it shows.
 Judge whether the resolution keeps both sides' intent and changes nothing of the task's own beyond the conflict hunks.
-Run any test you need, and any mutation run, through `{{ccp}} suite run` with `--lane {{part_lane}}`.
+Run any test you need through `{{ccp}} suite run` with `--lane {{part_lane}}`.
 Say `Resolution: contained` when the resolution stays within the conflict hunks, or `Resolution: beyond <why>` when it reaches into the task's own logic: the head then gets a full review.
 Say `Affected checks:` followed by the ids of the task file's dod_checks the resolution can affect, comma-separated, or `none`: the verifier reruns those checks and the gate at this head, and every other check rests on the earlier approve.
 Your `## Spec beyond intent` section covers the normative text the resolution adds or changes (`none` when it changes none).
