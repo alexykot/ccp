@@ -1,7 +1,7 @@
 ---
 task_id: 0307-seats-are-told-how-to-run-one-check-and-the-spec-names-the-language-pack-s-test-command
 title: Worker prompts name ccp tasks dry-run --check --here and ccp docs check --only, and §21.4 names the language pack's test command and did-not-build lines that §20.6 cites
-status: pending
+status: done
 kind: feature
 depends_on: ["0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes"]
 spec_refs: ["S21", "S20", "S13"]
@@ -12,7 +12,7 @@ paths: ["templates/prompts/_common.md", "tests/test_prompt_tools.py", "docs/spec
 adopt: "none"
 sign_off: brief
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-24
 ---
 
 # Task: 0307-seats-are-told-how-to-run-one-check-and-the-spec-names-the-language-pack-s-test-command
@@ -90,4 +90,10 @@ items (c) and (e). Measured at `0f44fb3` (origin/main) unless a line says otherw
 
 ## Implementation notes
 
+Built as the lead's rulings gave it: one line in `templates/prompts/_common.md` after the suite-run bullet's sub-lines, `test_every_worker_prompt_names_how_to_run_one_check` in `PromptsNameTheTools` (implement, review and verify prompts), and the §21.4 passage as signed. Premises re-measured at `b658c844`: no prompt named the two commands, §21.4 named no test command; the three commits since `0f44fb3` touched other passages. No ADR decision to mark built.
+
+Fix round 1 (review MINOR 1, NIT 1; runner's ruling): the evidence bullet now says "the `{{ccp}} suite run` command above", so the new dry-run/docs-check bullet sitting directly above it cannot be read as the command it points at; the test also asserts `--check <check id> --here`, so dropping the `--here` flag (which sends a worker to a dry run at the integration branch, refused for a claimed task) fails it.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #374 head `d5c6f7b` (squash `9ff8c52`): APPROVE. Passed: spec-01, cmd-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0307-seats-are-told-how-to-run-one-check-and-the-spec-names-the-language-pack-s-test-command.json.
+

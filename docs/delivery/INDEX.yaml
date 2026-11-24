@@ -1508,7 +1508,7 @@ tasks:
     depends_on: []
     path: tasks/0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes.md
   - id: 0307-seats-are-told-how-to-run-one-check-and-the-spec-names-the-language-pack-s-test-command
-    status: pending
+    status: done
     title: Worker prompts name ccp tasks dry-run --check --here and ccp docs check --only, and §21.4 names the language pack's test command and did-not-build lines that §20.6 cites
     depends_on: [0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes]
     path: tasks/0307-seats-are-told-how-to-run-one-check-and-the-spec-names-the-language-pack-s-test-command.md
