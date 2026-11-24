@@ -95,6 +95,7 @@ class Templates(unittest.TestCase):
         self.assertIn("no more than 3 days old", text)
         self.assertIn("counts as run, and as passed", text)
         self.assertIn("Run uncached", text)
+        self.assertIn("any-order or reverse-order", text)
         self.assertIn("and every mutation run", text)
         self.assertIn("(`ran <r>, cached <c>`)", text)
         start = text.index("\n" + REVIEW_RULE)  # the rule starts its own line (one sentence per line)

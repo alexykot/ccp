@@ -108,15 +108,20 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
     def test_the_review_prompt_routes_mutation_checks_through_mutate_only(self):
         """§20.6: a reviewer's mutation check runs through `ccp mutate`, as the shared part gives it, never through
         the part lane's `suite run`: in a full review, and in a resolution review (its template and the shared part,
-        as `ccp prompt` joins them: opening one needs a conflicted merge)."""
+        as `ccp prompt` joins them: opening one needs a conflicted merge). No line of the review template's own
+        render, in either review and with or without the review cache, names a mutation and `suite run` together
+        (the shared part's evidence line does, and gives `mutate` beside it)."""
         full = self.render("review", "--pr", "7", "--head", A)
         v = phase_values(resolution=True)
         resolution = (v["run_id"], prompt_mod.render_phase("review", v)
                       + prompt_mod.render((prompt_mod.TEMPLATES / "_common.md").read_text(), v))
         for run_id, text in (full, resolution):
             self.assertIn(f"mutate --run {run_id}", text)
-            both = [ln for ln in text.splitlines() if "mutation run" in ln and "suite run" in ln]
-            self.assertEqual(both, [])
+        for res in (False, True):
+            for cache in (False, True):
+                own = prompt_mod.render_phase("review", phase_values(resolution=res, review_cache=cache))
+                both = [ln for ln in own.splitlines() if "mutation" in ln and "suite run" in ln]
+                self.assertEqual(both, [], (res, cache))
 
     def test_the_reviewer_reads_and_runs_code_at_the_merge_base_in_a_base_worktree(self):
         brief = (PLANE / "plugin/agents/delivery-reviewer.md").read_text()

@@ -137,5 +137,10 @@ Measured at `bb102371`:
 - `tests/test_suite.py`: the review row of `test_the_mutation_runs_name_the_part_roles_lane` goes; the verify row
   stays as it was.
 - `plugin/skills/writing-tasks/SKILL.md`: the two bullets, worded as ruled.
+- Fix round 1 (review MINOR-1, MINOR-2): the route test keeps `mutate --run` on the joined prompts, and runs its
+  line check on the review template's own render (`render_phase`, full and resolution, review cache on and off)
+  with the ruled token, lines holding both `mutation` and `suite run`: without `_common.md`'s evidence line, a second
+  route reworded as "mutation check" no longer passes. `test_review_with_it_runs_touched_modules_through_the_cache`
+  pins the uncached order-check instruction again (`any-order or reverse-order`). E4's figure stays 448.
 
 ## Verification notes
