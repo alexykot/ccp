@@ -140,4 +140,17 @@ The lead's priority item (a friction seen when two runners claimed at once). Mea
 
 ## Implementation notes
 
+- Premises re-measured at `a17751c3`: 9 `tmp = .*\.tmp` lines, the same sites; 4 `mkstemp` lines; 1 `auth/status.json`
+  writer; 1 SPEC `.tmp` line. The race probe printed `166 ['status.json']`, the leftover probe
+  `IsADirectoryError ['t.json', 't.json.tmp']`.
+- `lib.write_atomic` as the ruling gives it (`open(tmp, "x", encoding="utf-8", newline="")`, `os.replace`, unlink and
+  re-raise on any `BaseException`); `write_json` keeps its `mkdir` and calls it.
+- The eight sites write through `lib.write_atomic` with the text they wrote before (upgrade's `new`, not its bytes).
+  `board._atomic` is gone. `calibrate` and `suite` import `lib` from `ccp.queue` at the top (`calibrate` already loads
+  `ccp.queue` through `ccp.estimate`); `forecast.cached_fit` and `verify`'s `write_record` and `record_catch_up` import
+  it inside the function, as `verify` already does in `_ci`. calibrate and forecast still swallow `OSError`.
+- `import os` went from `ccp/forecast.py` and `ccp/init.py`, where the replaced lines were its only use.
+- Tests: `tests/test_atomic_write.py`, the three the ruling names. Each was shown to fail under the mutants test-01
+  names (the fixed `.tmp` name kills the concurrency and name tests; dropping the unlink kills the failed-write test).
+
 ## Verification notes
