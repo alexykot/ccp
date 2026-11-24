@@ -32,8 +32,8 @@ don't redesign around it.
   only in a mutation worktree at the committed head (`ccp wt create --kind mut --task <id> --sha
   <head>`), run the test there on the part lane as above, and remove it with `ccp wt remove <name>`;
   never a hand edit and restore in your own worktree.
-- After you merge the integration branch in, or change code, take the part lane's test modules from
-  `ccp suite affected` (`--since <ref>` for what a merge brought in), not from a guess at their names.
+- After you merge the integration branch in, or change code, run the tests the change touches with
+  the suite run's `--affected` (`--since <ref>` for what a merge brought in), not a guess at module names.
 - Before you build, re-run at your base each command the task's Context names for a measured
   premise (a count, a size, a list of sites, an "already" or "never happens" claim). If a figure
   changed materially, stop before building and put it in your report as a scope question.

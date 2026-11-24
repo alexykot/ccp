@@ -1,7 +1,7 @@
 ---
 task_id: 0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log
 title: Worker briefs name ccp suite run --affected in place of the suite affected hand-off, the log texts follow §14.4's pruning of every suite-run log, the full-log test closes its pipe, and lib names its retired review event types
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S19"]
@@ -11,7 +11,7 @@ paths: ["ccp/prompt.py", "plugin/agents/delivery-implementer.md", "tests/test_fu
 clashes_with: ["0191-the-grace-release-ends"]
 adopt: "none"
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # Task: 0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log
@@ -110,6 +110,11 @@ Covers these open follow-ups (`ccp --root . tasks follow-ups --open`), `0299` an
 - **The comment.** One line right above `REVIEW_EVENT_TYPES`: "# architecture_review and docs_audit: the retired review kinds' types
   (§19.12), still read so an older ledger folds; nothing writes them (E9)". No SPEC, contract or ENGINEERING.md text.
 
+### Ruling round 1 (the lead's)
+
+> Ruling 0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log-r1 (lead, 2026-11-24, spec question sm-20261124T015714Z-167e, spec commit b1a2ca0aa47bc3d4e3246aaac9033018f7c3cf5a):
+> Option (A) as built. The bullet in plugin/agents/delivery-implementer.md names the suite run's --affected without restating the full ccp suite run command, so SPEC §13.5's one statement holds and both tests stay unchanged. The ruled wording's intent was to point at --affected, not to add a second command statement. No check changes: code-01 pins the Lanes line in ccp/prompt.py, not this bullet.
+
 ## Scope
 
 - **In:** `ccp/prompt.py` (`suite_lanes`), `plugin/agents/delivery-implementer.md`, `tests/test_full_lane_prompt.py`,
@@ -167,4 +172,20 @@ Covers these open follow-ups (`ccp --root . tasks follow-ups --open`), `0299` an
 
 ## Implementation notes
 
+- Premises re-measured at `f7b43ccf`: every figure in Context held (2 `--affected` lines in templates/prompts; 3 `suite affected`
+  lines in prompt.py and the implementer brief; 1 in the test; 3 `summary-mode` lines; 1 `no log was kept`; 11 retired-type lines).
+- `suite_lanes`, the config comment and error, the schema description, `ended_summary`'s line, the lib comment and both tests
+  follow the rulings word for word.
+- **The implementer bullet departs from the ruled text.** The ruled sentence names `ccp suite run --affected`, a second
+  `ccp suite run` in `plugin/agents/delivery-implementer.md`, which §13.5's "One statement of each rule" forbids (a worker
+  definition names the command only in §13.1's evidence rule) and which `test_suite.ReportCrossCheck.test_the_prompt_tells_workers_to_use_it`
+  and `test_worker_efficiency.Definitions.test_the_suite_rule_is_stated_once_in_the_prompt` hold. The bullet reads "run the tests
+  the change touches with the suite run's `--affected` (`--since <ref>` for what a merge brought in), not a guess at module names":
+  the ruling's meaning without restating the command. Raised with the runner as an open question.
+- The ClosedLog pipe closes through `addCleanup(src.close)`, which runs after the test body's `pump.join`.
+- Ruling round 1: the lead kept the implementer bullet as built (option A), so §13.5's one statement holds; the ruling is
+  recorded in Context and no code, test or doc changed.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #378 head `0933e73` (squash `be5a9b3`): APPROVE. Passed: code-01, code-02, code-03, code-04, code-05. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log.json.
+
