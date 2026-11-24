@@ -1518,7 +1518,7 @@ tasks:
     depends_on: []
     path: tasks/0308-module-docstrings-and-queue-docs-stop-restating-the-spec.md
   - id: 0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read
-    status: pending
+    status: done
     title: ccp tasks check's bare-runner warning reads past the options of an env, time or timeout prefix and loses its dead ccp guard, and E4's import check skips a tracked test file it cannot read and says so
     depends_on: []
     path: tasks/0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read.md
