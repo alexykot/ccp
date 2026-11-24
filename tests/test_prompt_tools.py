@@ -47,6 +47,13 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertIn(str(self.main / config.WORKTREES_DIR / "ver-0002"), text)
         self.assertNotIn("wt create --kind mut", outside_the_fallback(text))
 
+    def test_every_worker_prompt_names_how_to_run_one_check(self):
+        for phase, args in (("implement", ("--base", "abc1234")), ("review", ("--pr", "7", "--head", A)),
+                            ("verify", ("--pr", "7", "--head", A))):
+            _run_id, text = self.render(phase, *args)
+            self.assertIn("tasks dry-run 0002-second --check", text, phase)
+            self.assertIn("docs check --only", text, phase)
+
     def test_the_verifier_is_told_the_flag_that_runs_the_prs_own_hooks(self):
         _run_id, text = self.render("verify", "--pr", "7", "--head", A)
         self.assertIn("`--own-hooks`", text)
