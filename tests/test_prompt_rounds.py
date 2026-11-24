@@ -119,6 +119,18 @@ class Rounds(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         same.assert_called_with(self.q, A, B)
 
+    def test_a_merge_round_after_a_corrected_review_needs_no_new_review(self):
+        review = self.run_phase("review", A, "Severity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0")
+        code, _, out, err = self.report(review, done_report("review", "Severity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=1"))
+        self.assertEqual(code, 0, out + err)  # the runner's correction of the reviewer's own report
+        self.merge(A, B)
+        with mock.patch("ccp.runs.same_change", return_value=True) as same:
+            code, _, out, err = self.verify(B)
+            self.assertEqual(code, 0, out + err)
+            same.assert_called_with(self.q, A, B)
+            code, _, out, err = self.verdict(B)
+        self.assertEqual(code, 0, out + err)
+
     def test_a_merge_that_moved_the_reviewed_change_is_reviewed_again(self):
         self.review(A)
         run_id = self.merge(A, B)
