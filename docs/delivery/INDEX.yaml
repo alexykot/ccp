@@ -1558,7 +1558,7 @@ tasks:
     depends_on: [0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read]
     path: tasks/0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over.md
   - id: 0317-the-review-prompt-routes-mutation-checks-through-mutate-prompt-tests-pin-tokens-and-checks-pin-tests-by-id
-    status: pending
+    status: done
     title: The review prompt gives one route for a mutation check (ccp mutate, from the shared part), the prompt-text tests pin one token per instruction and E4's figure drops with them, and the writing-tasks skill has a check pin a test by its id so the run's exit code decides and a removal check miss the text that replaces it
     depends_on: [0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over]
     path: tasks/0317-the-review-prompt-routes-mutation-checks-through-mutate-prompt-tests-pin-tokens-and-checks-pin-tests-by-id.md

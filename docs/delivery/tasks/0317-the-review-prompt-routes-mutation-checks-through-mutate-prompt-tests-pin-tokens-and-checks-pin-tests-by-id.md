@@ -1,7 +1,7 @@
 ---
 task_id: 0317-the-review-prompt-routes-mutation-checks-through-mutate-prompt-tests-pin-tokens-and-checks-pin-tests-by-id
 title: The review prompt gives one route for a mutation check (ccp mutate, from the shared part), the prompt-text tests pin one token per instruction and E4's figure drops with them, and the writing-tasks skill has a check pin a test by its id so the run's exit code decides and a removal check miss the text that replaces it
-status: pending
+status: done
 kind: feature
 depends_on: ["0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over"]
 spec_refs: ["S20", "S14"]
@@ -144,3 +144,5 @@ Measured at `bb102371`:
   pins the uncached order-check instruction again (`any-order or reverse-order`). E4's figure stays 448.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #384 head `db2c78b` (squash `2c2f92e`): APPROVE. Passed: doc-01, code-01, code-02, code-03, doc-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0317-the-review-prompt-routes-mutation-checks-through-mutate-prompt-tests-pin-tokens-and-checks-pin-tests-by-id.json.
+
