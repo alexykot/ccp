@@ -11,8 +11,7 @@ from pathlib import Path
 
 from tests.helpers import PLANE_ROOT, Product
 
-PLANE = PLANE_ROOT
-HOOK = PLANE / "plugin" / "hooks" / "orientation.sh"
+HOOK = PLANE_ROOT / "plugin" / "hooks" / "orientation.sh"
 
 
 class OrientationHookPluginRoot(unittest.TestCase):
@@ -48,7 +47,7 @@ class OrientationHookPluginRoot(unittest.TestCase):
     def test_unset_it_reads_its_own_plugins(self):
         r = self.run_hook(None)
         self.assertEqual(r.returncode, 0, r.stderr)
-        own = (PLANE / "plugin" / "orientation.md").read_text()
+        own = (PLANE_ROOT / "plugin" / "orientation.md").read_text()
         text = json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
         self.assertTrue(text.strip() and text.strip().splitlines()[0] in own)
 

@@ -22,10 +22,9 @@ from tests.helpers import GIT_ENV, PLANE_ROOT, Product
 from tests.board_drill_fixture import HASH_STUB, Fixture
 from tests.upgrade_fixture import UpgradeFixture
 
-ROOT = PLANE_ROOT
-HOOK = ROOT / "plugin" / "hooks" / "orientation.sh"
-CCP = ROOT / "bin" / "ccp"
-MACHINE_SCHEMA = json.loads((ROOT / "contracts/machine.schema.json").read_text())
+HOOK = PLANE_ROOT / "plugin" / "hooks" / "orientation.sh"
+CCP = PLANE_ROOT / "bin" / "ccp"
+MACHINE_SCHEMA = json.loads((PLANE_ROOT / "contracts/machine.schema.json").read_text())
 
 
 class MachineCase(unittest.TestCase):

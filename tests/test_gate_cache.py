@@ -13,7 +13,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.gate_parallel_fixture import MORE, OK, GateFixture, ROOT, SCRIPTS
+from tests.gate_parallel_fixture import MORE, OK, GateFixture, SCRIPTS
+from tests.helpers import PLANE_ROOT
 from tests.suite_stages_fixture import StagedFixture
 from tests.git_helpers import git
 
@@ -211,7 +212,7 @@ class AChangeRerunsWhatItCanAffect(GateCacheFixture):
 
 class TheAgeTheColdOptionAndTheDirectory(GateCacheFixture):
     def test_an_entry_older_than_max_age_days_is_no_hit(self):
-        (self.repo / "ccp").symlink_to(ROOT / "ccp")  # the gate reads plane.json through the checkout's own ccp
+        (self.repo / "ccp").symlink_to(PLANE_ROOT / "ccp")  # the gate reads plane.json through the checkout's own ccp
         (self.repo / "docs" / "delivery").mkdir(parents=True)
         (self.repo / "docs" / "delivery" / "plane.json").write_text(
             json.dumps({"project_id": "demo", "verify": {"accept_cache": {"max_age_days": 2}}}))
@@ -229,7 +230,7 @@ class TheAgeTheColdOptionAndTheDirectory(GateCacheFixture):
         (self.repo / "docs" / "delivery" / "plane.json").write_text(
             json.dumps({"project_id": "demo", "verify": {"accept_cache": {}}}))
         self.addCleanup(setattr, sys, "path", list(sys.path))  # the reader puts the checkout on the path
-        sys.path.insert(0, str(ROOT / "scripts"))
+        sys.path.insert(0, str(PLANE_ROOT / "scripts"))
         import gate_parallel  # noqa: PLC0415
         from ccp import config  # noqa: PLC0415
         with mock.patch.object(gate_parallel, "ROOT", self.repo):
@@ -283,7 +284,7 @@ class TheAgeTheColdOptionAndTheDirectory(GateCacheFixture):
             (plain / "scripts").mkdir(parents=True)
             (plain / "tests").mkdir()
             for s in SCRIPTS:
-                (plain / "scripts" / s).write_text((ROOT / "scripts" / s).read_text())
+                (plain / "scripts" / s).write_text((PLANE_ROOT / "scripts" / s).read_text())
             (plain / "tests" / "__init__.py").write_text("")
             (plain / "tests" / "test_ok.py").write_text(OK)
             self.repo = plain
@@ -299,7 +300,7 @@ class TheResultCountsCachedModules(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / "log"
             log.write_text(text)
-            return json.loads(subprocess.run([sys.executable, str(ROOT / "scripts/gate_result.py"), str(log), "3"],
+            return json.loads(subprocess.run([sys.executable, str(PLANE_ROOT / "scripts/gate_result.py"), str(log), "3"],
                                              capture_output=True, text=True, check=True).stdout)
 
     def test_cached_modules_are_counted_apart_from_those_that_ran(self):
@@ -321,7 +322,7 @@ class TheRunRecordsRanCachedAndCold(StagedFixture, unittest.TestCase):
         (repo / "scripts").mkdir(parents=True)
         (repo / "tests").mkdir()
         for s in SCRIPTS:
-            (repo / "scripts" / s).write_text((ROOT / "scripts" / s).read_text())
+            (repo / "scripts" / s).write_text((PLANE_ROOT / "scripts" / s).read_text())
         (repo / "tests" / "__init__.py").write_text("")
         (repo / "tests" / "test_ok.py").write_text(OK)
         (repo / ".gitignore").write_text("__pycache__/\n")

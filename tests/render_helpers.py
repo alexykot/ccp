@@ -1,4 +1,7 @@
-"""The prompt-template and board-page helpers the tests share. Holds no tests."""
+"""The prompt-template and board-page helpers the tests share. Holds no tests.
+
+What renders a page or a prompt: `phase_values`, `render_phase_values` and `PROMPT_TEMPLATES`, and `BoardPage`, a
+mixin for a `TestCase` whose `page` runs the board page's script under node."""
 from __future__ import annotations
 
 import json

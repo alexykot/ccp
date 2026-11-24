@@ -10,7 +10,8 @@ from pathlib import Path
 
 from ccp import board, config, drill, runs, seats
 from ccp.queue import lib
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 HEAD = "a" * 40
 

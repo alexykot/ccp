@@ -9,7 +9,8 @@ import unittest
 from pathlib import Path
 
 from tests.git_helpers import git
-from tests.gate_parallel_fixture import OK, ROOT, SCRIPTS
+from tests.gate_parallel_fixture import OK, SCRIPTS
+from tests.helpers import PLANE_ROOT
 from tests.suite_fixture import PY
 from tests.suite_stages_fixture import StagedFixture, _shell_py
 
@@ -88,7 +89,7 @@ class ThePlanesGateReadsIt(StagedFixture, unittest.TestCase):
         (repo / "scripts").mkdir(parents=True)
         (repo / "tests").mkdir()
         for s in SCRIPTS:
-            (repo / "scripts" / s).write_text((ROOT / "scripts" / s).read_text())
+            (repo / "scripts" / s).write_text((PLANE_ROOT / "scripts" / s).read_text())
         (repo / "tests" / "__init__.py").write_text("")
         (repo / "tests" / "test_ok.py").write_text(OK)
         (repo / ".gitignore").write_text("__pycache__/\n")

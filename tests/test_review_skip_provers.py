@@ -17,8 +17,10 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config
+from tests.helpers import PLANE_ROOT
 from tests.review_flow import PROOF, SkipFlow
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 PROVE = '"$PROOF_BIN" {task_id} {reviewed} {head} {from}'
 
@@ -330,10 +332,9 @@ class CheckoutOnASignal(unittest.TestCase):
         git(self.root, "commit", "-q", "-m", "a")
 
     def signalled(self, sig: int) -> None:
-        from tests.suite_fixture import PLANE
         out = Path(self._tmp.name) / "tree"
         before = git(self.root, "worktree", "list", "--porcelain")
-        env = {**os.environ, "PYTHONPATH": str(PLANE)}
+        env = {**os.environ, "PYTHONPATH": str(PLANE_ROOT)}
         self.addCleanup(reap, out.with_name("sleeper"))  # whichever check fails, the sleeper goes
         r = subprocess.run([sys.executable, "-c", SIGNALLED, str(self.root), str(sig), str(out)], env=env,
                            capture_output=True, text=True, timeout=60)

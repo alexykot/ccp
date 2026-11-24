@@ -1,4 +1,9 @@
-"""The ledger and usage rows the tests share: events, suite rows, usage requests and run records. Holds no tests."""
+"""The ledger and usage rows the tests share: events, suite rows, usage requests and run records. Holds no tests.
+
+Events: `ledger_event`, `spawn_event`, `lease_event`. Suite rows: `suite_started`, `suite_ended` and
+`SUITE_RUN_ID`. Usage rows: `api_request`, `advice_row` and `ADVICE_SPANS`, `good_then_failed`. Times: `epoch_iso`
+and `T0`. `FoldRuns` is a mixin for a `TestCase` that writes run records and usage rows into a temp queue
+(`mkrun`, `write`, `rows`)."""
 from __future__ import annotations
 
 import json

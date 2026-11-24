@@ -18,9 +18,11 @@ from unittest import mock
 
 from ccp import config, doclang, mutate, runs
 from ccp.queue import QueueError
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.helpers import PLANE_ROOT
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
-sys.path.insert(0, str(PLANE / "scripts" / "observability"))
+sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
 import lib  # noqa: E402
 
 CALC = "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n\n\ndef unused(a):\n    return a * 2\n"
@@ -394,7 +396,7 @@ class Interrupted(MutateFixture, unittest.TestCase):
         pid = Path(self._tmp.name) / "child.pid"
         self.set_mutate(command=f"if {sleep_when}; then echo $$ > {shlex.quote(str(pid))}; exec sleep 60; fi; "
                         + COMMAND)  # exec: no fork follows the pid file
-        args = [sys.executable, str(PLANE / "bin/ccp"), "--root", str(self.mut), "mutate", "--run", self.run_id,
+        args = [sys.executable, str(PLANE_ROOT / "bin/ccp"), "--root", str(self.mut), "mutate", "--run", self.run_id,
                 "--test", ADD]
         for m in mutants:
             args += ["--mutant", m]

@@ -12,7 +12,8 @@ from pathlib import Path
 
 from ccp import cli, config, dryrun, tasklog
 from tests.helpers import TASK, Product
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 MARK = f"{tasklog.RUNS_ON_KEY}: {tasklog.RUNS_ON_OPERATOR}"
 NA = "dry run: n/a — runs on the operator's machine"

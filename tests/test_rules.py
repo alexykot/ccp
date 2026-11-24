@@ -385,10 +385,8 @@ class TemplatesAndContracts(unittest.TestCase):
     """The house-rules template parses as `ccp docs check` reads it, and the contracts describe what
     the code accepts."""
 
-    PLANE = PLANE_ROOT
-
     def test_engineering_template_parses(self):
-        text = (self.PLANE / "templates/docs-project/ENGINEERING.md").read_text()
+        text = (PLANE_ROOT / "templates/docs-project/ENGINEERING.md").read_text()
         found, errs = rules.parse_rules(text)
         self.assertEqual(errs, [])
         self.assertTrue(found and all(found.values()), found)
@@ -396,7 +394,7 @@ class TemplatesAndContracts(unittest.TestCase):
 
     def test_report_schema_categories_are_the_lenses(self):
         from ccp import architect
-        schema = json.loads((self.PLANE / "contracts/architect_report.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/architect_report.schema.json").read_text())
         items = schema["properties"]["findings"]["items"]["properties"]
         self.assertEqual(items["category"]["enum"], list(architect.ARCH.categories))
         self.assertEqual(schema["properties"]["lenses"]["items"]["enum"], list(architect.LENSES))

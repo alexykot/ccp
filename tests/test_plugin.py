@@ -16,8 +16,7 @@ from unittest import mock
 from ccp import cli, config, runs, tasklog, wt
 from tests.helpers import binding, GIT_ENV, PLANE_ROOT, Product
 
-PLANE = PLANE_ROOT
-PLUGIN = PLANE / "plugin"
+PLUGIN = PLANE_ROOT / "plugin"
 FAKE_PLANE = "/opt/src/control-plane"  # a plane checkout path the docs check warns on
 
 
@@ -27,14 +26,14 @@ def frontmatter(p: Path) -> dict:
 
 def run(cmd, **kw):
     """`cmd`, run in the plane checkout unless the call names a `cwd`: never in the process's own, which may be gone."""
-    kw.setdefault("cwd", PLANE)
+    kw.setdefault("cwd", PLANE_ROOT)
     return subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, **GIT_ENV, **kw.pop("env", {})}, **kw)
 
 
 class ThePlugin(unittest.TestCase):
     def test_manifests_name_the_plugin(self):
         plugin = json.loads((PLUGIN / ".claude-plugin/plugin.json").read_text())
-        market = json.loads((PLANE / ".claude-plugin/marketplace.json").read_text())
+        market = json.loads((PLANE_ROOT / ".claude-plugin/marketplace.json").read_text())
         self.assertEqual(plugin["name"], "ccp")
         self.assertEqual(market["plugins"][0], {**market["plugins"][0], "name": "ccp", "source": "./plugin"})
 
@@ -153,7 +152,7 @@ PREMISE_DOCS = {
                                                        "scope question", "sets scope"),
     PLUGIN / "agents" / "delivery-implementer.md": ("Before you build, re-run at your base", "measured\n  premise",
                                                     "changed materially", "scope question", "sets scope"),
-    PLANE / "templates" / "prompts" / "implement.md": ("Before you build, re-run at {{base}}", "measured premise",
+    PLANE_ROOT / "templates" / "prompts" / "implement.md": ("Before you build, re-run at {{base}}", "measured premise",
                                                       "changed materially", "scope question", "sets scope"),
 }
 
@@ -363,7 +362,7 @@ class RunCheckout(unittest.TestCase):
             run(["git", "commit", "-qm", "one"], cwd=seed)
             run(["git", "push", "-q", "origin", "main"], cwd=seed)
             env = {"CCP_RUN_CHECKOUT": str(d / "run"), "CCP_BIN_LINK": str(d / "bin/ccp")}
-            script = str(PLANE / "scripts/run-checkout.sh")
+            script = str(PLANE_ROOT / "scripts/run-checkout.sh")
             # install clones the plane's own origin; point it at ours through a copy of the script's repo
             r = run(["git", "clone", "-q", str(origin), str(d / "run")])
             self.assertEqual(r.returncode, 0)
@@ -399,7 +398,7 @@ class RunCheckout(unittest.TestCase):
             run(["git", "push", "-q", "origin", "main"], cwd=seed)
             run(["git", "clone", "-q", str(origin), str(d / "run")])
             env = {"CCP_RUN_CHECKOUT": str(d / "run"), "CCP_BIN_LINK": str(d / "bin/ccp")}
-            script = str(PLANE / "scripts/run-checkout.sh")
+            script = str(PLANE_ROOT / "scripts/run-checkout.sh")
             run(["git", "rm", "-q", "-r", "--cached", "projects"], cwd=seed)
             (seed / ".gitignore").write_text("projects/\n")
             run(["git", "add", ".gitignore"], cwd=seed)
@@ -417,7 +416,7 @@ class LaunchdLabel(unittest.TestCase):
         for v in ("", "dev.ccp", "com.example.", " .x.y. ", "bad prefix!", "a..b"):
             env = {k: x for k, x in os.environ.items() if k not in ("CCP_OTEL_LABEL", "CCP_LAUNCHD_PREFIX")}
             env["CCP_LAUNCHD_PREFIX"] = v
-            out = subprocess.run(["bash", str(PLANE / "scripts/run-checkout.sh"), "label"], capture_output=True,
+            out = subprocess.run(["bash", str(PLANE_ROOT / "scripts/run-checkout.sh"), "label"], capture_output=True,
                                  text=True, env=env).stdout.strip()
             with mock.patch.dict(os.environ, {"CCP_LAUNCHD_PREFIX": v}):
                 self.assertEqual(out, otel.launchd_label(), v)
@@ -438,7 +437,7 @@ class SyncInPluginMode(unittest.TestCase):
             mine.write_text("my own runner, no header\n")
             yml = Path(d) / "demo.yaml"
             yml.write_text(binding(product_root=root))
-            sync = [str(PLANE / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--allow-dirty"]
+            sync = [str(PLANE_ROOT / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--allow-dirty"]
             r = run(["bash", *sync[0:1], *sync[1:], "--check"])
             self.assertIn("DRIFT docs/delivery/REVIEW-TRIAGE.md: retired", r.stdout, r.stdout + r.stderr)
             r = run(["bash", *sync])
@@ -453,7 +452,7 @@ class SyncInPluginMode(unittest.TestCase):
 class ProtocolFromThePlugin(unittest.TestCase):
     def test_plugin_protocol_doc_resolves_to_the_skill(self):
         import sys
-        sys.path.insert(0, str(PLANE / "scripts/observability"))
+        sys.path.insert(0, str(PLANE_ROOT / "scripts/observability"))
         import spec_maintainer as sm
         path = sm.protocol_doc_path({"protocol_doc": "plugin:ccp:spec-maintainer"}, Path("/nonexistent"))
         self.assertEqual(Path(path), PLUGIN / "skills/spec-maintainer/SKILL.md")
@@ -467,7 +466,7 @@ if __name__ == "__main__":
 class ArchitectFromThePlugin(unittest.TestCase):
     def test_skill_triage_doc_and_plugin_dir_follow_the_product(self):
         import sys
-        sys.path.insert(0, str(PLANE / "scripts/observability"))
+        sys.path.insert(0, str(PLANE_ROOT / "scripts/observability"))
         import architecture_review as ar
         p = Product()
         try:
@@ -493,7 +492,7 @@ class SyncFlagsStaleHookEntries(unittest.TestCase):
                 {"type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/runner-idle.sh --queue-root /q"}]}]}}))
             yml = Path(d) / "demo.yaml"
             yml.write_text(binding(product_root=root))
-            r = run(["bash", str(PLANE / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--check"])
+            r = run(["bash", str(PLANE_ROOT / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--check"])
             self.assertIn("DRIFT .claude/settings.local.json: stale_hooks", r.stdout, r.stdout + r.stderr)
 
 
@@ -502,7 +501,7 @@ class BindingNeedsNoChange(unittest.TestCase):
 
     def test_runner_type_and_protocol_follow_the_product(self):
         import sys
-        sys.path.insert(0, str(PLANE / "scripts/observability"))
+        sys.path.insert(0, str(PLANE_ROOT / "scripts/observability"))
         import spec_maintainer as sm
         import team
         p = Product()

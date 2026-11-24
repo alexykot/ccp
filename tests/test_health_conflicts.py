@@ -15,7 +15,8 @@ from ccp import gitmerge, health, runs
 from tests.helpers import GIT_ENV
 from tests.report_helpers import done_report
 from tests.review_flow import ReviewFlow
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 def sh(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:

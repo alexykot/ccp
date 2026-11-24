@@ -232,7 +232,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
     def product(self, provers: list, lanes: dict | None = None, integration: bool = True) -> None:
         """Commit the runner checkout's plane.json with these gate stages and provers and, with
         `integration`, push it to origin/main, the integration branch; without, it is only the head's."""
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         p = self.runner / "docs/delivery/plane.json"
         cfg = json.loads(p.read_text())
         cfg["suite"] = {"lanes": lanes or {"gate": [
@@ -247,7 +247,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
             git(self.runner, "push", "-q", "origin", "HEAD:main")
 
     def change(self, rel: str) -> str:
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         (self.runner / rel).parent.mkdir(parents=True, exist_ok=True)
         (self.runner / rel).write_text("changed\n")
         git(self.runner, "add", rel)
@@ -315,7 +315,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
 
     def script(self, text: str, rel: str = "scripts/prove.sh") -> None:
         """A prover's script, on the integration branch: `text` decides its exit, whatever the diff."""
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         (self.runner / rel).parent.mkdir(exist_ok=True)
         (self.runner / rel).write_text(text)
         git(self.runner, "add", rel)
@@ -323,7 +323,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         git(self.runner, "push", "-q", "origin", "HEAD:main")
 
     def edit_script(self, text: str, rel: str = "scripts/prove.sh") -> None:
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         (self.runner / rel).write_text(text)
         git(self.runner, "commit", "-q", "-am", "the task edits the prover's script")
 
@@ -348,11 +348,11 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual([x["prover"] for x in self.ended()["proven_skips"]], ["scripted"])
 
     def worktrees(self) -> str:
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         return git(self.runner, "worktree", "list", "--porcelain")
 
     def test_the_prover_runs_in_a_clean_checkout_of_the_integration_tip_removed_after_the_run(self):
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         self.product([{"name": "where", "command": f"pwd -P > {self.seen}; git rev-parse HEAD >> {self.seen}; "
                                                    f"git status --porcelain >> {self.seen}; exit 1", "skips": "suite"}])
         tip = git(self.runner, "rev-parse", "origin/main")
@@ -406,7 +406,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertIn("no clean checkout of the integration tip", Path(self.ended()["log"]).read_text())
 
     def test_the_gate_fetches_the_integration_branch_before_reading_the_provers(self):
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         self.product([])  # the integration branch declares no prover, as the runner last fetched it
         self.change("src/app.py")
         # another clone adds a prover to the integration branch; the runner's checkout has not fetched it
@@ -422,7 +422,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual([x["prover"] for x in self.ended()["proven_skips"]], ["always"])
 
     def test_a_failed_fetch_of_the_integration_branch_skips_nothing(self):
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         self.product([{"name": "always", "command": "true", "skips": "suite"}])
         self.change("src/app.py")
         git(self.runner, "remote", "set-url", "origin", str(Path(self._tmp.name) / "no-such-remote"))
@@ -433,7 +433,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertIn("the fetch of origin/main failed", Path(row["log"]).read_text())
 
     def test_an_integration_plane_json_that_does_not_load_declares_no_prover(self):
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         self.product([{"name": "always", "command": "true", "skips": "suite"}])
         p = self.runner / "docs/delivery/plane.json"
         cfg = json.loads(p.read_text())
@@ -457,7 +457,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual([x["prover"] for x in self.ended()["proven_skips"]], ["always"])
 
     def test_the_prover_gets_the_task_and_the_diff(self):
-        from tests.toolkit_fixture import git
+        from tests.git_helpers import git
         self.product([{"name": "show", "command": f"echo {{task_id}} {{from}} {{head}} > {self.seen}; exit 1",
                        "skips": "suite"}])
         head = self.change("src/app.py")

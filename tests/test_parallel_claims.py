@@ -264,8 +264,7 @@ class Claims(ParallelFixture, unittest.TestCase):
     def test_an_overdue_architect_gate_still_wins_over_full_slots(self):
         self.assertEqual(self.claim("0002")[0], 0)
         self.assertEqual(self.claim("0003")[0], 0)
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {"shape_from_task": "0001"}}))
+        self.edit_plane(lambda cfg: cfg.update(architect={"shape_from_task": "0001"}))
         with mock.patch.object(cli, "_architect_gate", return_value=4) as gate:
             self.assertEqual(self.next()[0], 4)
         gate.assert_called_once()

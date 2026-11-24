@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 
 from tests.helpers import TASK
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 RULES = """# Engineering
@@ -25,11 +26,10 @@ HOSTILE = "x <!--<script> y </script><img src=x onerror=alert(1)> &amp;"
 
 class QualityBase(ToolkitFixture):
     def arch_on(self, **extra):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {
+        self.edit_plane(lambda cfg: cfg.update(architect={
             "shape_from_task": "0001", "rules_doc": "docs/ENGINEERING.md", "every_n_tasks": 4, "notes_due": 3,
             "budgets": [{"id": "E1", "glob": "src/*.py", "max_lines": 3}],
-            "checks": [{"id": "E3", "cmd": "false"}], **extra}}))
+            "checks": [{"id": "E3", "cmd": "false"}], **extra}))
         self.write("docs/ENGINEERING.md", RULES)
         self.write("src/small.py", "a = 1\n")
         self.write("src/big.py", "a = 1\n" * 5)

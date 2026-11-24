@@ -14,9 +14,10 @@ from unittest import mock
 from ccp import config, lifecycle
 from ccp.queue import lib
 from tests.sandbox_fixture import SandboxCase
-from tests.helpers import Product, binding, machine_file
-from tests.toolkit_fixture import ToolkitFixture, git
-from tests.notify_fixture import APPEND, ChannelFixture, PLANE
+from tests.helpers import Product, binding, machine_file, PLANE_ROOT
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
+from tests.notify_fixture import APPEND, ChannelFixture
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
 
@@ -274,7 +275,7 @@ class Gates(unittest.TestCase):
         self.env.pop("PROJECT_ID", None)  # the binding names the project
 
     def run_script(self, script: str, *argv: str) -> dict:
-        r = subprocess.run(["bash", str(PLANE / "scripts" / script), *argv], capture_output=True, text=True, env=self.env)
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / script), *argv], capture_output=True, text=True, env=self.env)
         self.assertEqual(r.returncode, 0, r.stderr)
         return json.loads(r.stdout)
 
@@ -294,7 +295,7 @@ class Gates(unittest.TestCase):
     def ask_operator(self) -> tuple[str, subprocess.CompletedProcess]:
         eid = self.run_script("team.sh", "gate", "open", "--task-id", "0001-a", "--class", "spend",
                               "--brief", "a paid cycle")["escalation_id"]
-        r = subprocess.run(["bash", str(PLANE / "scripts/team.sh"), "gate", "ask-operator", eid], capture_output=True,
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts/team.sh"), "gate", "ask-operator", eid], capture_output=True,
                            text=True, env=self.env)
         self.assertEqual(r.returncode, 0, r.stderr)
         return eid, r

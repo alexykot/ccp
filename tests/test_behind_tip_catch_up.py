@@ -23,8 +23,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, lifecycle, suite, tasklog, verify
-from tests.helpers import as_lead
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.helpers import as_lead, PLANE_ROOT
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 PY = shlex.quote(sys.executable)
 GATE = (f'if [ -n "$CATCH_UP_GATE_HOOK" ]; then {PY} "$CATCH_UP_GATE_HOOK" || exit 9; fi; '
@@ -69,9 +70,7 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         git(self.main, "push", "-q", "origin", "main")
 
     def plane_json(self, edit) -> None:
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        edit(cfg)
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        self.edit_plane(edit)
         git(self.main, "commit", "-qam", "plane.json")
         git(self.main, "push", "-q", "origin", "main")
 
@@ -105,7 +104,7 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         self.open_pr()
         code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
         self.assertEqual(code, 0, out + err)
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it", "produced_by": "verifier"}]
@@ -318,9 +317,7 @@ if done < {moves}:
         self.assertEqual((cu["from"], cu["tip"], cu["sign_off_carried"]), (head, tip, head))
         caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
         self.assertEqual([e["payload"]["sign_off_carried"] for e in caught], [head])
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["reconcile"]["hooks"] = []
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=[]))
         git(self.main, "commit", "-qam", "the hook fixed")
         git(self.main, "pull", "-q", "--rebase", "origin", "main")
         git(self.main, "push", "-q", "origin", "main")
@@ -389,9 +386,7 @@ if done < {moves}:
         code, _, out, err = self.close(root=self.main)
         self.assertEqual(code, 1, out + err)
         self.assertEqual(self.pr_record()["state"], "merged")
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["reconcile"]["hooks"] = []
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg["reconcile"].update(hooks=[]))
         git(self.main, "commit", "-qam", "the hook fixed")
         git(self.main, "pull", "-q", "--rebase", "origin", "main")
         git(self.main, "push", "-q", "origin", "main")

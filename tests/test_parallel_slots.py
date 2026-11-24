@@ -12,7 +12,8 @@ import unittest
 from ccp import config
 from tests.parallel_claims_fixture import ParallelFixture
 from tests.team_hosting_fixture import TeamCase
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 SLOTS = {"runner-1": {"bound_name": "runner-1", "tasks_done": 0}, "runner-2": {"bound_name": "runner-2-x", "tasks_done": 0}}
 

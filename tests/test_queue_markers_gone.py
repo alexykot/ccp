@@ -10,7 +10,8 @@ from pathlib import Path
 
 from ccp import queue
 from tests.helpers import TASK
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 MARKERS = "queue"  # the retired top-level directory of per-task state markers
 

@@ -14,7 +14,8 @@ from unittest import mock
 
 from ccp import architect, config
 from ccp.queue import lib
-from tests.architect_fixture import FINDING, Harness, git
+from tests.git_helpers import git
+from tests.architect_fixture import FINDING, Harness
 
 
 RULE_COST = {**FINDING, "id": "F02", "title": "Legacy ids kept alive", "category": "rule-cost",

@@ -10,7 +10,6 @@ from pathlib import Path
 
 from tests.helpers import PLANE_ROOT
 
-REPO = PLANE_ROOT
 
 
 class FenceTest(unittest.TestCase):
@@ -20,7 +19,7 @@ class FenceTest(unittest.TestCase):
             r = subprocess.run(
                 [sys.executable, "-c",
                  "import os, tests; print(os.environ.get('QUEUE_ROOT'), os.environ.get('PROJECT_YAML'))"],
-                cwd=REPO, env=env, capture_output=True, text=True, timeout=60)
+                cwd=PLANE_ROOT, env=env, capture_output=True, text=True, timeout=60)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.split(), ["None", "None"])
 
@@ -30,7 +29,7 @@ class SharedHelpersTest(unittest.TestCase):
         r = subprocess.run(
             [sys.executable, "-B", "-c",
              "import sys, tests.helpers; print(sorted(m for m in sys.modules if m.split('.')[0] == 'ccp'))"],
-            cwd=REPO, capture_output=True, text=True, timeout=60)
+            cwd=PLANE_ROOT, capture_output=True, text=True, timeout=60)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "[]")
 

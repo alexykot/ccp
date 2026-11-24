@@ -12,11 +12,10 @@ import unittest
 
 from tests.helpers import PLANE_ROOT
 
-ROOT = PLANE_ROOT
-PKG = ROOT / "ccp"
+PKG = PLANE_ROOT / "ccp"
 
 
-def declared_floor(pyproject: pathlib.Path = ROOT / "pyproject.toml") -> tuple[int, int]:
+def declared_floor(pyproject: pathlib.Path = PLANE_ROOT / "pyproject.toml") -> tuple[int, int]:
     """`requires-python = ">=X.Y"` as (X, Y)."""
     m = re.search(r'^requires-python\s*=\s*">=\s*(\d+)\.(\d+)', pyproject.read_text(), re.M)
     if not m:
@@ -105,7 +104,7 @@ class EveryModuleImportsOnTheDeclaredFloor(unittest.TestCase):
                          + ", ".join(hits))
 
     def test_the_readme_declares_the_same_floor(self):
-        m = re.search(r"Python (\d+)\.(\d+) or newer", (ROOT / "README.md").read_text())
+        m = re.search(r"Python (\d+)\.(\d+) or newer", (PLANE_ROOT / "README.md").read_text())
         self.assertIsNotNone(m, "README.md names no Python floor")
         self.assertEqual((int(m.group(1)), int(m.group(2))), declared_floor())
 

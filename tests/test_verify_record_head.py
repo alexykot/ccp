@@ -9,8 +9,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config
+from tests.helpers import PLANE_ROOT
 from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, SkipFlow
-from tests.toolkit_fixture import PLANE, ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class RecordHead(SkipFlow, ToolkitFixture, unittest.TestCase):
@@ -54,7 +55,7 @@ class RecordHead(SkipFlow, ToolkitFixture, unittest.TestCase):
         self.refused_as_a_head_mismatch("reject")
 
     def test_a_reject_with_no_head_sha_is_not_held_to_the_runs_head(self):
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", verdict="reject")
         rec.pop("head_sha", None)
         rec.pop("checked_at", None)

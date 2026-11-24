@@ -9,10 +9,11 @@ import json
 import time
 import unittest
 
-from tests.helpers import TASK
+from tests.helpers import TASK, PLANE_ROOT
 from tests.rotation_fixture import RotationFixture, iso
-from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.team_hosting_fixture import HOOK, TeamCase
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class ClaimMidRotation(RotationFixture, unittest.TestCase):
@@ -95,7 +96,7 @@ class IdleHookMidRotation(TeamCase):
         self.prod.index()
 
     def hook(self, name):
-        r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp",
+        r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE_ROOT / "bin" / "ccp",
                          stdin=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": name,
                                            "cwd": str(self.prod.root)}))
         return r.returncode, r.stderr
@@ -149,7 +150,7 @@ class VacantSlots(ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["vacant_slots"], ["runner-1"])
         self.assertNotIn("runner-1", body.get("idle_runners", []))
         import subprocess  # noqa: PLC0415
-        r = subprocess.run(["bash", str(PLANE / "scripts" / "team.sh"), "runner", "status"],
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / "team.sh"), "runner", "status"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         runners = json.loads(r.stdout)["runners"]

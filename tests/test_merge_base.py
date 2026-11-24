@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, wt
-from tests.toolkit_fixture import git
+from tests.git_helpers import git
 from tests.wt_fixture import WtFixture
 
 FEATURE_TEST = """import unittest

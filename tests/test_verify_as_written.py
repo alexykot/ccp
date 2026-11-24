@@ -15,7 +15,6 @@ from ccp import cli, verify
 from tests.helpers import PLANE_ROOT, Product
 from tests.report_helpers import approve_verdict as approve, held_otherwise, judge_merge_ok as decide
 
-ROOT = PLANE_ROOT
 NEW_KEYS = ("as_written", "held_instead", "ruling")
 
 
@@ -110,7 +109,7 @@ class NotAsWritten(unittest.TestCase):
         code, out, err = self.record(approve(checks=[held_otherwise()]))
         self.assertEqual(code, 0, out + err)
         # The reader before this change: its version, and its contract, which names none of the keys.
-        older = json.loads((ROOT / "contracts/verification.schema.json").read_text())
+        older = json.loads((PLANE_ROOT / "contracts/verification.schema.json").read_text())
         for k in NEW_KEYS:
             del older["properties"]["checks"]["items"]["properties"][k]
         schema = self.q / "older.schema.json"

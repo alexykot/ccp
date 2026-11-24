@@ -13,8 +13,7 @@ from pathlib import Path
 
 from tests.helpers import PLANE_ROOT
 
-PLANE = PLANE_ROOT
-sys.path.insert(0, str(PLANE / "scripts" / "observability"))
+sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
 
 import lib  # noqa: E402
 import spec_maintainer as sm  # noqa: E402
@@ -37,7 +36,7 @@ class OldNamesAreRefused(unittest.TestCase):
     def _wait(self, reason: str) -> subprocess.CompletedProcess[str]:
         env = {k: v for k, v in os.environ.items() if k not in ("QUEUE_ROOT", "ACTOR")}
         env["QUEUE_ROOT"] = str(self.q)
-        cmd = ["bash", str(PLANE / "scripts" / "observability" / "set-waiting-on.sh"), "set", "0001-a", reason,
+        cmd = ["bash", str(PLANE_ROOT / "scripts" / "observability" / "set-waiting-on.sh"), "set", "0001-a", reason,
                "--detail", "create the db role on the operator's machine"]
         return subprocess.run(cmd, capture_output=True, text=True, env=env)
 

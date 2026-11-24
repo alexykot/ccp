@@ -19,13 +19,12 @@ from ccp.queue import lib
 from tests.helpers import PLANE_ROOT, Product
 from tests.upgrade_fixture import UpgradeFixture
 
-PLANE = PLANE_ROOT  # this checkout: its plugin gives the orientation
-HOOK = PLANE / "plugin" / "hooks" / "orientation.sh"
+HOOK = PLANE_ROOT / "plugin" / "hooks" / "orientation.sh"
 
 
 def orientation(root: Path) -> tuple[int, str, str]:
     out, err = io.StringIO(), io.StringIO()
-    with mock.patch("ccp.queue.PLANE", PLANE), redirect_stdout(out), redirect_stderr(err):
+    with mock.patch("ccp.queue.PLANE", PLANE_ROOT), redirect_stdout(out), redirect_stderr(err):
         code = cli.main(["--root", str(root), "orientation"])
     return code, out.getvalue(), err.getvalue()
 

@@ -19,9 +19,7 @@ def clashing(tid: str, scope_in: str, with_: list[str], extra: str = "") -> str:
 
 class Fixture(ToolkitFixture):
     def plane(self, **par):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["parallel"] = par
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        self.edit_plane(lambda cfg: cfg.update(parallel=par))
 
     def task(self, tid: str, scope_in: str, with_: list[str] | None = None, extra: str = ""):
         text = clashing(tid, scope_in, with_, extra) if with_ is not None else task(tid, scope_in, extra=extra)

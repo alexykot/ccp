@@ -552,8 +552,7 @@ class Rendered(QualityBase, unittest.TestCase):
         return r.stdout
 
     def seed(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "adr": {}}))
+        self.edit_plane(lambda cfg: cfg.update(adr={}))
         self.write("docs/adr/0004-y.md", "---\nid: ADR-0004\ntitle: \"u\"\nstatus: accepted\ndate: 2026-09-02\n"
                                          "review_points: [R8]\n---\n# ADR-0004 — u\n")
         self.write("docs/delivery/review-points.yaml", REGISTER)

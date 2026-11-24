@@ -15,7 +15,7 @@ from unittest import mock
 
 from ccp import cli, prhost, verify
 from ccp.schema import schema_errors
-from tests.helpers import binding, now_iso, PLANE_ROOT as ROOT, Product
+from tests.helpers import binding, now_iso, PLANE_ROOT, Product
 from tests.report_helpers import approve_verdict as approve, HEAD_A, HEAD_B, judge_merge_ok as decide
 
 
@@ -54,7 +54,7 @@ class MergeGate(unittest.TestCase):
         return code, out.getvalue(), err.getvalue()
 
     def test_schema_names_head_sha_and_does_not_require_it_globally(self):
-        schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/verification.schema.json").read_text())
         self.assertIn("head_sha", schema["properties"])
         self.assertEqual(schema["properties"]["head_sha"]["pattern"], "^[0-9a-fA-F]{7,40}$")
         self.assertNotIn("head_sha", schema["required"])
@@ -545,7 +545,7 @@ class Record(unittest.TestCase):
 
     def test_a_record_may_carry_every_access_mode_a_binding_declares(self):
         # S4: a binding saying verifier_access.mode local-cli, which the record contract refused.
-        binding = json.loads((ROOT / "contracts/project.schema.json").read_text())
+        binding = json.loads((PLANE_ROOT / "contracts/project.schema.json").read_text())
         for mode in binding["properties"]["verifier_access"]["properties"]["mode"]["enum"]:
             code, _, err = self.record(approve(access_mode=mode))
             self.assertEqual(code, 0, (mode, err))
@@ -564,7 +564,7 @@ class Record(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
     def test_the_example_record_passes_and_the_verifier_brief_names_it(self):
-        example = json.loads((ROOT / "contracts/verification.example.json").read_text())
+        example = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         self.assertEqual(example["schema_version"], verify.RECORD_VERSION)
         gates = self.q / "escalations" / "0042-example-task"  # the gate its not-as-written check cites
         gates.mkdir(parents=True)
@@ -572,7 +572,7 @@ class Record(unittest.TestCase):
                                                   "class": "other", "status": "closed", "decision": "approved"}))
         code, _, err = self.record({**example, "task_id": "0001-a", "project_id": "demo"})
         self.assertEqual(code, 0, err)
-        brief = (ROOT / "plugin/agents/delivery-verifier.md").read_text()
+        brief = (PLANE_ROOT / "plugin/agents/delivery-verifier.md").read_text()
         self.assertIn("`verification.example.json`, at the path the verify prompt gives", brief)
         self.assertNotIn("contracts/verification.example.json", brief)  # a relative path, wrong outside the plane
 
@@ -600,11 +600,11 @@ class Record(unittest.TestCase):
         self.assertNotIn(verify.NEWER_CONTRACT, err)
 
     def test_a_key_added_to_the_record_raises_its_version(self):
-        schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/verification.schema.json").read_text())
         self.assertEqual(version_errors(record_keys(schema), verify.RECORD_VERSION, KEYS_AT), [])
 
     def test_the_version_rule_refuses_a_key_added_without_a_raise(self):
-        schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/verification.schema.json").read_text())
         schema["properties"]["checks"]["items"]["properties"]["reviewed_at"] = {"type": "string"}
         added = record_keys(schema)
         n = verify.RECORD_VERSION

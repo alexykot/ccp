@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli
-from tests.helpers import now_iso, PLANE_ROOT as ROOT, Product
+from tests.helpers import now_iso, PLANE_ROOT, Product
 from tests.report_helpers import approve_verdict as approve, HEAD_A, judge_merge_ok as decide
 
 TASK = "0001-a"
@@ -180,7 +180,7 @@ class Producer(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
     def test_each_check_of_the_example_record_passes_the_records_checks(self):
-        shown = json.loads((ROOT / "contracts/verification.example.json").read_text())["checks"]
+        shown = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())["checks"]
         self.assertEqual({c.get("ran", True) for c in shown}, {True, False})
         self.gate(1, task="0042-example-task")  # the gate the example's not-as-written check cites
         for c in shown:
@@ -262,7 +262,7 @@ class Producer(unittest.TestCase):
         self.assertEqual(decide(self.p, self.q, rec, TASK)[0], [])
 
     def test_seats_that_do_not_rule_may_produce_evidence(self):
-        schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/verification.schema.json").read_text())
         seats = schema["properties"]["checks"]["items"]["properties"]["produced_by"]["enum"]
         for seat in sorted(set(seats) - {"lead", "runner"}):
             code, _, err = self.record(check(seat))
@@ -317,8 +317,8 @@ class Producer(unittest.TestCase):
                 self.assertIn("checks[0] (data-01)", "\n".join(reasons))
 
     def test_the_briefs_name_the_field(self):
-        self.assertIn("produced_by", (ROOT / "plugin/agents/delivery-verifier.md").read_text())
-        self.assertIn("produced_by", (ROOT / "plugin/agents/delivery-runner.md").read_text())
+        self.assertIn("produced_by", (PLANE_ROOT / "plugin/agents/delivery-verifier.md").read_text())
+        self.assertIn("produced_by", (PLANE_ROOT / "plugin/agents/delivery-runner.md").read_text())
 
 
 if __name__ == "__main__":

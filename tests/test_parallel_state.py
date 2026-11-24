@@ -14,7 +14,6 @@ from ccp import queue, usage
 from tests.helpers import PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
-PLANE = PLANE_ROOT
 
 
 class WorkLock(ToolkitFixture, unittest.TestCase):
@@ -41,7 +40,7 @@ class WorkLock(ToolkitFixture, unittest.TestCase):
         queue.save_work(self.q, {"task_id": "0002-second", "project_id": "demo"})
         env = {**os.environ, "QUEUE_ROOT": str(self.q)}
         with queue.file_lock(self.q / "work.json"):
-            p = subprocess.Popen(["bash", str(PLANE / "scripts/observability/set-waiting-on.sh"), "set",
+            p = subprocess.Popen(["bash", str(PLANE_ROOT / "scripts/observability/set-waiting-on.sh"), "set",
                                   "0002-second", "design_seat", "--project-id", "demo"],
                                  env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             with self.assertRaises(subprocess.TimeoutExpired):

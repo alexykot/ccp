@@ -12,16 +12,15 @@ import unittest
 from unittest import mock
 
 from ccp import config, parallel
+from tests.helpers import PLANE_ROOT
 from tests.parallel_claims_fixture import ParallelFixture, task
-from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
+from tests.team_hosting_fixture import HOOK, TeamCase
 
 
 class NoParallelBlock(ParallelFixture, unittest.TestCase):
     def setUp(self):
         super().setUp()
-        plane = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        plane.pop("parallel")  # the subject: a product that says nothing about parallel work
-        self.write("docs/delivery/plane.json", json.dumps(plane))
+        self.edit_plane(lambda cfg: cfg.pop("parallel"))  # the subject: a product that says nothing about parallel work
 
     def test_the_defaults_are_three_slots_scheduled_by_clashes(self):
         got = parallel.settings(config.load(self.main))
@@ -67,7 +66,7 @@ class ReadersAgree(TeamCase):
 
     def team_module(self):
         with mock.patch.object(sys, "path", list(sys.path)):
-            spec = importlib.util.spec_from_file_location("team_by_default", PLANE / "scripts/observability/team.py")
+            spec = importlib.util.spec_from_file_location("team_by_default", PLANE_ROOT / "scripts/observability/team.py")
             team = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(team)
             return team
@@ -88,7 +87,7 @@ class ReadersAgree(TeamCase):
         (self.q / "work.json").write_text(json.dumps({
             "status": "running", "scope": ["0001-a", "0002-b"], "in_flight": [],
             "runners": {"runner-2": {"bound_name": "runner-2-x"}}}))
-        r = subprocess.run(["bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp"], capture_output=True,
+        r = subprocess.run(["bash", HOOK, "--queue-root", self.q, "--ccp", PLANE_ROOT / "bin" / "ccp"], capture_output=True,
                            text=True, env=self.env, input=json.dumps({
                                "hook_event_name": "TeammateIdle", "teammate_name": "runner-2-x",
                                "cwd": str(self.prod.root)}))

@@ -20,7 +20,6 @@ from tests.helpers import PLANE_ROOT, Product
 from tests.init_fixture import InitCase
 
 NOTICE = "every Claude Code session on this machine"
-ROOT = PLANE_ROOT
 
 
 def args(**kw):
@@ -312,13 +311,13 @@ class Port(unittest.TestCase):
         self.assertNotIn("otel_port", cfg.telemetry)
 
     def test_the_schema_no_longer_lists_it(self):
-        schema = json.loads((ROOT / "contracts/plane_config.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         self.assertNotIn("otel_port", schema["properties"]["telemetry"]["properties"])
 
 
 class MachineFile(unittest.TestCase):
     def test_the_contract_lists_the_consent_and_the_accounts_keys(self):
-        schema = json.loads((ROOT / "contracts/machine.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/machine.schema.json").read_text())
         self.assertEqual(list(schema["properties"]), ["telemetry", "allowance_cmd", "allowance_stop_weekly"])
         self.assertEqual(schema["properties"]["telemetry"]["enum"], ["on", "off"])
         self.assertFalse(schema["additionalProperties"])

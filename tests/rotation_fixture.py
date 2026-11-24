@@ -5,11 +5,11 @@ import json
 import subprocess
 import time
 
-from tests.helpers import binding
-from tests.toolkit_fixture import PLANE, ToolkitFixture
+from tests.helpers import binding, PLANE_ROOT
+from tests.toolkit_fixture import ToolkitFixture
 
 
-TEAM = PLANE / "scripts" / "team.sh"
+TEAM = PLANE_ROOT / "scripts" / "team.sh"
 
 
 def iso(t: float) -> str:

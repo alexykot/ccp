@@ -7,12 +7,13 @@ import unittest
 
 from ccp import queue
 from ccp.schema import schema_errors
+from tests.helpers import PLANE_ROOT
 from tests.review_flow import CLEAN, PhaseFlow
-from tests.toolkit_fixture import PLANE, ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 
 def schema(name: str) -> dict:
-    return json.loads((PLANE / "contracts" / name).read_text())
+    return json.loads((PLANE_ROOT / "contracts" / name).read_text())
 
 
 class Contracts(PhaseFlow, ToolkitFixture, unittest.TestCase):

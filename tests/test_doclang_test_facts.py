@@ -15,7 +15,6 @@ from ccp.doclang import python as py_pack
 from ccp.queue import QueueError
 from tests.helpers import PLANE_ROOT, Product
 
-REPO = PLANE_ROOT
 
 
 def tests_cfg(language: str | None = None, extra: dict | None = None) -> config.Config:
@@ -163,7 +162,7 @@ class Readers(unittest.TestCase):
 
 class CoreCheck(unittest.TestCase):
     def test_the_language_pack_check_is_declared(self):
-        ids = [c["id"] for c in json.loads((REPO / "docs/delivery/plane.json").read_text())["architect"]["checks"]]
+        ids = [c["id"] for c in json.loads((PLANE_ROOT / "docs/delivery/plane.json").read_text())["architect"]["checks"]]
         self.assertIn("E18", ids)
 
 

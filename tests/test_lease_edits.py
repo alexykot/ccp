@@ -10,8 +10,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import GIT_ENV, TASK
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.helpers import GIT_ENV, TASK, PLANE_ROOT
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 FILE = "docs/delivery/tasks/0002-second.md"
 
@@ -173,7 +174,7 @@ class LeaseEdits(ToolkitFixture, unittest.TestCase):
         shim = Path(self._tmp.name) / "bin"
         shim.mkdir(exist_ok=True)
         if not (shim / "ccp").exists():
-            (shim / "ccp").symlink_to(PLANE / "bin/ccp")
+            (shim / "ccp").symlink_to(PLANE_ROOT / "bin/ccp")
         git(self.main, "config", "core.hooksPath", str(hooks))
         env = {**os.environ, **GIT_ENV, "PATH": f"{shim}:{os.environ['PATH']}", **extra_env}
 
@@ -194,17 +195,17 @@ class LeaseEdits(ToolkitFixture, unittest.TestCase):
     def test_the_product_hook_template_refuses_a_commit_on_main_editing_a_leased_task_file(self):
         hooks = Path(self._tmp.name) / "hooks"
         hooks.mkdir()
-        (hooks / "pre-commit").symlink_to(PLANE / "scripts/git-hooks/pre-commit.template")
+        (hooks / "pre-commit").symlink_to(PLANE_ROOT / "scripts/git-hooks/pre-commit.template")
         self.hook_refuses_only_a_leased_edit_on_main(self.hook_commits(hooks, {}))
 
     def test_the_planes_own_hook_runs_the_template_after_its_main_rule(self):
-        commit = self.hook_commits(PLANE / "scripts/git-hooks", {"CCP_ALLOW_MAIN_COMMIT": "1"})
+        commit = self.hook_commits(PLANE_ROOT / "scripts/git-hooks", {"CCP_ALLOW_MAIN_COMMIT": "1"})
         self.hook_refuses_only_a_leased_edit_on_main(commit)
 
     def test_the_hook_template_lets_a_commit_through_when_the_check_cannot_run(self):
         hooks = Path(self._tmp.name) / "hooks"
         hooks.mkdir()
-        (hooks / "pre-commit").symlink_to(PLANE / "scripts/git-hooks/pre-commit.template")
+        (hooks / "pre-commit").symlink_to(PLANE_ROOT / "scripts/git-hooks/pre-commit.template")
         self.claim()
         commit = self.hook_commits(hooks, {"QUEUE_ROOT": str(Path(self._tmp.name) / "no-such-queue")})
         self.commit_on_main("Amend 0002", stage_only=True)

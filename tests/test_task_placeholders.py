@@ -8,8 +8,7 @@ import unittest
 from ccp import config, tasklog
 from tests.helpers import PLANE_ROOT, Product
 
-ROOT = PLANE_ROOT
-TEMPLATE = ROOT / "templates/docs-delivery/TEMPLATE-task.md"
+TEMPLATE = PLANE_ROOT / "templates/docs-delivery/TEMPLATE-task.md"
 
 
 def front(p: Product, tid: str, old: str, new: str) -> None:

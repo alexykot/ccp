@@ -13,8 +13,7 @@ from tests.helpers import PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
 
-PLANE = PLANE_ROOT
-CCP = str(PLANE / "bin" / "ccp")
+CCP = str(PLANE_ROOT / "bin" / "ccp")
 PY = sys.executable
 
 

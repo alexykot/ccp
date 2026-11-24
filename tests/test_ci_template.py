@@ -14,8 +14,7 @@ from pathlib import Path
 
 from tests.helpers import PLANE_ROOT
 
-PLANE = PLANE_ROOT
-TEMPLATE = PLANE / "templates/github/workflows/formal-unit-lint.yml"
+TEMPLATE = PLANE_ROOT / "templates/github/workflows/formal-unit-lint.yml"
 
 
 def _job_lines(text: str) -> list[str]:

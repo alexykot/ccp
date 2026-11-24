@@ -10,9 +10,10 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config
-from tests.helpers import binding
+from tests.helpers import binding, PLANE_ROOT
 from tests.review_flow import A, B, ReviewFlow
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class ReviewGate(ReviewFlow, ToolkitFixture, unittest.TestCase):
@@ -195,7 +196,7 @@ class RepeatVerify(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.review()
         self.verify_round()
         self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "flaky gate, rerun")
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=A, verdict="approve", findings=["flaky gate, rerun"])
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
@@ -211,7 +212,7 @@ class RepeatVerify(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.review()
         first = self.verify_round()
         self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "flaky gate, rerun")
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=A, verdict="approve", findings=["lint warned: flaky gate, rerun"])
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
@@ -229,7 +230,7 @@ class RepeatVerify(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.review()
         first = self.verify_round()
         self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "rerun")
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=A, verdict="approve", findings=["flaky gate, rerun"])
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",

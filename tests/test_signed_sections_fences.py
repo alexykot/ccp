@@ -13,7 +13,7 @@ from unittest import mock
 
 from ccp import cli, tasklog
 from tests.helpers import GIT_ENV, TASK, Product
-from tests.toolkit_fixture import git
+from tests.git_helpers import git
 
 FENCE = "```"
 PASSAGE = "A signed sentence the build must add."

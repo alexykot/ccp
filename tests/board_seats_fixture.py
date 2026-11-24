@@ -15,8 +15,7 @@ def at(minutes_ago: float) -> str:
 
 class SeatsBase(ToolkitFixture):
     def design_seat(self, model="claude-opus-5-5", effort="xhigh"):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "telemetry": {"design_seat": {"model": model, "effort": effort}}}))
+        self.edit_plane(lambda cfg: cfg.update(telemetry={"design_seat": {"model": model, "effort": effort}}))
 
     def requests(self, *rows, spans=()):
         b = self.q / "board"

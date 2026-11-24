@@ -14,8 +14,7 @@ from ccp.queue import lib
 from tests.helpers import PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
-PLANE = PLANE_ROOT
-OBS = PLANE / "scripts/observability"
+OBS = PLANE_ROOT / "scripts/observability"
 TID = "0002-second"
 NOW = "2026-11-06T20:00:00Z"
 SUBMITTED = "2026-11-06T14:00:00Z"   # six hours before NOW: far past the retired 30-minute threshold

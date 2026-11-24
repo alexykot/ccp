@@ -8,7 +8,8 @@ import unittest
 from pathlib import Path
 
 from ccp import config, prompt as prompt_mod
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class NoteAndEnv(ToolkitFixture, unittest.TestCase):

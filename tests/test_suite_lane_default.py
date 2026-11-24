@@ -12,7 +12,7 @@ import unittest
 
 from ccp import suite
 from tests.suite_fixture import CCP, PY, SuiteFixture
-from tests.toolkit_fixture import git
+from tests.git_helpers import git
 
 PASS = "import sys; print('Ran 3 tests in 0.1s', file=sys.stderr)"
 

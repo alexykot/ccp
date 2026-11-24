@@ -15,7 +15,6 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None
 
-ROOT = PLANE_ROOT
 
 
 def fm(**kw) -> str:
@@ -142,7 +141,7 @@ class Frontmatter(Base):
                 config.load(self.p.root)
 
     def test_the_schema_lists_the_frontmatter(self):
-        fmschema = json.loads((ROOT / "contracts/adr.schema.json").read_text())
+        fmschema = json.loads((PLANE_ROOT / "contracts/adr.schema.json").read_text())
         self.assertEqual(set(fmschema["required"]), set(adr.REQUIRED))
         self.assertEqual(set(fmschema["properties"]), set(adr.REQUIRED + adr.OPTIONAL))
 

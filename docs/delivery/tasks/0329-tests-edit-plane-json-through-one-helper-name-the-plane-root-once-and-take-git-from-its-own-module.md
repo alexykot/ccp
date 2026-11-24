@@ -144,4 +144,26 @@ Measured at `cd3a6bf5`:
 
 ## Implementation notes
 
+- `ToolkitFixture.edit_plane(edit, where=None)` reads the main clone's plane.json, calls `edit(cfg)`, writes `json.dumps(cfg)` to
+  `(where or main)/config.CONFIG_REL` (creating the directory, as `write` does) and returns `cfg`. The 18 modules' reads call it;
+  `notify_fixture.set_plane`, `parallel_claims_fixture.plane`, `test_clashes_with.Fixture.plane`, `test_usage_reading`'s
+  setter and `test_behind_tip_catch_up.plane_json` keep their names (the last still commits and pushes) and call it.
+  The one remaining match of F06's grep, `test_the_template_holds_the_classs_own_plane_json`, only reads: it names the file
+  through `config.CONFIG_REL`.
+- Left as they were, under the task's Out: `tests/test_tasks_close.py`'s three reads of the runner's plane.json
+  (`self.runner / ...`) and the literal paths in other tests' writes.
+- The plane root's aliases (`PLANE`, `ROOT`, `REPO`: 35 definitions, 43 imports, 4 renaming imports) became `PLANE_ROOT`,
+  taken from `tests.helpers`; the `PLANE` re-export in `tests/toolkit_fixture.py` is gone. Function-local imports of an alias
+  and of `git` from a fixture (14, in 4 modules) follow too. `from ccp.queue import PLANE` is the product's own name and stays.
+- The 62 module-level `git` imports from `tests.toolkit_fixture` and `tests.architect_fixture` came from `tests.git_helpers`.
+  `ccp suite affected --paths tests/git_helpers.py` now lists 72 modules.
+- E4's cmd gained the two greps the task gives.
+- `tests/CLAUDE.md` holds 14 backticked names; the detail it dropped moved into each helper module's docstring.
+- `tests/test_backstop_retired.py` is removed, and `tests/test_snapshot_retired.py` keeps the live board-status test (its docstring
+  now says so).
+
+- Fix round 1: `TemplatesAndContracts.PLANE = PLANE_ROOT` in `tests/test_rules.py` was a surviving class-attribute alias; it is gone
+  and its two tests name `PLANE_ROOT`. `tests/git_helpers.py`'s docstring keeps "(a few older private runners remain)", which the
+  move from `tests/CLAUDE.md` had dropped. E4's column-0 anchors are left as the task gives them (reported as a follow-up).
+
 ## Verification notes

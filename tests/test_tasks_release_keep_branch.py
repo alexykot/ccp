@@ -9,7 +9,8 @@ from pathlib import Path
 
 from ccp import config
 from tests.report_helpers import done_report
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class ReleaseKeepingBranch(ToolkitFixture, unittest.TestCase):

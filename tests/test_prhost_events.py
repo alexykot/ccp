@@ -9,7 +9,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, prhost
-from tests.toolkit_fixture import ToolkitFixture, git
+from tests.git_helpers import git
+from tests.toolkit_fixture import ToolkitFixture
 
 BRANCH = "task/0002-second"
 

@@ -1,5 +1,13 @@
 """A git product (a bare origin, a main clone and a runner worktree) and a queue on the local PR host. A fixture
-module: it holds no tests."""
+module: it holds no tests.
+
+`ToolkitFixture` is the most reused one: for close, claim, verify and every test that runs `ccp` against a real
+repository. The PR host is the local one (`pr_host.adapter: local`): `open_pr()` opens the task's PR and
+`pr_record()` reads its record, and no test code stands in for a PR host (only the GitHub adapter's own tests stub
+`gh`). A test changes the fixture's plane.json with `edit_plane(edit, where=None)`, never by reading and writing the
+file itself; it commits and pushes what it needs. Each test class builds the three repositories once
+(`setUpClass`, from the class's own `PLANE_JSON`) and every test copies that tree; a class that changes the build
+before `setUp` ends sets `SHARED_REPO = False`."""
 from __future__ import annotations
 
 import io
@@ -8,6 +16,7 @@ import os
 import shutil
 import tempfile
 import textwrap
+from collections.abc import Callable
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
@@ -19,8 +28,6 @@ from tests import helpers
 from tests.git_helpers import git
 from tests.helpers import binding, GIT_ENV, PLANE_ROOT, TASK
 
-
-PLANE = PLANE_ROOT
 
 
 class ToolkitFixture:
@@ -76,7 +83,7 @@ class ToolkitFixture:
         put(".gitignore", f".venv/\n{config.WORKTREES_DIR}/\nclosed-*\n")
         (main / ".claude/agents").mkdir(parents=True)
         for a in ("implementer", "reviewer", "verifier"):
-            shutil.copy(PLANE / f"plugin/agents/delivery-{a}.md", main / f".claude/agents/delivery-{a}.md")
+            shutil.copy(PLANE_ROOT / f"plugin/agents/delivery-{a}.md", main / f".claude/agents/delivery-{a}.md")
         from ccp import tasklog
         tasklog.write_index(config.load(main))
         git(main, "add", "-A")
@@ -115,6 +122,16 @@ class ToolkitFixture:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(text)
         return p
+
+    def edit_plane(self, edit: Callable[[dict], None], where: Path | None = None) -> dict:
+        """The main clone's plane.json, changed in place by `edit(cfg)` and written to `where` (the main clone by
+        default), as the new dict. A caller commits and pushes."""
+        cfg = json.loads((self.main / config.CONFIG_REL).read_text())
+        edit(cfg)
+        p = (where or self.main) / config.CONFIG_REL
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(cfg))
+        return cfg
 
     def open_pr(self, branch: str = "task/0002-second", body: str = "Task: 0002-second\n") -> str:
         """The pushed `branch`'s PR, opened with the local PR host's `open` (ADR-0040 D3): its number, `PR`."""
@@ -192,7 +209,7 @@ class ToolkitFixture:
         """Claim 0002, commit work on its branch, push it, open its PR, verify it: the PR head."""
         head = self._push_task_work()
         self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec = json.loads((PLANE_ROOT / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",

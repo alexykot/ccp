@@ -15,8 +15,7 @@ from pathlib import Path
 from ccp import cli
 from tests.helpers import PLANE_ROOT
 
-ROOT = PLANE_ROOT
-DOCS = ROOT / "docs" / "cli"
+DOCS = PLANE_ROOT / "docs" / "cli"
 USAGE_LINE = re.compile(r"^\s*ccp [a-z]")
 # A backticked `ccp` span holding call syntax: a `<placeholder>`, a `[flag]`, a `|` alternation or an upper-case
 # metavariable. A bare command name is not call syntax.
@@ -174,7 +173,7 @@ def strip_action(root: Node, path: tuple[str, ...]) -> tuple[str, ...]:
 
 def module_docstrings() -> list[tuple[Path, str]]:
     """Each ccp module's docstring, as written."""
-    paths = sorted([*(ROOT / "ccp").glob("*.py"), *(ROOT / "ccp" / "doclang").glob("*.py")])
+    paths = sorted([*(PLANE_ROOT / "ccp").glob("*.py"), *(PLANE_ROOT / "ccp" / "doclang").glob("*.py")])
     return [(p, ast.get_docstring(ast.parse(p.read_text()), clean=False) or "") for p in paths]
 
 
@@ -185,11 +184,11 @@ class CliReference(unittest.TestCase):
     def test_no_module_docstring_carries_a_usage_line(self):
         found = []
         for path, doc in module_docstrings():
-            found += [f"{path.relative_to(ROOT)}: {l.strip()}" for l in doc.splitlines() if USAGE_LINE.match(l)]
+            found += [f"{path.relative_to(PLANE_ROOT)}: {l.strip()}" for l in doc.splitlines() if USAGE_LINE.match(l)]
         self.assertEqual(found, [])
 
     def test_no_module_docstring_opens_with_call_syntax(self):
-        found = [f"{path.relative_to(ROOT)}: {doc.splitlines()[0]}" for path, doc in module_docstrings()
+        found = [f"{path.relative_to(PLANE_ROOT)}: {doc.splitlines()[0]}" for path, doc in module_docstrings()
                  if doc.splitlines() and CALL_SYNTAX.match(doc.splitlines()[0])]
         self.assertEqual(found, [])
 
