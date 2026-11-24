@@ -1,7 +1,7 @@
 ---
 task_id: 0315-a-null-task-log-dir-is-refused-at-load-and-the-test-gaps-left-by-0296-and-0305-close
 title: plane.json refuses a task_log.dir that is not a path at load, notify's unreadable-plane.json branch and close's not_merged call each get a test, the architect fixture waits for its detached passes before cleanup, and affected_usage is tested on plain values
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S29", "S3", "S10", "S14", "S19"]
@@ -175,3 +175,5 @@ Measured at `bb102371` (origin/main after 0305's reconcile):
   `--affected --lane part` and is renamed `test_affected_with_a_lane_exits_2_with_nothing_run` to say what it runs.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #383 head `a35fbdc` (squash `6397948`): APPROVE. Passed: cmd-01, code-01, code-02, code-03, code-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0315-a-null-task-log-dir-is-refused-at-load-and-the-test-gaps-left-by-0296-and-0305-close.json.
+
