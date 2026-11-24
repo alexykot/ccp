@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -12,7 +13,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli
+from ccp import architect, cli
 from ccp.queue import lib
 
 from tests.helpers import Product, binding
@@ -60,6 +61,7 @@ class Harness(unittest.TestCase):
 
     ARCHITECT: dict = {"shape_from_task": "0001"}
     TASKS = 8
+    DETACHED_WAIT = 30  # seconds tearDown waits for each detached pass before it removes the queue it writes to
 
     def setUp(self):
         self.p = Product({"architect": self.ARCHITECT})
@@ -82,11 +84,34 @@ class Harness(unittest.TestCase):
                                                 "DA_CLAUDE_BIN": str(stub), "DA_STUB_REPORT": str(self.report),
                                                 "ACTOR": lib.RUNNER})
         self.env.start()
+        self.detached: list[subprocess.Popen] = []  # each detached pass's child, kept for tearDown to wait on
+        spawn = architect.spawn_detached
+
+        def keep(*a, **k):
+            p = spawn(*a, **k)
+            self.detached.append(p)
+            return p
+
+        self.spawn = mock.patch.object(architect, "spawn_detached", keep)
+        self.spawn.start()
 
     def tearDown(self):
+        # a detached pass writes to the queue and the product (its log, the ledger, its lock, its worktree) after
+        # the status the test waits for: wait for it before anything is removed
+        late = []
+        for p in self.detached:
+            try:
+                p.wait(self.DETACHED_WAIT)
+            except subprocess.TimeoutExpired:
+                late.append(p.pid)
+                os.killpg(p.pid, signal.SIGKILL)  # its own session (spawn_detached): the pass and what it started
+                p.wait()
+        self.spawn.stop()
         self.env.stop()
         self.p.cleanup()
         self._q.cleanup()
+        if late:
+            self.fail("; ".join(f"detached pass {pid} still running after {self.DETACHED_WAIT} s" for pid in late))
 
     def ccp(self, *args):
         out, err = io.StringIO(), io.StringIO()

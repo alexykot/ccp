@@ -1,14 +1,17 @@
 """The plane.json blocks' keys and defaults are written once, in `config.BLOCK_DEFAULTS`; this is the one test
 that holds `contracts/plane_config.schema.json` to it: the schema lists exactly the registry's blocks and each
-block's keys, and every `default` it states is the code's value."""
+block's keys, and every `default` it states is the code's value. A `task_log.dir` that is not a path is refused
+at load (§8.1)."""
 from __future__ import annotations
 
+import io
 import json
 import unittest
+from contextlib import redirect_stderr
 from typing import Any
 
 from ccp import config
-from tests.helpers import PLANE_ROOT
+from tests.helpers import PLANE_ROOT, Product
 
 SCHEMA = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
 
@@ -54,6 +57,15 @@ class PlaneConfigDefaults(unittest.TestCase):
             with self.subTest(block=block, key=key):
                 self.compare(f"{block}.{key}", SCHEMA["properties"][block]["properties"][key]["properties"],
                              defaults, extra=extra)
+
+    def test_a_task_log_dir_that_is_not_a_path_is_refused_at_load(self):
+        for bad in (None, "", 5):
+            with self.subTest(dir=bad):
+                p = Product({"project_id": "demo", "language": "none", "task_log": {"dir": bad}}, bare=True)
+                self.addCleanup(p.cleanup)
+                with redirect_stderr(io.StringIO()), self.assertRaises(config.ConfigError) as cm:
+                    config.load(p.root)
+                self.assertIn("task_log.dir", str(cm.exception))
 
 
 if __name__ == "__main__":
