@@ -30,7 +30,7 @@ Findings F03, F04 and F05 of architect pass `ar-20261124T205520Z-4ce8`
 (`docs/delivery/reviews/ar-20261124T205520Z-4ce8.md`); that triage applied F05's E7 amendment and accepted F03's E25
 amendment, which this task lands (text and check together).
 
-Measured at `cd3a6bf5`:
+Measured at `db68df5b`:
 
 - **F03.** ``awk '/^\| `ccp/ && length > 300' docs/cli/*.md | wc -l``: 16 rows (`ccp init`, `notify fire`, `notify
   upgrade`; `tasks next`, `tasks submit`, `tasks follow-up`, `ccp prompt`, `suite run`, `suite affected`; `tasks
@@ -67,7 +67,7 @@ Measured at `cd3a6bf5`:
     ! awk '/^\| `ccp/ && length > 300 {print FILENAME ": " substr($0, 1, 60); n++} END {exit n == 0}' docs/cli/*.md && ! git grep -nP '\bexits? (code )?[0-9]|\bexit code' -- docs/cli
     ```
 
-    (at `cd3a6bf5` it prints the 16 rows and exits 1; in a repo whose one docs/cli row is short it exits 0).
+    (at `db68df5b` it prints the 16 rows and exits 1; in a repo whose one docs/cli row is short it exits 0).
   - `plugin/agents/delivery-reviewer.md`: the bullet "Judge the normative text the PR adds or changes …" goes whole;
     nothing replaces it. `tests/test_sign_off_beyond_intent.py` stops pinning the reviewer brief (its other three pins
     stay).
@@ -92,21 +92,21 @@ Measured at `cd3a6bf5`:
     1. Run `CCP_DEV=1 ./bin/ccp docs check --only E25; echo "exit $?"`.
     2. Run `grep -c 'architect.checks .E25' docs/ENGINEERING.md`.
   expect: step 1's last line is `exit 0`; step 2 prints `1`.
-  dry run (`cd3a6bf5`): step 1 printed `ccp docs check: --only E25: ccp docs check runs no check E25 (…)`, `exit 2`; step 2 printed `0`, exit 1.
+  dry run (`db68df5b`): step 1 printed `ccp docs check: --only E25: ccp docs check runs no check E25 (…)`, `exit 2`; step 2 printed `0`, exit 1.
 - id: `doc-01`
   story: As a reviewer, my brief does not restate the Spec-beyond-intent instruction my prompt gives.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `git grep -c 'beyond intent' -- plugin/agents/delivery-reviewer.md`.
   expect: prints nothing (exit 1).
-  dry run (`cd3a6bf5`): printed `plugin/agents/delivery-reviewer.md:2`.
+  dry run (`db68df5b`): printed `plugin/agents/delivery-reviewer.md:2`.
 - id: `doc-02`
   story: As a plane developer, the scripts package doc describes the directory as it is and names E7 without restating it.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `grep -c 'shell entry points\|not into a new script' scripts/CLAUDE.md`.
   expect: prints `0`.
-  dry run (`cd3a6bf5`): printed `2`.
+  dry run (`db68df5b`): printed `2`.
 
 ## Implementation notes
 
