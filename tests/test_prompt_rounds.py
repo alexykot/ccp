@@ -104,7 +104,7 @@ class Rounds(ReviewFlow, ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.verify(A)
         self.assertEqual(code, 0, out + err)
         run_id = self.ruling(A, B)  # a ruling applied while the verifier ran
-        code, _, out, err = self.verdict(B)
+        code, _, out, err = self.verdict(A)
         self.assertEqual(code, 1, out + err)
         self.assertIn(f"ruling round {run_id} is newer than the last review", err)
         self.assertFalse((self.q / "verification/0002-second.json").exists())

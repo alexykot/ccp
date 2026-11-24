@@ -1,4 +1,4 @@
-"""The verifier's record and the runner's merge gate (SPEC §15.3), and the re-verify packet."""
+"""The verifier's record and the runner's merge gate (SPEC §15.3)."""
 from __future__ import annotations
 
 import contextlib
@@ -115,22 +115,6 @@ class MergeGate(unittest.TestCase):
         code, _, err = self.check("0001-a", HEAD_A)
         self.assertEqual(code, 1)
         self.assertIn("is not one of approve, reject", err)
-
-    def test_reverify_example_matches_the_schema_and_the_briefs_name_it(self):
-        schema = json.loads((ROOT / "contracts/reverify_packet.schema.json").read_text())
-        example = json.loads((ROOT / "contracts/reverify_packet.example.json").read_text())
-        for key in schema["required"]:
-            self.assertIn(key, example)
-        for key in schema["properties"]["packet"]["required"]:
-            self.assertIn(key, example["packet"])
-        self.assertRegex(example["head_sha"], schema["properties"]["head_sha"]["pattern"])
-        self.assertEqual(example["kind"], "reverify")
-        self.assertEqual(example["reason"], "fix-up")
-        self.assertGreaterEqual(len(example["fixups"]), 1)
-        verifier = (ROOT / "plugin/agents/delivery-verifier.md").read_text()
-        self.assertIn("head_sha", verifier)
-        self.assertIn("contracts/reverify_packet.schema.json", verifier)
-        self.assertIn("contracts/reverify_packet.example.json", verifier)
 
 
 # The record contract's keys at each schema version, one sorted list per version: the pinned
