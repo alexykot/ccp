@@ -96,6 +96,16 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 1, out + err)
         self.assertIn(f"the PR host (local) did not merge PR {self.PR}: refused here", err)
 
+    def test_a_pr_the_host_reports_open_after_a_clean_merge_is_refused(self):
+        head = self._to_approved_pr()
+        with mock.patch.object(prhost, "merge", return_value=prhost.MergeResult(True, "")), \
+                mock.patch.object(prhost, "confirm", return_value=prhost.PrFacts(int(self.PR), "open", head)):
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("OPEN", err)
+        git(self.main, "fetch", "-q", "origin")
+        self.assertNotIn("status: done", git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md"))
+
     def test_a_detached_main_checkout_keeps_its_head_too(self):
         self._to_approved_pr()
         git(self.main, "checkout", "-q", "--detach")
