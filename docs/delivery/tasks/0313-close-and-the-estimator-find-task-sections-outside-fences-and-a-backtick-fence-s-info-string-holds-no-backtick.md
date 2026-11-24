@@ -1,7 +1,7 @@
 ---
 task_id: 0313-close-and-the-estimator-find-task-sections-outside-fences-and-a-backtick-fence-s-info-string-holds-no-backtick
 title: Close's notes edit and the estimator's task text find section headings outside fenced blocks, a backtick fence's info string holds no backtick, and the placeholder check reads the unquoted text through the shared helper
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S10", "S26"]
@@ -11,7 +11,7 @@ paths: ["ccp/tasklog.py", "ccp/lifecycle.py", "ccp/estimate.py", "tests/test_sec
 clashes_with: []
 adopt: "none"
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # Task: 0313-close-and-the-estimator-find-task-sections-outside-fences-and-a-backtick-fence-s-info-string-holds-no-backtick
@@ -153,4 +153,21 @@ Measured at `b09de675` (origin/main) unless a line says otherwise. Each probe ru
 
 ## Implementation notes
 
+- 2026-11-24: built as the lead's rulings give it. `tasklog._unfenced` and `_section_end` are now `unfence` and
+  `section_end`, with every caller in `tasklog.py`, the `HEADING_RE` comment and two docstrings renamed. `FENCE_RE`'s
+  info string is `` (?:(?<=~)[^\n]*|[^`\n]*) ``, the comment above it saying so. `_task_file_done` and `strip_notes`
+  find their headings in `tasklog.unfence(text)` and end the section at `tasklog.section_end`; both slice the raw
+  text. `_check_placeholders` reads `_unquoted(t["_text"])`. Re-measured at `7b8aab9c`: every Context probe gave the
+  figure the task states, and `task_hash` before and after the change differs for no file in this log or in the two
+  bound products' logs (read-only). Mutants: reverting `lifecycle.py` or `estimate.py`, putting `[^\n]*` back, making
+  the tilde branch refuse a backtick, and refusing a backtick fence's info string are each killed by
+  `tests.test_section_readers_fences`.
+- 2026-11-24, fix round 1: the review found close's and the estimator's section end at the next unfenced heading
+  unpinned (the earlier fixtures had no fence inside a real notes section). Two tests now put a fenced `## X` line
+  inside the real Verification notes (close's note lands after the fence, before `## Later`) and inside the real
+  Implementation notes (`strip_notes` drops the text after the fence and keeps `## dod_checks`). The regex in the
+  note above is now a double-backtick span, so its own backtick no longer ends it.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #381 head `72901fe` (squash `87b0913`): APPROVE. Passed: code-01, code-02, code-03, code-04, test-01, data-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0313-close-and-the-estimator-find-task-sections-outside-fences-and-a-backtick-fence-s-info-string-holds-no-backtick.json.
+
