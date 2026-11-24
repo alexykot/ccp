@@ -1,7 +1,7 @@
 ---
 task_id: 0322-a-house-check-program-lives-in-a-tracked-script-and-mutate-files-unbuilt-only-on-the-mutant-s-own-files
 title: E4's and E24's check programs move out of plane.json into one tracked script that architect.checks calls in one line each; ccp mutate files a mutant unbuilt on a source-location line only when it names a file the mutant touched, and prints one line per mutant on stderr
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S20"]
@@ -179,3 +179,5 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
   mutant was filed killed; `UnbuiltLines` now pins `./ccp/x.py` and `ccp//x.py`.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #394 head `2d42ebd` (squash `2767a3b`): APPROVE. Passed: code-01, cmd-01, code-02, code-03, code-04, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0322-a-house-check-program-lives-in-a-tracked-script-and-mutate-files-unbuilt-only-on-the-mutant-s-own-files.json.
+

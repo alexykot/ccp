@@ -1583,7 +1583,7 @@ tasks:
     depends_on: []
     path: tasks/0321-one-tasklog-reader-finds-a-task-file-s-sections-and-a-null-task-log-block-loads-as-its-defaults.md
   - id: 0322-a-house-check-program-lives-in-a-tracked-script-and-mutate-files-unbuilt-only-on-the-mutant-s-own-files
-    status: pending
+    status: done
     title: E4's and E24's check programs move out of plane.json into one tracked script that architect.checks calls in one line each; ccp mutate files a mutant unbuilt on a source-location line only when it names a file the mutant touched, and prints one line per mutant on stderr
     depends_on: []
     path: tasks/0322-a-house-check-program-lives-in-a-tracked-script-and-mutate-files-unbuilt-only-on-the-mutant-s-own-files.md
