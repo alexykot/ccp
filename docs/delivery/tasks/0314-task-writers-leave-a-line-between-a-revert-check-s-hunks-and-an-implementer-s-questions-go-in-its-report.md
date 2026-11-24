@@ -1,7 +1,7 @@
 ---
 task_id: 0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report
 title: The writing-tasks skill says a revert check's fixture leaves an unchanged line between the hunks it tells apart, and the implement prompt and the implementer and runner briefs say an implementer's questions go in its report
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S13", "S17"]
@@ -11,7 +11,7 @@ paths: ["plugin/skills/writing-tasks/SKILL.md", "plugin/agents/delivery-implemen
 clashes_with: []
 adopt: "none"
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # Task: 0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report
@@ -140,4 +140,11 @@ Measured at `b09de675` (origin/main).
 
 ## Implementation notes
 
+- Built the five edits exactly as ruled. Re-measured at `c8aa9c30`: every figure in Context holds (the one commit since
+  `b09de675`, 0310's squash, touched `delivery-implementer.md`'s `ccp suite affected` bullet only, not the question bullet).
+- `{{runner}}` is no longer used in `templates/prompts/implement.md`; `_common.md` still binds it, and the test's two
+  `runner-2` assertions on `_common.md` stay.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #382 head `3b13bd9` (squash `f255dfe`): APPROVE. Passed: doc-01, doc-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report.json.
+
