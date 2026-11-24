@@ -146,7 +146,7 @@ ids), tell the lead in one line: the run and how many. The lead decides each one
    --note-file <the lead's ruling>` only applies a lead's ruling (before review too). Review and verify treat
    their heads as a fix round's (SPEC §13.2). `ccp` enforces it: `ccp prompt verify`
    refuses (exit 4) while a fix, merge or ruling round is newer than the last review (a merge round that
-   left the reviewed change unchanged aside), or the head is not the one that review judged, and `ccp verify record` refuses the approve, unless the product's `verify.skip_review`
+   left the reviewed change unchanged aside), or the head is not the one that review judged, and `ccp verify record` refuses the approve (it refuses first a verdict whose head is not the open verify run's, SPEC §15.4), unless the product's `verify.skip_review`
    proves the fix (only declared paths touched, its proof command passing), or a prover it declares of the review
    (`verify.provers`, `skips: review`) exits 0 on the fix diff, or its `verify.skip_review_after_clean`
    takes it as the fix of a clean review's MINOR and NIT findings (a verify reject since sends it back to review). Only on the lead's or the operator's word:

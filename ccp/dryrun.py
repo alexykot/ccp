@@ -9,6 +9,7 @@ tasklog's (house rule E22); what to run, the record and the printout are worked 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -22,20 +23,23 @@ from ccp.config import Config
 
 STEP_TIMEOUT_S = 300  # each step's time limit; its process group is killed on timeout
 FIRST_LINE_CAP = 160  # characters of a step's first output line kept in the printout and the record
-NOT_RUN = "not run"   # a step that is not one backticked command and nothing else, or a marked check's
+NOT_RUN = "not run"   # a step that is not one backticked command and nothing else, holds a placeholder, or a marked check's
+PLACEHOLDER_RE = re.compile(r"<[A-Za-z][^<>\n]*>")  # §21.1: a step's command holding one is not run
+HERE_INDENT = "      "  # §21.1 `--here`: each line of a step's whole output, under its line
 REFUSED = 3           # §10.6: a task that is done, dropped or claimed has no dry run
 USAGE = 2             # §21.1: `--here` with `--write`, or a `--check` id the task does not have
 
 
 @dataclass(frozen=True)
 class Ran:
-    """One step's run: its number, its command, its exit code (None: timed out), its output's line count and
-    its first line."""
+    """One step's run: its number, its command, its exit code (None: timed out), its output's line count, its
+    first line and its whole output's lines."""
     step: str
     command: str
     code: int | None
     lines: int
     first: str
+    output: tuple[str, ...] = ()
 
 
 def refusal(tid: str, status: object, claimed: bool, here: bool = False) -> str | None:
@@ -81,7 +85,7 @@ def outcome(step: str, command: str, code: int | None, output: str) -> Ran:
     first = lines[0] if lines else ""
     if len(first) > FIRST_LINE_CAP:
         first = first[:FIRST_LINE_CAP] + "…"
-    return Ran(step, command, code, len(lines), first)
+    return Ran(step, command, code, len(lines), first, tuple(lines))
 
 
 def _span(s: str) -> str:
@@ -110,9 +114,20 @@ def record(ran: list[Ran]) -> str:
 
 
 def plan(text: str) -> list[tuple[str, list[tuple[str, str | None]]]]:
-    """Each dod_check of a task file's text, by id, with its numbered steps: the command a step runs, or
+    """Each dod_check of a task file's text, by id, with its numbered steps: the command a step holds, or
     None for a step that is not one backticked command and nothing else."""
     return [(c.id, tasklog.check_steps(c.block)) for c in tasklog.checks(text)]
+
+
+def placeholder(cmd: str) -> str | None:
+    """§21.1: the first placeholder a step's command holds (as `<your run>`), or None."""
+    m = PLACEHOLDER_RE.search(cmd)
+    return m.group(0) if m else None
+
+
+def runnable(steps: list[tuple[str, str | None]]) -> list[tuple[str, str]]:
+    """§21.1: the steps a dry run runs, by number and command: each one backticked command holding no placeholder."""
+    return [(n, cmd) for n, cmd in steps if cmd is not None and placeholder(cmd) is None]
 
 
 def marked(text: str) -> set[str]:
@@ -122,9 +137,11 @@ def marked(text: str) -> set[str]:
 
 
 def printout(tid: str, sha: str, ref: str, checks: list[tuple[str, list[tuple[str, str | None]]]],
-             runs: dict[str, list[Ran]], skip: set[str] | frozenset[str] = frozenset()) -> list[str]:
+             runs: dict[str, list[Ran]], skip: set[str] | frozenset[str] = frozenset(),
+             whole: bool = False) -> list[str]:
     """The lines `ccp tasks dry-run` prints: per check, each step run (its command, exit code, line count and
-    first line) and each other step as not run; a check in `skip` (marked, §5.5) as not run, whole."""
+    first line, then with `whole` (`--here`) each line of its output) and each other step as not run, naming the
+    placeholder a command holds; a check in `skip` (marked, §5.5) as not run, whole."""
     out = [f"tasks dry-run {tid} at {sha} ({ref})"]
     for cid, steps in checks:
         out.append(f"  {cid}:")
@@ -136,8 +153,15 @@ def printout(tid: str, sha: str, ref: str, checks: list[tuple[str, list[tuple[st
         if not steps:
             out.append(f"    no numbered step: {NOT_RUN}")
         for n, cmd in steps:
-            out.append(f"    {said(done[n])} ({_span(cmd)})" if cmd is not None and n in done
-                       else f"    step {n}: {NOT_RUN} (not one backticked command and nothing else)")
+            ph = None if cmd is None else placeholder(cmd)
+            if ph is not None:
+                out.append(f"    step {n}: {NOT_RUN} (holds the placeholder {_span(ph)})")
+            elif cmd is not None and n in done:
+                out.append(f"    {said(done[n])} ({_span(cmd)})")
+                if whole:
+                    out.extend(HERE_INDENT + ln for ln in done[n].output)
+            else:
+                out.append(f"    step {n}: {NOT_RUN} (not one backticked command and nothing else)")
     return out
 
 
@@ -202,9 +226,8 @@ def dry_run(cfg: Config, task: str, write: bool, check: str | None = None, here:
     try:
         wt.add_unrecorded(cfg, main, tree, sha)  # §12.1: with the worktrees.links paths, as in any plane worktree
         for cid, steps in checks:
-            for n, cmd in [] if cid in skip else steps:
-                if cmd is not None:
-                    runs.setdefault(cid, []).append(outcome(n, cmd, *run_step(cmd, tree)))
+            for n, cmd in [] if cid in skip else runnable(steps):
+                runs.setdefault(cid, []).append(outcome(n, cmd, *run_step(cmd, tree)))
     finally:
         wt.remove_unrecorded(main, tree)
         shutil.rmtree(tmp, ignore_errors=True)
@@ -223,10 +246,11 @@ def dry_run(cfg: Config, task: str, write: bool, check: str | None = None, here:
 
 
 def _here(cfg: Config, tid: str, checks: list[tuple[str, list[tuple[str, str | None]]]], skip: set[str]) -> int:
-    """§21.1 `--here`: the steps run in the checkout the command runs in, at its HEAD; nothing is written."""
+    """§21.1 `--here`: the steps run in the checkout the command runs in, at its HEAD, and each one's whole output
+    is printed; nothing is written."""
     sha = queue.git(cfg.root, "rev-parse", "HEAD", check=True).stdout.strip()  # before a step can move it
-    runs = {cid: [outcome(n, cmd, *run_step(cmd, cfg.root)) for n, cmd in steps if cmd is not None]
+    runs = {cid: [outcome(n, cmd, *run_step(cmd, cfg.root)) for n, cmd in runnable(steps)]
             for cid, steps in checks if cid not in skip}
-    for line in printout(tid, sha[:7], "HEAD, here", checks, runs, skip):
+    for line in printout(tid, sha[:7], "HEAD, here", checks, runs, skip, whole=True):
         print(line)
     return 0
