@@ -33,7 +33,7 @@ don't redesign around it.
   <head>`), run the test there on the part lane as above, and remove it with `ccp wt remove <name>`;
   never a hand edit and restore in your own worktree.
 - After you merge the integration branch in, or change code, run the tests the change touches with
-  `ccp suite run --affected` (`--since <ref>` for what a merge brought in), not a guess at module names.
+  the suite run's `--affected` (`--since <ref>` for what a merge brought in), not a guess at module names.
 - Before you build, re-run at your base each command the task's Context names for a measured
   premise (a count, a size, a list of sites, an "already" or "never happens" claim). If a figure
   changed materially, stop before building and put it in your report as a scope question.
