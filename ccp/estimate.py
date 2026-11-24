@@ -147,10 +147,10 @@ def _append(q: Path, row: dict[str, Any]) -> None:
 def strip_notes(text: str) -> str:
     """The task as written before the work: the runtime sections and volatile frontmatter left out."""
     for name in NOTES:
-        m = re.search(rf"^## {re.escape(name)}[ \t]*$", text, re.M)
+        unfenced = tasklog.unfence(text)  # a `## ` line inside a fenced block is quoted text, no heading
+        m = re.search(rf"^## {re.escape(name)}[ \t]*$", unfenced, re.M)
         if m:
-            nxt = re.search(r"^## ", text[m.end():], re.M)
-            text = text[:m.start()] + (text[m.end() + nxt.start():] if nxt else "")
+            text = text[:m.start()] + text[tasklog.section_end(unfenced, m.end()):]
     if text.startswith("---\n") and (end := text.find("\n---\n", 4)) != -1:
         fm = [ln for ln in text[4:end].splitlines() if ln.split(":", 1)[0].strip() not in VOLATILE]
         text = "---\n" + "\n".join(fm) + text[end:]
