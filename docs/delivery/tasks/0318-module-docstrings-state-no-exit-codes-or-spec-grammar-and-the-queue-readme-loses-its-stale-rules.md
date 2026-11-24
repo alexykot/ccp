@@ -48,8 +48,11 @@ Measured at `bb102371`, with `git ls-files 'ccp/*.py' | python3 -c '…'` over e
 - **Ruled.** In those seven module docstrings, every exit code, refusal list and restated § grammar goes. A fact the
   SPEC holds is cut, and the docstring names its § instead; a fact the SPEC does not hold moves to the docstring of
   the function that implements it, and the implementer lists each such move in its report. `ccp/mutate.py`,
-  `ccp/suite.py`, `ccp/report.py` and `ccp/init.py` each come to at most 30 lines. In `docs/delivery/plane.json`,
-  `architect.checks` `E24` holds `long_max = 11` and `exit_max = 0`. `queue/README.md` loses its
+  `ccp/suite.py`, `ccp/report.py` and `ccp/init.py` each come to at most 30 lines. `ccp/architect.py` (35 lines,
+  one exit statement) loses its exit-code sentence and any refusal or § grammar it restates, and no more: its length
+  is no target, so it may stay over 30. The over-30 count is then at most 11 (11 if `ccp/architect.py` stays over 30,
+  10 if the cut takes it under). In `docs/delivery/plane.json`, `architect.checks` `E24` holds `exit_max = 0` and
+  `long_max = <the over-30 count measured at the build's head>`, the second figure `doc-01` prints. `queue/README.md` loses its
   `## Rules` heading and table; nothing else in it changes.
 - **No SPEC change**: the build cuts copies and writes no SPEC or docs/cli text.
 
@@ -68,14 +71,14 @@ Measured at `bb102371`, with `git ls-files 'ccp/*.py' | python3 -c '…'` over e
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `git ls-files 'ccp/*.py' | python3 -c 'import ast,re,sys; ds={p: ast.get_docstring(ast.parse(open(p).read())) or "" for p in sys.stdin.read().split()}; print(sum(bool(re.search(r"exits? [0-9]", d)) for d in ds.values()), sum(len(d.splitlines()) > 30 for d in ds.values()), [len(ds[f"ccp/{m}.py"].splitlines()) for m in ("mutate", "suite", "report", "init")])'`.
-  expect: prints `0 11 [a, b, c, d]`, each of `a` to `d` at most 30.
+  expect: prints `0 <n> [a, b, c, d]`, with `<n>` at most 11 and each of `a` to `d` at most 30.
   dry run (`bb102371`): printed `7 15 [43, 43, 41, 35]`.
 - id: `cfg-01`
   story: As the architect, E24's check holds the lower counts.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `cmd=$(python3 -c 'import json; print([c["cmd"] for c in json.load(open("docs/delivery/plane.json"))["architect"]["checks"] if c["id"] == "E24"][0])'); echo "$cmd" | grep -oE '(long|exit)_max = [0-9]+' | tr '\n' ' '; echo; bash -c "$cmd"; echo "exit=$?"`.
-  expect: the first line is `long_max = 11 exit_max = 0 `; then `exit=0`.
+  expect: the first line is `long_max = <n> exit_max = 0 `, with `<n>` the figure `doc-01` printed; then `exit=0`.
   dry run (`bb102371`, with this triage's plane.json): printed `long_max = 15 exit_max = 7 `, then `exit=0`.
 - id: `doc-02`
   story: As an operator, the queue README neither names a file that does not exist nor advises clearing the queue.

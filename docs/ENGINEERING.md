@@ -18,8 +18,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   binding) through the code or a fixture helper, never as a copied literal. A fixture or helper other
   modules reuse lives in a module that holds no tests; no module imports a test module or binds
   another module's test-class methods.
-  check: command — architect.checks `E4`: four greps and an import check, each printing its hits, and a count of assert
-  calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over
+  check: command — architect.checks `E4` (four greps, an import check over the tracked test files, and the long-literal count it holds at or below its figure)
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch: a change that gives a branch a
   plain-value test cuts that branch's end-to-end test in the same change.
@@ -29,9 +28,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   checkout's `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A
   check that runs tests runs them through `bin/ccp suite run --lane <part lane> -- <command>` and pins a
   named test by giving its id to that command, so the run's exit code decides, never by a grep of the runner's
-  text or a bare test runner's output. A
-  check that needs a modified copy (a planted fault) names `ccp mutate` where it can run one test (§20.6),
-  else a `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text
+  text or a bare test runner's output (skill line lands with 0317). A check that needs a modified copy (a planted
+  fault) names `ccp mutate` where it can run one test (§20.6), else a `ccp wt create --kind mut` worktree, never a
+  hand `git worktree add`. Signed SPEC text
   is proved by `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row.
   check: pass — the architect and the reviewer read new tasks' dod_checks
 

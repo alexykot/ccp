@@ -178,6 +178,6 @@ review_points:
     opened: "2026-11-23"
   - id: R32
     name: eleventh architect pass fixes
-    goal: "Findings of architect pass ar-20261123T230912Z-197a and the open follow-ups of 0296 and 0305: a task_log.dir that is not a path refused at load, tests for notify's unreadable plane.json, close's not_merged call and suite run's --affected flag rules, and the architect fixture waiting for its detached passes; E4 counting every long-literal assert form and naming its figure; one mutation route in the review prompt, token-pinned prompt tests and checks that pin a test by its id; module docstrings with no exit codes or SPEC grammar and the queue README's stale rules gone; and a path the affected map names read by the map alone, with its signed §14.7 sentence."
+    goal: "Findings of architect pass ar-20261123T230912Z-197a and the open follow-ups of 0296 and 0305: a task_log.dir that is not a path refused at load, tests for notify's unreadable plane.json, close's not_merged call and suite run's --affected flag rules, and the architect fixture waiting for its detached passes; E4 counting every long-literal assert form and naming its figure; one mutation route in the review prompt, token-pinned prompt tests, checks that pin a test by its id and removal checks that miss the replacing text; module docstrings with no exit codes or SPEC grammar and the queue README's stale rules gone; and a path the affected map matches no longer matched to tests by its name, with its signed §14.7 sentence."
     status: planned
     opened: "2026-11-24"

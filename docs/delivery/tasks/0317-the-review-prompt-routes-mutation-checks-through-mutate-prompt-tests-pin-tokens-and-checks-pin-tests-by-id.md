@@ -1,6 +1,6 @@
 ---
 task_id: 0317-the-review-prompt-routes-mutation-checks-through-mutate-prompt-tests-pin-tokens-and-checks-pin-tests-by-id
-title: The review prompt gives one route for a mutation check (ccp mutate, from the shared part), the prompt-text tests pin one token per instruction and E4's figure drops with them, and the writing-tasks skill has a check pin a test by its id so the run's exit code decides
+title: The review prompt gives one route for a mutation check (ccp mutate, from the shared part), the prompt-text tests pin one token per instruction and E4's figure drops with them, and the writing-tasks skill has a check pin a test by its id so the run's exit code decides and a removal check miss the text that replaces it
 status: pending
 kind: feature
 depends_on: ["0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over"]
@@ -8,7 +8,7 @@ spec_refs: ["S20", "S14"]
 rule_refs: ["E4", "E13", "E21"]
 review_refs: ["ar-20261123T230912Z-197a#F02", "ar-20261123T230912Z-197a#F04", "ar-20261123T230912Z-197a#F05"]
 review_point: R32
-paths: ["templates/prompts/review.md", "tests/test_prompt_tools.py", "tests/test_worker_efficiency.py", "tests/test_full_lane_prompt.py", "docs/delivery/plane.json", "plugin/skills/writing-tasks/SKILL.md"]
+paths: ["templates/prompts/review.md", "tests/test_prompt_tools.py", "tests/test_worker_efficiency.py", "tests/test_full_lane_prompt.py", "docs/delivery/plane.json", "plugin/skills/writing-tasks/SKILL.md", "tests/test_suite.py"]
 clashes_with: ["0191-the-grace-release-ends", "0307-seats-are-told-how-to-run-one-check-and-the-spec-names-the-language-pack-s-test-command", "0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log", "0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report"]
 adopt: "none"
 created: 2026-11-24
@@ -46,6 +46,10 @@ Measured at `bb102371`:
   the same. The test is `test_the_review_prompt_routes_mutation_checks_through_mutate_only` in
   `tests/test_prompt_tools.py` (class `PromptsNameTheTools`): the rendered review prompt, in a full review and in a
   resolution review, holds `mutate --run` and no line holding both `mutation` and `suite run`.
+  `test_the_mutation_runs_name_the_part_roles_lane` in `tests/test_suite.py` (class `LaneRoles`) reads the review
+  prompt's "and any mutation run" line for `--lane subset --cold`, so it breaks with that clause. Ruled: its review half
+  goes (the `("review", "and any mutation run", …)` row of its loop); its verify half stays unchanged. The review prompt
+  names one mutation route, `ccp mutate`.
 - **Prose pins (F02).** The AST count 0316 puts in E4 (every assert call with a string argument of 40 or more
   characters), run as a probe over `tests/test_worker_efficiency.py`, `tests/test_prompt_tools.py` and
   `tests/test_full_lane_prompt.py`: 34. A plain-literal grep, `LC_ALL=C grep -cE 'assert[A-Za-z]*\(f?"[^"]{40,}'` on each:
@@ -61,6 +65,10 @@ Measured at `bb102371`:
   Ruled: the bullet's clause becomes "and pins a named test by giving its id (`<module>.<class>.<test>`) to that
   command, so the run's exit code says it ran and passed; never a grep of the runner's text, nor a bare test
   runner's output." E21 (`docs/ENGINEERING.md`) says the same since the triage.
+- **Removal checks.** Two briefs this week (0296, 0303) had a check that text was removed whose pattern also matched
+  the text that replaced it. Ruled: the skill's bullet "An absence check first shows its pattern finding a known
+  positive" gains the sentence "A check that text was removed uses a pattern that the text replacing it does not
+  match."
 - **No SPEC change.** `git grep -n -e 'mutation run' -e grepping -- docs/spec` at `bb102371`: the two lines are §2.4's
   verifier `Edit` note and §15.3's cache line, neither changed. The prompt follows §20.6 as it stands.
 
@@ -68,7 +76,8 @@ Measured at `bb102371`:
 
 - **In:** `templates/prompts/review.md` (the two lines above); `tests/test_prompt_tools.py`,
   `tests/test_worker_efficiency.py` and `tests/test_full_lane_prompt.py` (their long-literal assertions as tokens, and
-  the new test); `docs/delivery/plane.json` (E4's figure only); `plugin/skills/writing-tasks/SKILL.md` (the one bullet).
+  the new test); `tests/test_suite.py` (the review half of `test_the_mutation_runs_name_the_part_roles_lane`);
+  `docs/delivery/plane.json` (E4's figure only); `plugin/skills/writing-tasks/SKILL.md` (the two bullets above).
 - No SPEC change (Context, *No SPEC change*).
 - **Out:** `templates/prompts/_common.md` (0307 is changing it); the other prompt tests; any other template line.
 
@@ -101,7 +110,7 @@ Measured at `bb102371`:
   story: As a plane developer, the converted prompt tests still pass and still bite.
   setup: As `code-01`.
   steps:
-    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_prompt_tools tests.test_worker_efficiency tests.test_full_lane_prompt`.
+    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_prompt_tools tests.test_worker_efficiency tests.test_full_lane_prompt tests.test_suite.LaneRoles.test_the_mutation_runs_name_the_part_roles_lane`.
     2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_prompt_tools --mutant 'templates/prompts/review.md:suite run --affected --since origin/{{integration}}...=>suite run --since origin/{{integration}}...'`.
   expect: step 1 exits 0; step 2 prints the mutant `killed`.
   dry run: n/a — needs an open run; the old text is found once in `templates/prompts/review.md` at `bb102371` (`grep -c 'suite run --affected --since origin/{{integration}}...'`: 1).
@@ -109,9 +118,9 @@ Measured at `bb102371`:
   story: As a task writer, the skill tells me to pin a test by its id, so the run's exit code decides.
   setup: A checkout of the PR head (any seat).
   steps:
-    1. Run `git grep -c 'grepping that run' -- plugin/skills/writing-tasks/SKILL.md; tr '\n' ' ' < plugin/skills/writing-tasks/SKILL.md | grep -o "giving its id[^;]*exit code" | head -1`.
-  expect: the first grep prints nothing (exit 1); the second prints one fragment starting `giving its id` and ending `exit code`.
-  dry run (`bb102371`): printed `plugin/skills/writing-tasks/SKILL.md:1`, then nothing.
+    1. Run `git grep -c 'grepping that run' -- plugin/skills/writing-tasks/SKILL.md; tr '\n' ' ' < plugin/skills/writing-tasks/SKILL.md | grep -o "giving its id[^;]*exit code" | head -1; tr '\n' ' ' < plugin/skills/writing-tasks/SKILL.md | grep -c "the text replacing it does not"`.
+  expect: the first grep prints nothing (exit 1); the second prints one fragment starting `giving its id` and ending `exit code`; the third prints `1`.
+  dry run (`bb102371`): printed `plugin/skills/writing-tasks/SKILL.md:1`, then nothing, then `0`.
 
 ## Implementation notes
 

@@ -7,7 +7,7 @@ depends_on: ["0309-the-bare-runner-warning-reads-past-env-and-timeout-options-an
 rule_refs: ["E4"]
 review_refs: ["ar-20261123T230912Z-197a#F02", "ar-20261123T230912Z-197a#F07"]
 review_point: R32
-paths: ["docs/delivery/plane.json", "tests/test_self_hosting.py"]
+paths: ["docs/delivery/plane.json", "tests/test_self_hosting.py", "docs/ENGINEERING.md"]
 clashes_with: ["0191-the-grace-release-ends"]
 adopt: "none"
 created: 2026-11-24
@@ -27,7 +27,7 @@ without taking the command apart.
 ## Context (not checked)
 
 Findings F02 and F07 of architect pass `ar-20261123T230912Z-197a` (`docs/delivery/reviews/ar-20261123T230912Z-197a.md`),
-and E4's amended `check:` line (`docs/ENGINEERING.md`, applied by that triage).
+whose E4 amendment (accepted by that triage) this task lands: the count and E4's `check:` line together.
 
 Measured at `bb102371`:
 
@@ -48,8 +48,8 @@ Measured at `bb102371`:
   part. Its figure is written once in the program as `figure = <N>`, set to the count at the build's own head. Over the figure it prints
   `E4 long-literal asserts: <count> > <figure>` on stdout and exits 1; otherwise it prints nothing and exits 0. E4's
   other parts are not changed: each grep prints its hits when it fails, and 0309's import part prints `<path>:<line>`.
-- **The test.** `test_the_long_literal_count_reads_every_assert_form_and_names_its_figure` in
-  `tests/test_self_hosting.py` extracts the part (the one holding `long-literal`) and runs it on a scratch file
+- **The test.** `test_the_long_literal_count_reads_every_assert_form_and_names_its_figure` in a new class
+  `LongLiteralCount` in `tests/test_self_hosting.py` extracts the part (the one holding `long-literal`) and runs it on a scratch file
   holding one long plain `assertIn`, one long f-string `assertIn`, one long `assertEqual` second argument, one implicit
   concatenation over 40 characters and one short literal (4 counted), with the figure replaced by 3 (exit 1, the line
   names `4 > 3`) and by 4 (exit 0, no output).
@@ -61,8 +61,13 @@ Measured at `bb102371`:
 ## Scope
 
 - **In:** `docs/delivery/plane.json` (`architect.checks` `E4`: the count part only); `tests/test_self_hosting.py`
-  (the new test).
-- **Out:** E4's other parts and their order; `docs/ENGINEERING.md` (amended by the triage); converting tests to fewer
+  (the new test); `docs/ENGINEERING.md` (E4's `check:` line only, replaced by these two lines, indented two spaces
+  as now):
+
+    > check: command — architect.checks `E4`: four greps and an import check, each printing its hits, and a count of assert
+    > calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over
+
+- **Out:** E4's other parts and their order; E4's rule text above its `check:` line; converting tests to fewer
   long literals (0317 does the prompt-text modules); E19.
 
 ## dod_checks
@@ -72,8 +77,9 @@ Measured at `bb102371`:
   setup: A checkout of the PR head at `<checkout>` (any seat).
   steps:
     1. Run `part=$(python3 -B -c "import json;print([p for c in json.load(open('docs/delivery/plane.json'))['architect']['checks'] if c['id']=='E4' for p in c['cmd'].split(' && ') if 'long-literal' in p][0])"); bash -c "$part"; echo "exit $?"; git grep -c 'assert(Not)?In' -- docs/delivery/plane.json`.
-  expect: step 1 prints `exit 0`, then nothing from the last command (exit 1: the grep count part is gone).
-  dry run (`bb102371`): the extraction found no part (`IndexError`); the last command printed `docs/delivery/plane.json:1`.
+    2. Run `git grep -c 'naming count and figure when over' -- docs/ENGINEERING.md`.
+  expect: step 1 prints `exit 0`, then nothing from the last command (exit 1: the grep count part is gone); step 2 prints `docs/ENGINEERING.md:1`.
+  dry run (`bb102371`): the extraction found no part (`IndexError`); the last command printed `docs/delivery/plane.json:1`; step 2 printed nothing (exit 1).
 - id: `cfg-02`
   story: As a worker whose change tips E4, the failure names the count and the figure.
   setup: As `cfg-01`. A scratch file `<f>` outside the checkout holding `self.assertEqual(x, "` followed by 50 `a` characters and `")`.
@@ -85,8 +91,8 @@ Measured at `bb102371`:
   story: As a plane developer, the count's test bites.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).
   steps:
-    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_self_hosting`.
-    2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_self_hosting --revert docs/delivery/plane.json`.
+    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_self_hosting.LongLiteralCount.test_the_long_literal_count_reads_every_assert_form_and_names_its_figure`.
+    2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_self_hosting.LongLiteralCount.test_the_long_literal_count_reads_every_assert_form_and_names_its_figure --revert docs/delivery/plane.json`.
   expect: step 1 exits 0; step 2 prints the mutant `killed`.
   dry run: n/a — `--revert` needs the branch.
 

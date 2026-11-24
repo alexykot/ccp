@@ -55,8 +55,9 @@ Measured at `bb102371` (origin/main after 0305's reconcile):
   `TASK_LOG_DEFAULTS` with no check of `dir`. The sibling `"def _adr"` already refuses a non-path:
   `if not (isinstance(a["dir"], str) and a["dir"].strip()): bad.append("adr.dir must be a path")`.
   Ruled: refuse, not default. The schema (`contracts/plane_config.schema.json`) types `task_log.dir` as a
-  string, and `adr.dir` and `worktrees.dir` already refuse a non-path at load; a `null` is not "a value other
-  than the constant" that §29.3 lets apply, since it is no value at all. A `task_log.dir` that is not a
+  string, and `adr.dir` already refuses a non-path at load (`worktrees.dir` is no precedent: there `null` is a
+  meaning, no worktrees, which `_opt_str` admits; `task_log.dir` has no such meaning); a `null` is not "a value
+  other than the constant" that §29.3 lets apply, since it is no value at all. A `task_log.dir` that is not a
   non-empty string is refused at load as the other `task_log` errors are, with the message
   `task_log.dir must be a path relative to the product root; delete the key to take the constant`. A string
   value keeps today's handling (the constant warning of §29.3 when it differs from `docs/delivery`).
