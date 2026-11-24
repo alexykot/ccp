@@ -58,8 +58,8 @@ error, naming it; 2 on a usage error.
 
 | Command | Who | SPEC |
 |---|---|---|
-| `ccp pr open --branch <branch> --title <title> --body-file <file>` (`-` for stdin) | implementer | §15.5 (open a PR) |
-| `ccp pr view <pr> [--json]` | reviewer, verifier, runner | §15.5 (read a PR) |
+| `ccp pr open --branch <branch> --title <title> --body-file <file>` (`-` for stdin) | implementer | §15.5 (open a PR; prints its number) |
+| `ccp pr view <pr> [--json]` | reviewer, verifier, runner | §15.5 (read a PR; `--json` gives one object) |
 | `ccp pr diff <pr>` | reviewer, verifier | §15.5 |
 | `ccp pr edit <pr> --body-file <file>` (`-` for stdin) | runner | §15.5, §15.2 |
 | `ccp pr merge <pr> --head <sha> --task <task_id>` | runner | §15.5 (merge a PR) |

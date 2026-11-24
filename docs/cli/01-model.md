@@ -15,7 +15,7 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 | `ccp docs adr index [--stdout]` | the same as `ccp adr index\|list` (any seat) | §6.6 |
 | `ccp docs adr list [--json] [--dir DIR]` | the same as `ccp adr index\|list` (any seat) | §6.6 |
 | `ccp tasks index [--stdout]` | regenerate `INDEX.yaml` (the lead, the runner) | §5.7 |
-| `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--language L] [--gate CMD] [--no-starter-rules] [--starter-rules] [--telemetry on\|off] [--force]` | adopt this repository, once (the lead); `--starter-rules` is a no-op | §4.3, §4.5, §8.3, §20.5 |
+| `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--language L] [--gate CMD] [--no-starter-rules] [--starter-rules] [--telemetry on\|off] [--force]` | adopt this repository, once (the operator); `--starter-rules` is a no-op | §4.3, §4.5, §8.3, §20.5 |
 | `ccp init --rules-doc PATH [--adopt]` | list each house rule with no `check:` line; `--adopt` gives each `check: pass` (the operator) | §4.5, §20.1, §20.5 |
 | `ccp init --permissions` | print the runner's and workers' permissions as a JSON `permissions` block (the operator) | §4.5, §18.5 |
 | `ccp notify render <trigger> [--task ID] [--id ID] [--reason R] [--json]` | the notice for a trigger (any seat) | §3.6 |
