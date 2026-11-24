@@ -1,46 +1,13 @@
-"""`ccp suite` (SPEC §10, §14.1, §14.2, §14.7): workers run their tests through `ccp`,
-which records how long each run took, wait on a run's summary, and ask it which test modules a change touches.
-The call syntax is in `docs/cli`; the rules are in the SPEC sections named here. This holds what only the code does.
+"""`ccp suite` (SPEC §14, §16.6): workers run their tests through `ccp`, which records how long each run took,
+wait on a run's summary, and ask it which test modules a change touches.
+The call syntax is in `docs/cli`; the rules are in the SPEC sections named here.
 
-`run` wraps the command in the foreground, from the current directory, with stdin inherited, and exits with the
-command's exit code (128 + N when a signal N ended it). SIGINT and SIGTERM sent to `ccp` reach the command's
-process group; a watchdog in that group ends it if `ccp` itself dies. Options that do not parse run nothing:
-`ccp` exits 2, naming the problem (§14.5). Summary mode (the default without a terminal on stdin) writes stdout
-and stderr to one log in the order written (`--log`, else beside the run's record, else a temp file); a log
-that cannot be opened streams as `--full` does, with a warning. `--full` copies the output byte for byte as it
-arrives, at most DRAIN_SECONDS after the command exits.
-
-The count and the result file (§14.3): the command's environment carries CCP_SUITE_ID and CCP_SUITE_RESULT (a path
-it may write a JSON result to, contracts/suite_result.schema.json); with none written, each line is matched
-against `suite.count_re` and `suite.summary`'s patterns. Failure ids are shown in the summary, never recorded.
-`--cold` also sets CCP_SUITE_COLD=1, and the run is recorded cold only when its own count shows nothing cached
-(§14.6). A `ccp suite run` started inside another one's command (CCP_SUITE_ID set) records nothing and writes no
-log: it becomes its command, so the outer run captures the output.
-
-An exclusive lane (§16.6) holds one run at a time; a run with no lane counts as the full role's lane (§14.1). A run
-that finds it held, given `--wait 0`, or given no `--wait` and bound to no worker run, exits 75 and counts
-`lane_busy`; a run bound to a worker run (§14.2) and given no `--wait` waits as `--wait auto` does, and
-`--wait SECONDS|auto` waits as given. A run that records nothing takes no lock: recording never blocks tests.
-Without `-- COMMAND` a lane runs what plane.json `suite.lanes` names (§14.2) and records `stages` and
-`failed_stage`. On the gate role's staged lane, a recorded run that names its task runs the declared provers
-first (§14.4, `proven_skips`); they read plane.json from `origin/<integration branch>`, never from the checkout
-under test, in a clean worktree made for the run.
-
-The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row and an `ended` row sharing a
-`suite_id` (the `ended` row also goes to the ledger as `suite/recorded`), holding numbers, ids, short labels
-and the log's path, never the command's arguments or output (§14.4). A `started` row with no end is `killed`
-once its run has stopped or reported, or after KILLED_AFTER_S. `wait` exits 0 for a run that passed, 1 for one
-that failed, 3 at `--timeout` (default WAIT_TIMEOUT_S) and 2 for an id with no record.
-
-`affected` prints the test modules a change touches and, on stderr, the `ccp suite run` line that runs them
-(§14.7) with the part lane's declared argv, else the language's command; with the language's command, above
-AFFECTED_FULL_SHARE of the suite's modules the line says to run the full lane. REF goes through
-`git rev-parse --verify` first, so one that starts with a dash is an unknown ref, never an option. `run` and
-`affected` without the product's `language` (§8.1) warn on stderr during the grace release
-(config.REQUIRED_KEYS_GRACE) and read with the pack they read with before; after it, exit 2.
-
-With a command after `--`, recording never stands between a worker and its tests: whatever else fails, the command
-runs and its exit code is returned, with one `ccp suite:` warning. The exception is options that do not parse.
+- `run`: the command or the lane it runs (§14.1, §14.2), its summary and log (§14.2), its counts (§14.3), its
+  record (§14.4), the exclusive lanes' lock (§16.6), the cold run (§14.6) and the provers (§14.2). Recording never
+  stands between a worker and its tests (§14.5).
+- `wait` (§14.2) and `list` (§14.4): a run already started, and the records' rows and totals.
+- `affected`, and `run --affected` (§14.7): the test modules a change touches, and the line that runs them; the
+  product's `language` key and its grace release are §8.1's.
 """
 from __future__ import annotations
 
@@ -976,7 +943,8 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
     """Run one stage's command to its end: (its return code, as Popen gives it, and its seconds). Its
     output goes to the log (`log_fd`), or is copied through and counted as it arrives, and copied to
     `tee` too when given (§14.2's `--full` log). A command that cannot start returns 127 (not found) or
-    126 and says why."""
+    126 and says why. In its own process group (`own_group`) the command gets a watchdog (WATCHDOG) that ends
+    the group if `ccp` itself dies."""
     t0 = time.monotonic()
     if log_fd is not None:  # the file itself, both streams: the order is the command's own
         pipes: dict[str, Any] = {"stdout": log_fd, "stderr": subprocess.STDOUT, "env": env}
@@ -1183,6 +1151,9 @@ def _passthrough_stages(stages: list[dict[str, Any]], env: dict[str, str] | None
 
 def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | None = None, record: bool = True,
         caller_env: dict[str, str] | None = None) -> int:
+    """`ccp suite run` (§14.2): run the command or the lane's stages and record the run. A command after `--` runs
+    from the current directory, with stdin inherited. A run that records nothing takes no exclusive lane's lock
+    (§16.6), so recording never blocks the tests."""
     warn = warn or _Warn()
     lane = a.lane or lane_for(cfg, "full")  # §16.6: the lane this run uses; the `started` row keeps `a.lane` as given
     problem = _usage_problem(a)

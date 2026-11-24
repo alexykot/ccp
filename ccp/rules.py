@@ -1,28 +1,10 @@
 """House rules, checked (SPEC §20.1): the rules doc's shape, the product's checks, and the budgets.
 
-The rules doc (`architect.rules_doc`) is product-owned and short: at most `rules_max_lines` lines,
-because every implementer reads it. Each rule opens a list item with its id, `- **E<n>** …`, and
-carries a `check:` line saying how it is enforced:
-
-  check: pass      the architect judges it on its next pass
-  check: budget    an `architect.budgets` entry with the same id (measured by `ccp architect due`)
-  check: command   an `architect.checks` entry with the same id, run here (exit 0 = pass)
-  check: docs — K  a rule `ccp docs check` runs, named by its plane.json key K (`package_docs` or
-                   `package_docs.rules.<name>`; several separated by commas), which must be set;
-                   a further ` — <what it measures>` after the keys is a description, not a key
-
-A rule with no check, a check naming a missing entry, or an entry naming no rule is a failure:
-a rule nobody checks is one more page every implementer reads for nothing. The doc's shape and the
-product's checks run inside `ccp docs check`, so the verifier gates on them (§21.8). Budgets do not:
-they are diagnostics, measured by `ccp architect due` (a failing budget makes a pass due, §19.6) and
-`ccp health`, so one file growing never fails an unrelated task's verifier. Budgets are measured over
-tracked files (`git ls-files`), so a checkout's untracked clutter never counts.
-
-The plane's starter rules (§20.5) are a rules doc of its own, templates/docs-project/starter-rules.md,
-and the one home of the set: each rule's `starter:` line names it and its `check:` line says how it
-is checked. A product adopts the set with `docs.starter_rules` in plane.json; `ccp docs check` then
-fails while an adopted rule's `docs` check is not configured, and skips the checks of a rule the
-product declined.
+The rules doc (`architect.rules_doc`) is product-owned. Its rules and their `check:` lines, what each kind of
+check needs, and the product's checks that `ccp docs check` runs are §20.1's (§21.8 for who gates on them); the
+budgets, which only `ccp architect due` and `ccp health` measure, are §20.2's. The plane's starter rules are a
+rules doc of their own, templates/docs-project/starter-rules.md, and their adoption and declines through
+`docs.starter_rules` are §20.5's.
 """
 from __future__ import annotations
 
@@ -94,8 +76,9 @@ def tracked_files(root: Path) -> list[str]:
 
 def rule_blocks(text: str, ids: refs.Ids = refs.DEFAULT) -> tuple[dict[str, dict[str, Any]], list[str]]:
     """{rule id: {kind, keys, starter}}, and the parse failures. `kind` is the check kind (None when
-    the rule has no `check:`), `keys` the plane.json keys a `docs` check names, `starter` the name on
-    a `starter:` line (None without one). Fenced code is quoted text: no heading, rule or line in it counts."""
+    the rule has no `check:`), `keys` the plane.json keys a `docs` check names (a further ` — <what it
+    measures>` after them is a description, not a key), `starter` the name on a `starter:` line (None
+    without one). Fenced code is quoted text: no heading, rule or line in it counts."""
     rules: dict[str, dict[str, Any]] = {}
     errs: list[str] = []
     cur = None

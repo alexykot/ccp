@@ -46,7 +46,7 @@
       },
       {
         "id": "E24",
-        "cmd": "git ls-files 'ccp/*.py' | python3 -B -c 'import ast,re,sys; long_max = 15; exit_max = 7; ds=[ast.get_docstring(ast.parse(open(p).read())) or \"\" for p in sys.stdin.read().split()]; n=sum(len(d.splitlines()) > 30 for d in ds); e=sum(bool(re.search(r\"exits? [0-9]\", d)) for d in ds); bad=[m for m in (f\"E24 docstrings over 30 lines: {n} > {long_max}\" if n > long_max else \"\", f\"E24 docstrings stating an exit code: {e} > {exit_max}\" if e > exit_max else \"\") if m]; [print(m) for m in bad]; sys.exit(1 if bad else 0)'"
+        "cmd": "git ls-files 'ccp/*.py' | python3 -B -c 'import ast,re,sys; long_max = 11; exit_max = 0; ds=[ast.get_docstring(ast.parse(open(p).read())) or \"\" for p in sys.stdin.read().split()]; n=sum(len(d.splitlines()) > 30 for d in ds); e=sum(bool(re.search(r\"exits? [0-9]\", d)) for d in ds); bad=[m for m in (f\"E24 docstrings over 30 lines: {n} > {long_max}\" if n > long_max else \"\", f\"E24 docstrings stating an exit code: {e} > {exit_max}\" if e > exit_max else \"\") if m]; [print(m) for m in bad]; sys.exit(1 if bad else 0)'"
       },
       {
         "id": "E27",
