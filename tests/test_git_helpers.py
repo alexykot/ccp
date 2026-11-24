@@ -25,8 +25,8 @@ class SharedGitRunner(unittest.TestCase):
         self.assertIn("did not match", str(caught.exception))
 
     def test_env_goes_over_the_test_identity(self):
-        git(self.root, "commit", "-q", "--allow-empty", "-m", "one", env={"GIT_AUTHOR_NAME": "other"})
-        self.assertEqual(git(self.root, "log", "-1", "--format=%an,%cn"), "other,t")
+        git(self.root, "commit", "-q", "--allow-empty", "-m", "one", env={"GIT_AUTHOR_EMAIL": "other@example.com"})
+        self.assertEqual(git(self.root, "log", "-1", "--format=%ae,%ce"), "other@example.com,t@example.com")
 
     def test_commit_stamps_the_given_time(self):
         commit(self.root, "when", HEALTH_T0, "--allow-empty")
