@@ -261,28 +261,30 @@ def section_end(unfenced: str, at: int) -> int:
     return nxt.start() if nxt else len(unfenced)
 
 
-def _section_at(text: str, name: str) -> tuple[int, str] | None:
-    """The body under `## <name>` (or an older name for that section), up to the next `## `
-    heading, with its offset in `text`; None when the heading is absent. Only a heading outside a fenced
-    block counts, as the section's own or as its end; the body is sliced from `text` as written."""
+def section_span(text: str, name: str) -> tuple[int, int, int] | None:
+    """Where the section `## <name>` (or an older name for that section) lies in `text`: the offsets of its
+    heading line's start, its body's start (right after the heading's name and trailing blanks, before any `\r`)
+    and its body's end (the next `## ` heading, else the text's end); None when the heading is absent. Only a
+    heading outside a fenced block counts (`unfence`), as the section's own or as its end, and a heading line may
+    end in a carriage return. The one finder of a task file's sections (house rule E22)."""
     names = [name, *SECTION_ALIASES.get(name, ())]
     names += [k for k, olds in SECTION_ALIASES.items() if name in olds]
     unfenced = unfence(text)
     m = None
     for n in names:
-        m = re.search(rf"^## {re.escape(n)}[ \t]*$", unfenced, re.M)
+        m = re.search(rf"^## {re.escape(n)}[ \t]*(?=\r?$)", unfenced, re.M)
         if m:
             break
     if not m:
         return None
-    return m.end(), text[m.end(): section_end(unfenced, m.end())]
+    return m.start(), m.end(), section_end(unfenced, m.end())
 
 
-def _section(text: str, name: str) -> str | None:
-    """The body under `## <name>` (or an older name for that section), up to the next `## `
-    heading; None when the heading is absent."""
-    at = _section_at(text, name)
-    return at[1] if at else None
+def section(text: str, name: str) -> str | None:
+    """The body under `## <name>` (or an older name for that section), as `section_span` finds it, sliced from
+    `text` as written; None when the heading is absent."""
+    span = section_span(text, name)
+    return text[span[1]:span[2]] if span else None
 
 
 @dataclass(frozen=True, eq=False)
@@ -326,10 +328,11 @@ def checks(text: str) -> list[Check]:
     """§5.5: each dod_check of a task file's text, in order. The one parser of the section (house rule E22):
     every reader of a check's id, block or fields (`tasks check`, `tasks dry-run`, a check's `runs_on`, and the
     estimates' read of the ids) reads it here. No `dod_checks` section: none."""
-    at = _section_at(text, SEC_CHECKS)
-    if at is None:
+    span = section_span(text, SEC_CHECKS)
+    if span is None:
         return []
-    start, body = at
+    _, start, end = span
+    body = text[start:end]
     heads = list(CHECK_RE.finditer(body))
     out = []
     for i, m in enumerate(heads):
@@ -889,12 +892,12 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
     `within` or `under`, or after `status`, `status code`, `HTTP`, `exit`, `exits` or `exit code` (any case)."""
     if t.get("status") in TERMINAL:
         return []
-    at = _section_at(t["_text"], SEC_CONTEXT)
-    if at is None:
+    span = section_span(t["_text"], SEC_CONTEXT)
+    if span is None:
         return []
-    start, body = at
+    _, start, end = span
     first = t["_text"].count("\n", 0, start) + 1
-    unfenced = FENCE_RE.sub(_blank, body)
+    unfenced = unfence(t["_text"][start:end])
     out = []
     for n, line in enumerate(unfenced.split("\n")):
         if QUOTED_RE.match(line):
@@ -926,7 +929,7 @@ def stale_context(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
     task with no paths or a checkout without git gives no warning."""
     if t.get("status") in TERMINAL:
         return []
-    m = MEASURED_AT_RE.search(_section(t["_text"], SEC_CONTEXT) or "")
+    m = MEASURED_AT_RE.search(section(t["_text"], SEC_CONTEXT) or "")
     paths = [str(p).strip() for p in _as_list(t.get("paths")) if str(p).strip()]
     if not m or not paths:
         return []
@@ -963,7 +966,7 @@ def unsigned_spec_edit(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
     if t.get("status") in TERMINAL or "brief" in sign_off_stages(t):
         return []
     named = [str(p) for p in _as_list(t.get("paths")) if _names_spec(str(p), config.spec_paths(cfg))]
-    if not named or "§31.1" in (_section(t["_text"], SEC_SCOPE) or ""):
+    if not named or "§31.1" in (section(t["_text"], SEC_SCOPE) or ""):
         return []
     return [f"{rel}: its paths name the SPEC ({', '.join(named)}) but it declares no `sign_off: brief`: a task "
             "that changes a § rule carries the exact CURRENT → PROPOSED text in its Scope and declares "
@@ -993,12 +996,12 @@ def _unquoted(text: str) -> str:
 
 def _signed_sections(text: str) -> list[tuple[int, str]]:
     """§15.2: the sections of a task file that carry signed passages, in file order, each as (its offset in
-    `text`, its body from just after the heading): the Scope (`_section_at`) and every `## ` section
+    `text`, its body from just after the heading): the Scope (`section_span`) and every `## ` section
     whose heading begins `Rule changes`. Headings are read outside fenced blocks (`unfence`); the bodies are
     the text as written."""
     out = []
-    if (at := _section_at(text, SEC_SCOPE)) is not None:
-        out.append(at)
+    if (span := section_span(text, SEC_SCOPE)) is not None:
+        out.append((span[1], text[span[1]:span[2]]))
     unfenced = unfence(text)
     for m in _RULE_CHANGES_RE.finditer(unfenced):
         out.append((m.end(), text[m.end(): section_end(unfenced, m.end())]))
@@ -1424,7 +1427,7 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
         errs += _check_shaping(cfg, t, rel, shaped)
         errs += _check_placeholders(t, rel)
         for s in tl["sections"]:  # the canonical six by default; a product may require more
-            if _section(t["_text"], s) is None:
+            if section(t["_text"], s) is None:
                 errs.append(f"{rel}: missing section `## {s}`")
         checks = t["_checks"]
         if not checks:
@@ -1439,11 +1442,11 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
             errs += _check_dry_runs(t, rel)
         if soft_re:
             # a dry run line quotes what a command printed, so its words are not the check's own (§21)
-            for mm in soft_re.finditer(DRY_RUN_LINE_RE.sub("", _section(t["_text"], SEC_CHECKS) or "")):
+            for mm in soft_re.finditer(DRY_RUN_LINE_RE.sub("", section(t["_text"], SEC_CHECKS) or "")):
                 errs.append(f"{rel}: soft language {mm.group(0)!r} in a check — "
                             "if it cannot fail, it is not a check")
         if t.get("status") == "done":
-            ver = _section(t["_text"], SEC_VERIFY) or ""
+            ver = section(t["_text"], SEC_VERIFY) or ""
             if not re.search(r"^- ", ver, re.M):
                 errs.append(f"{rel}: status is done with no verification notes")
     by_id = {str(t.get("task_id")): t for t in tasks}

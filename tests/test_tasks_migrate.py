@@ -72,7 +72,7 @@ class Migrate(InitCase):
             self.assertIn(line, text.splitlines())
         context = text.split("## Context (not checked)\n", 1)[1].split("\n## Scope\n", 1)[0]
         self.assertIn(FIXTURE["0002-export-ledger.md"], context)
-        verify = tasklog._section(text, tasklog.SEC_VERIFY)
+        verify = tasklog.section(text, tasklog.SEC_VERIFY)
         notes = [ln for ln in verify.splitlines() if ln.startswith("- ")]
         self.assertEqual(len(notes), 1, notes)
         self.assertIn("ccp tasks migrate", notes[0])
@@ -111,7 +111,7 @@ class Migrate(InitCase):
         self.assertIn("cannot convert: no Meta table", again.stdout)
         text = self.read("0003-retry-export.md")
         self.assertIn("status: dropped", text.splitlines())
-        self.assertIn(taskmigrate.DROP_NOTE, tasklog._section(text, tasklog.SEC_VERIFY))
+        self.assertIn(taskmigrate.DROP_NOTE, tasklog.section(text, tasklog.SEC_VERIFY))
         self.assertEqual(self.read("0004-notes.md"), notes)
 
     def test_a_converted_file_the_checks_would_fail_is_not_written(self):

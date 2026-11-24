@@ -1050,18 +1050,17 @@ def _task_file_done(path: Path, note: str, today: str, review_point: str | None 
         done = stamp_review_point(text, review_point)
         stamped = done is not None
         text = done if done is not None else text
-    unfenced = tasklog.unfence(text)  # a `## ` line inside a fenced block is quoted text, no heading
-    m = re.search(rf"^## {re.escape(tasklog.SEC_VERIFY)}[ \t]*(?=\r?$)", unfenced, re.M)
-    if not m:
+    span = tasklog.section_span(text, tasklog.SEC_VERIFY)
+    if span is None:
         raise QueueError(f"{path.name} has no `## {tasklog.SEC_VERIFY}` section", 1)
-    end = tasklog.section_end(unfenced, m.end())
-    section = text[m.end():end]
+    _, start, end = span
+    section = text[start:end]
     if VERIFY_PLACEHOLDER_RE.search(section):
         section = VERIFY_PLACEHOLDER_RE.sub(lambda m: note + ("\r" if m.group(0).endswith("\r") else ""), section, count=1)
     else:
         section = section.rstrip("\r\n") + nl + note + nl + nl
     with path.open("w", newline="") as fh:
-        fh.write(text[:m.end()] + section + text[end:])
+        fh.write(text[:start] + section + text[end:])
     return stamped
 
 
