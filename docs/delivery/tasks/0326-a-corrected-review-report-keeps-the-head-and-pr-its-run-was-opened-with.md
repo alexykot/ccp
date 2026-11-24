@@ -78,4 +78,15 @@ Measured at `cd3a6bf5`:
 
 ## Implementation notes
 
+- `ccp/report.py`: `phase_keys(phase, mode)` gives the `PARSED_KEYS` within the union of `Section.stored` over
+  `sections_for(phase, mode)`; `submit`'s correction branch pops only those (a verify's `verdict` and `head` still
+  kept). A review correction now keeps the `head` and `pr` the run was opened with; implement, fix, merge and ruling
+  corrections still replace them. A verify correction now also keeps the `pr` it was opened with (a verify report
+  has no `PR:` line), which follows from the ruled union.
+- Re-measured at `7bd2fc42`: the `PARSED_KEYS`/phases command prints the same; `report fields` is still the one
+  §13.4 line; 1706f4b1 touched only `tests/test_prompt_rounds.py`'s imports.
+- Tests: `Correction.test_a_corrected_review_keeps_the_head_and_pr_it_was_opened_with`, `PhaseKeys` (plain values),
+  `Rounds.test_a_merge_round_after_a_corrected_review_needs_no_new_review` (`ccp prompt verify` and
+  `ccp verify record` after a clean review, its correction and a merge round that left the change alone).
+
 ## Verification notes
