@@ -1,7 +1,7 @@
 ---
 task_id: 0320-dry-run-lists-a-placeholder-step-as-not-run-and-here-prints-each-step-s-whole-output
 title: ccp tasks dry-run lists a step whose command holds a placeholder as not run, naming it, and with --here prints each step's whole output; the worker prompt and the runner brief name the command they mean
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S21", "S13", "S15"]
@@ -163,3 +163,5 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
   test does not pass.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #391 head `a371b31` (squash `5f2d2bf`): APPROVE. Passed: cmd-01, cmd-02, code-01, doc-01, doc-02, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0320-dry-run-lists-a-placeholder-step-as-not-run-and-here-prints-each-step-s-whole-output.json.
+
