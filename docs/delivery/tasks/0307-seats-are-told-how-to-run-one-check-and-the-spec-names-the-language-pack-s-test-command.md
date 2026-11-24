@@ -90,4 +90,6 @@ items (c) and (e). Measured at `0f44fb3` (origin/main) unless a line says otherw
 
 ## Implementation notes
 
+Built as the lead's rulings gave it: one line in `templates/prompts/_common.md` after the suite-run bullet's sub-lines, `test_every_worker_prompt_names_how_to_run_one_check` in `PromptsNameTheTools` (implement, review and verify prompts), and the §21.4 passage as signed. Premises re-measured at `b658c844`: no prompt named the two commands, §21.4 named no test command; the three commits since `0f44fb3` touched other passages. No ADR decision to mark built.
+
 ## Verification notes
