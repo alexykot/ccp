@@ -22,7 +22,7 @@ class SharedGitRunner(unittest.TestCase):
         with self.assertRaises(AssertionError) as caught:
             git(self.root, "checkout", "no-such-ref")
         self.assertIn("checkout no-such-ref", str(caught.exception))
-        self.assertIn("did not match", str(caught.exception))
+        self.assertIn("'no-such-ref'", str(caught.exception))
 
     def test_env_goes_over_the_test_identity(self):
         git(self.root, "commit", "-q", "--allow-empty", "-m", "one", env={"GIT_AUTHOR_EMAIL": "other@example.com"})

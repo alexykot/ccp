@@ -8,8 +8,8 @@ runs the plane's own checks against this repo, read-only. Every test builds its 
 
 Modules share fixtures; reuse one before building another. Each lives in a module that holds no tests
 (`helpers.py`, the four `*_helpers.py` modules, `review_flow.py` and the `*_fixture.py` modules), and a test module
-imports it from there (E4: a helper a second module needs moves to a fixture module first). Where a check needs no repository, queue or subprocess,
-test a function on plain values instead (`test_catch_up_decision.py`). Each `<name>_fixture.py` holds the fixture
+imports it from there (E4: a helper a second module needs moves to a fixture module first). Where a check needs no
+repository, queue or subprocess, test a function on plain values instead (`test_catch_up_decision.py`). Each `<name>_fixture.py` holds the fixture
 `test_<name>.py` and its neighbours share; its module docstring says what it builds. The ones worth naming:
 - `helpers.py`'s `Product`: a temp product root with a plane config and helpers to add tasks and files.
   Most modules build on it.
@@ -22,8 +22,8 @@ test a function on plain values instead (`test_catch_up_decision.py`). Each `<na
   and the marked-check text (`MARKED_CHECK_ID`, `MARKED_TASK_ID`, `MARKED_BLOCK`).
 - `git_helpers.py`'s `git(cwd, *args, env=None, raw=False)`: the one git runner. It runs `git -C <cwd>` with `GIT_ENV`
   (a test identity, no global or system config) and `env`, fails the test naming the command and its stderr on a
-  non-zero exit, and returns stdout stripped, or as written with `raw=True`. A test does not define a runner of its
-  own. The module also holds `run(cmd, **kw)` (any command with `GIT_ENV`, a `CompletedProcess`), `commit(root, msg,
+  non-zero exit, and returns stdout stripped, or as written with `raw=True`. A new test does not define a runner of its
+  own (a few older private runners remain). The module also holds `run(cmd, **kw)` (any command with `GIT_ENV`, a `CompletedProcess`), `commit(root, msg,
   at, *extra)` (a commit made at the epoch second `at`) and `HEALTH_T0`.
 - `ledger_helpers.py`: ledger events and usage rows. `ledger_event`, `spawn_event`, `lease_event`, `suite_started`,
   `suite_ended` and `SUITE_RUN_ID`, `good_then_failed`, `api_request`, `advice_row` and `ADVICE_SPANS`, `epoch_iso`,

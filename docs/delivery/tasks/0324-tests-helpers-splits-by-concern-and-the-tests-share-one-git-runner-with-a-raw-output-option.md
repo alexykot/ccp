@@ -122,5 +122,9 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
   name from `helpers.py`).
 - `tests/test_gate_cache.py` reads `status --porcelain`, `stash list` and `count-objects` with `raw=True`, as it read them
   through `repo_git`. `tests/test_git_helpers.py` (new) tests the shared runner.
+- Fix round 1 (two NITs): `test_git_helpers` now asserts the failure message holds the quoted pathspec `'no-such-ref'`
+  (git's stderr, which survives translation) instead of git's English "did not match"; `tests/CLAUDE.md` says "A new test does
+  not define a runner of its own (a few older private runners remain)" and its long line is rewrapped. The ROADMAP F09/F11
+  move to done is left to the reconcile of 0324; the `toolkit_fixture` importers' affected set is a follow-up.
 
 ## Verification notes
