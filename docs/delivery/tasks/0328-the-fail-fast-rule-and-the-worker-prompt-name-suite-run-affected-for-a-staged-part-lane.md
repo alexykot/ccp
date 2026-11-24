@@ -43,7 +43,7 @@ friction notes T100 and T101:
   `named=unmatched` (`"reader(cfg.root, changed, _tracked_files(cfg.root), named=unmatched)"`), and the Python pack's
   `"def affected(root: Path, changed: list[str], files: list[str], *, named"` takes it.
 
-Measured at `1fcdbf72`: `python3 -B -c 'import ccp.doclang as d; print(getattr(d.AffectedReader, "_is_protocol", False))'`
+Measured at `cd3a6bf5`: `python3 -B -c 'import ccp.doclang as d; print(getattr(d.AffectedReader, "_is_protocol", False))'`
 printed `False`; `grep -c 'no module touched, no pack count' ccp/suite.py` printed `0`.
 
 - **Ruled.**
@@ -62,7 +62,7 @@ printed `False`; `grep -c 'no module touched, no pack count' ccp/suite.py` print
 - **In:** `ccp/doclang/__init__.py` (`AffectedReader`); `ccp/prompt.py` (`suite_lanes`); `ccp/suite.py` (the
   `affected_modules` docstring); `tests/test_full_lane_prompt.py`; `docs/spec/02-delivery.md`, §13.5:
 
-  CURRENT (`docs/spec/02-delivery.md` at `1fcdbf72`), §13.5, the Fail fast bullet:
+  CURRENT (`docs/spec/02-delivery.md` at `cd3a6bf5`), §13.5, the Fail fast bullet:
   > - **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's `architect.checks` commands (rendered from plane.json), or, when plane.json `suite.lanes` declares a `pregate` lane, that lane through `ccp suite run --lane pregate` in their place, and `ccp suite run --affected --since origin/<integration>...` (§14.7), which runs the part lane on the modules the branch's own change touches or, when that change reaches most of the suite, the full lane in place of the pre-gate. It never stands in for the full suite, which runs on the final code and must be green.
 
   PROPOSED:
@@ -81,7 +81,7 @@ printed `False`; `grep -c 'no module touched, no pack count' ccp/suite.py` print
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_full_lane_prompt.DeclaredPartLane.test_a_staged_part_lane_names_suite_run_affected tests.test_full_lane_prompt`.
   expect: exit 0.
-  dry run (`1fcdbf72`): exit 1 (the named test does not exist yet: `AttributeError: type object 'DeclaredPartLane' has no attribute 'test_a_staged_part_lane_names_suite_run_affected'`).
+  dry run (`cd3a6bf5`): exit 1 (the named test does not exist yet: `AttributeError: type object 'DeclaredPartLane' has no attribute 'test_a_staged_part_lane_names_suite_run_affected'`).
 - id: `code-02`
   story: As a language pack writer, the affected reader's type names the named keyword, and the count's docstring names every case.
   setup: A checkout of the PR head (any seat).
@@ -89,14 +89,14 @@ printed `False`; `grep -c 'no module touched, no pack count' ccp/suite.py` print
     1. Run `python3 -B -c 'import ccp.doclang as d; print(getattr(d.AffectedReader, "_is_protocol", False))'`.
     2. Run `grep -c 'no module touched, no pack count' ccp/suite.py`.
   expect: step 1 prints `True`; step 2 prints `1`.
-  dry run (`1fcdbf72`): step 1 printed `False`; step 2 printed `0`, exit 1.
+  dry run (`cd3a6bf5`): step 1 printed `False`; step 2 printed `0`, exit 1.
 - id: `spec-01`
   story: As the operator, §13.5's Fail fast rule says what I signed.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0328`.
   expect: exit 0, the PROPOSED passage found.
-  dry run (`1fcdbf72`, with this brief): exit 1, the PROPOSED passage missing (`not found in the SPEC`); `grep -c 'which runs the part lane on the modules the branch' docs/spec/02-delivery.md` printed `1`.
+  dry run (`cd3a6bf5`, with this brief): exit 1, the PROPOSED passage missing (`not found in the SPEC`); `grep -c 'which runs the part lane on the modules the branch' docs/spec/02-delivery.md` printed `1`.
 
 ## Implementation notes
 

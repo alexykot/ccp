@@ -31,8 +31,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check that needs a modified copy (a planted fault) names `ccp mutate` where it can run one test (§20.6), else a
   `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text is proved by
   `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row. A check that needs a
-  scratch product builds it with `bin/ccp sandbox create` in the step that uses it and runs `ccp` there, never on a
-  `<checkout>`, `<product>` or `<q>` placeholder.
+  scratch product builds it with `bin/ccp sandbox create` in the step that uses it and runs `ccp` there, with no `<…>`
+  placeholder but the verifier's `<your run>`.
   check: pass — the architect and the reviewer read new tasks' dod_checks
 
 ## Publishing
