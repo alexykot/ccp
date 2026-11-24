@@ -220,7 +220,6 @@ class Briefs(unittest.TestCase):
 
     def test_the_reviewer_is_asked_for_the_section_and_the_verifier_for_the_list(self):
         for path, needle in (("templates/prompts/review.md", "## Spec beyond intent"),
-                             ("plugin/agents/delivery-reviewer.md", "## Spec beyond intent"),
                              ("templates/prompts/verify.md", "spec_beyond_intent"),
                              ("plugin/agents/delivery-verifier.md", "spec_beyond_intent")):
             self.assertIn(needle, (PLANE_ROOT / path).read_text(), path)

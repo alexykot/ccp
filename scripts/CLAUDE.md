@@ -1,4 +1,4 @@
-# scripts — shell entry points around `ccp`
+# scripts — the plane's entry points and its development programs
 
 - **Plane development:** `dev-worktree.sh` (a worktree for a change), `release.sh` (after a merge to
   main), `run-checkout.sh` (the clone `ccp` on PATH runs from), `install-git-hooks.sh` and
@@ -10,4 +10,4 @@
   products not on the plugin), `formal-submit.template.sh` (formal-submit, a wrapper of `ccp tasks submit`, §15.1).
 - `observability/` holds the ledger writers (§23) that `ccp` and the hooks share.
 
-New behaviour goes into `ccp`, not into a new script (E7).
+Scripts follow E7.
