@@ -1,23 +1,9 @@
 """`ccp sandbox`: a throwaway adopted product for end-to-end checks, fenced from real queues (SPEC §29.3).
 
-`create [DIR] [-- <ccp init options>]` makes, under DIR (default a new temporary directory), a git
-repository with one commit (`product/`), runs `ccp init` there with the options given, with the
-binding written to `bindings/` and the queue to `queue/` inside DIR (never the installation's
-bindings directory, §8.3), commits what init wrote, writes the marker file `.ccp-sandbox`, and prints
-JSON: `root`, `binding`, `queue_root` and `env`, the `PROJECT_YAML` and `QUEUE_ROOT` lines that point
-`ccp` at it. `remove DIR` removes a directory holding the marker and refuses (exit 2) any other, and
-one that holds the working directory.
-
-DIR must not exist, or be an empty directory. `--queue-root` and init's flags that adopt nothing
-(`--permissions`, `--rules-doc`, `--adopt`) and `--telemetry` (it records `off` in the sandbox's own machine file, so
-no sandbox touches the user's settings or services) are refused: the sandbox places the queue itself. On a
-failure, what create made is removed again. Under the test fence (`tests/__init__.py`), which sets
-`CCP_SANDBOX_ROOT`, create works only below that directory.
-
-A directory is in a sandbox when its main checkout's parent holds the marker file (`sandbox_of`).
-There every `ccp` command but `sandbox` itself is sealed (`seal`): `CCP_BINDINGS_DIR`, `PROJECT_YAML`
-(when the binding exists) and `QUEUE_ROOT` are set to the sandbox's own, so child processes inherit
-them, and an exported `PROJECT_YAML` or `QUEUE_ROOT` naming a path outside it is refused (exit 2).
+The call syntax is in `docs/cli`. What `create` makes and prints, what it passes on to `ccp init`, `remove`, the
+test fence and what a command run inside a sandbox uses are §29.3's. `create` lays the sandbox out as `PRODUCT`,
+`BINDINGS` and `QUEUE` beside its `MARKER` file; `sandbox_of` finds the sandbox a directory is in, and `seal`
+points every `ccp` command but `sandbox` itself, run inside one, at the sandbox's own binding and queue.
 """
 from __future__ import annotations
 

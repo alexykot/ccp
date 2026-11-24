@@ -20,15 +20,9 @@ its tasks numbered from that point, friction counts only those tasks' notes, dri
 counts only if it was not already failing when the seat first checked it (`budget_baseline` in the state file),
 so a product that adopts with history owes no pass at once.
 
-`gate()` is what `ccp tasks next` enforces: exit 4 once a due pass has gone unstarted for
-`grace_tasks` more merges (or nothing is left to merge), or a report has waited `triage_grace_tasks`
-merges for triage. A running pass blocks nothing. Merges are counted as tasks reaching `done` in the
-task log, as §19 counts them; the moment a non-cadence trigger was first seen is kept in the state
-file (`seen`), and a started pass that failed restarts the grace: `next` blocks again only after
-one more merge (or a `--force` run), and its message names the failed pass and the first line of
-its `failed.txt`. After two failed passes in a row `next` stops blocking on the pass and tells the
-runner to take it to the owner: a systematic failure (a broken prompt or skill) must not burn a
-full pass per merge.
+`gate()` is what `ccp tasks next` enforces (§19.6). A running pass blocks nothing. Merges are counted as
+tasks reaching `done` in the task log, as §19 counts them; the moment a non-cadence trigger was first seen is
+kept in the state file (`seen`).
 
 Every write to `architect.json` is a short read-modify-write under its own lock
 (`architecture_review.update_state`): a detached pass writes its record while `next` and triage
@@ -339,7 +333,8 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
 
 def gate(cfg: Config, q: Path, scope: list[str] | None, task: dict[str, Any] | None) -> dict[str, Any]:
     """What `ccp tasks next` enforces (§19.6). `blocked` is the exit-4 reason, or None; `notices`
-    are what the runner should act on without being blocked."""
+    are what the runner should act on without being blocked. The two graces are the knobs `grace_tasks` and
+    `triage_grace_tasks`."""
     a = _settings(cfg)
     info = due_info(cfg, q, scope)
     notices: list[str] = []

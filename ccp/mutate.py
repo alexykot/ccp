@@ -2,45 +2,9 @@
 seat's worktree, runs the product's one-test command for each named test, and records the mutant killed only
 when one of them fails, and `unbuilt` when that run says the code did not build or import.
 
-`--test` is one test id, passed whole as `{test}`, so it may name a single test method; it may repeat, each id
-its own run, in the order given. A mutant is `<file>:<old>=><new>` (the text `old`, found exactly once in the
-file, relative to the worktree's root, becomes `new`, which must differ from it) or the path of a patch `git apply`
-takes. A `--mutant-file` holds the same substitution without shell quoting, for a mutant that spans
-lines: the file's path on its first line, then a line `=== old`, the old text, a line `=== new` and the new
-text, each text what lies between its marker line and the next (or the file's end), less the one line break
-that ends it; a part missing refuses the call. A `--revert` mutant puts back the merge base's version (HEAD's
-merge base with the integration branch) of a file, or of every change from it that one of its ranges of the
-worktree file's lines (comma-separated) overlaps or borders, the changes being the hunks `git diff -U0` shows
-between the two; in a shallow worktree (§12.1) the merge base is the one its record holds, and with none the
-call is refused. The `--mutant`s come first, then the `--mutant-file`s, then the `--revert`s, each in the
-order given.
-
-`--together` makes them one mutant: its parts are applied in order under one snapshot of all their files, and
-a part that does not apply restores the tree and refuses the call. Parts on different files are each checked
-against the unmutated tree. Its files are the union of its parts' files in order of first touch, and its
-digest is a digest of the parts' digests.
-
-Every mutant is checked before anything runs. Then each named test runs once unmutated: a test that fails
-already proves nothing, so the command stops there. Each mutant (a `--together` one whole) is applied alone
-and the tests run in order until one fails (plane.json `mutate.command`, else the language pack's test command
-followed by ` {test}`, with `{test}` filled in shell-quoted, in the worktree's root, in its own process group,
-killed after `mutate.timeout_seconds`, which counts as the test failing), and every file the mutant touched is
-written back byte for byte (a file or directory it made is removed), and checked, before the next. A mutated
-Python file loses its compiled `__pycache__` entries before its test runs, so bytecode compiled from another
-source (an unchecked hash-based `.pyc`, or one whose recorded mtime and size happen to match) never runs in
-its place; a restored one loses them again, and every test run has `PYTHONDONTWRITEBYTECODE=1`: a same-size
-mutant restored within the second leaves no bytecode that a later run would take for the source. A mutant
-every test's run passes survived; one whose deciding run exits non-zero with an output line plane.json
-`mutate.unbuilt_re` (else the language pack's did-not-build lines) matches is `unbuilt` (the code did not
-build or import, which proves nothing about the test); any other is killed. A SIGTERM at any point of the call
-kills the running test, restores the files and exits 143.
-
-It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a run that
-is still open. Each mutant adds a row to the run record's `mutation` list, naming the test whose run decided
-it and the failing tests that run's output names (`section_re`, as `ccp suite run` reads it), never the
-mutant's text or the test's output, which goes to a log next to the run's record; the call ends with one
-`run`/`recorded` event. Exit 0 when every mutant was killed, 1 when one survived or was unbuilt or the
-unmutated test failed, 2 for a usage or configuration problem.
+The call syntax is in `docs/cli`. What a mutant, a `--mutant-file`, a `--revert` and a `--together` mutant are,
+how the tests run and the tree is restored, the worktrees and runs a call is bound to and the record it adds are
+§20.6's; a shallow worktree's merge base is §12.1's.
 """
 from __future__ import annotations
 
@@ -179,7 +143,8 @@ def together(parts: list[dict[str, Any]], texts: dict[str, bytes]) -> dict[str, 
     bytes of every file a substitution names, keyed by `_key`. Files are told apart by `_key`, so two
     spellings of one file are one file. Substitutions on one file are checked in order, each old text
     exactly once in what the earlier ones leave (a lone one: in the unmutated file); a file any other part
-    shares with another refuses the call (exit 2). Nothing is written."""
+    shares with another refuses the call (exit 2). Nothing is written. The mutant's files are the union of its
+    parts' files in order of first touch, and its digest is a digest of the parts' digests."""
     if len(parts) < 2:
         raise QueueError(f"--together makes the mutants given one; it needs at least two, and {len(parts)} was "
                          "given", 2)
@@ -472,7 +437,8 @@ def _on_sigterm() -> Iterator[_Stop]:
 
 def _test(line: str, cwd: Path, timeout: int, log: Path, label: str, stop: _Stop) -> dict[str, Any]:
     """Run the one-test command in its own process group, its output appended to `log`; a SIGTERM
-    kills the group (`stop`)."""
+    kills the group (`stop`). The run has `PYTHONDONTWRITEBYTECODE=1`: a same-size mutant restored within the
+    second leaves no bytecode that a later run would take for the source (`_drop_bytecode`)."""
     log.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.monotonic()
     timed_out = False

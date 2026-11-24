@@ -1563,7 +1563,7 @@ tasks:
     depends_on: [0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over]
     path: tasks/0317-the-review-prompt-routes-mutation-checks-through-mutate-prompt-tests-pin-tokens-and-checks-pin-tests-by-id.md
   - id: 0318-module-docstrings-state-no-exit-codes-or-spec-grammar-and-the-queue-readme-loses-its-stale-rules
-    status: pending
+    status: done
     title: The suite, mutate, report, init, sandbox, architect and rules module docstrings state no exit code, refusal list or SPEC grammar, E24's two counts drop to match, and the queue README loses its stale Rules table
     depends_on: []
     path: tasks/0318-module-docstrings-state-no-exit-codes-or-spec-grammar-and-the-queue-readme-loses-its-stale-rules.md

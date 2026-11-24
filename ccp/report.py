@@ -1,44 +1,11 @@
-"""`ccp report` (SPEC §10): a worker submits its report, and the run closes.
+"""`ccp report` (SPEC §10, §13.4): a worker submits its report, and the run closes.
 
-The report is the worker's own words plus the lines and sections `ccp` reads. `SECTIONS` holds each of them:
-the phases that carry it, when it is required, what refuses a report without it, where it lands in the run's
-record, and the line the prompt asks for it in (§13.4). The rest of what a report meets is kept here:
-
-- `Suite: from <suite_id>` takes the numbers from that recorded `ccp suite run` of this run, and a report
-  with no `Suite:` line gets them from the run's latest `full` or `gate` lane run when it passed
-  (after a failed one, a warning and nothing filled; a failed run's numbers never reach `ccp health`
-  from the record) (§14.1);
-- a `Prompt:` token other than the run's is refused (exit 2) naming the run's: the prompt the worker
-  read was probably cut. A run opened before the token (none recorded on it) is not held to it (§13.2);
-- implement, fix, merge and ruling, when done, with a `Head:`: the plane computes the round's integration merges
-  from git and keeps them on the run (`integration_merges`, `before_review`; `round_merges`, §11.1, §27.1); a
-  round it cannot measure keeps none, and the report is never refused for it;
-- the declared verdicts (plane.json `report.required_fields`) are kept on the run (`fields`) and shown in the
-  review prompt; whether a verdict is right is not judged (§13.4);
-- `## Follow-ups`, any report's: each line is kept on the run (`follow_ups`) with its id `<run_id>#<n>` and no
-  outcome, for the lead to decide (`ccp tasks follow-up`); the plane never interprets the text (§13.4, ADR-0044 D1).
-- an implement round reported done with a head moves its task to `implemented`, and a review reported done and
-  clean to `reviewed`, which also writes the task's review record (`review/<task_id>.json`, §15.1); a rework
-  round moves nothing new (§10.1).
-
-A report that lacks one is refused with what is missing, and nothing is written. An accepted one
-is stored at the run's report path, its friction lines are recorded for `ccp health` (what the
-runner used to copy by hand, §27.2), and the run is closed. The `Suite:` line's numbers are kept on
-the run: they are the worker's statement. What `ccp health` gets, for a report whose outcome is done
-(a verify: approve), is the run's recorded `ccp suite` runs, each filed under its kind (cold, warm, part, unverified; `health.file_suites`); only a run with
-no suite record falls back to the line. A `Suite:` line with no `ccp suite run` recorded against the
-run is a warning, never a refusal (§14.1).
-
-A run already reported takes a corrected report while no later run of its task has opened (§13.4,
-`runs.opened_after`): nothing has acted on it yet. The correction is checked like a first report; the
-stored one is kept beside it as `<stem>.superseded-<k>.md`, the run's `corrections` gets `{at, superseded}`,
-its report fields are the corrected report's, and the `run reported` event (`corrected: true`) and a
-review's `review recorded` event are written again, as is the review record of a review corrected to clean; a
-review corrected away from clean leaves the record as it is (`ccp tasks submit` asks that the record's review be
-the latest done review and clean). Its friction lines, suite filing and phase move are not recorded again: those
-are the first submission's. Its follow-ups replace the run's, numbered afresh: an outcome the lead
-recorded carries over to a line whose text is identical (`followups.carry`), and each one that does not is named
-in a warning.
+The report is the worker's own words plus the lines and sections `ccp` reads. `SECTIONS` holds each of them: the
+phases that carry it, when it is required, where it lands in the run's record, and the line the prompt asks for
+it in (§13.4). The rules are in the SPEC: the report's lines, its corrections and its follow-ups (§13.4, ADR-0044
+D1), the prompt's token (§13.2), the `Suite:` line and the suite runs it cites or is filled from (§14.1, §14.4),
+the suite filing and friction notes for `ccp health` (§27.2), the round's integration merges (§11.1, §27.1), the
+phase it moves the task to (§10.1) and the review record (§15.1).
 """
 from __future__ import annotations
 
@@ -639,6 +606,11 @@ def _supersede(src: Path, dest: Path) -> Path | None:
 
 
 def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
+    """Check, store and record the report of `run_id` (§13.4). A correction appends `{at, superseded}` to the run's
+    `corrections`; the `run reported` event (`corrected: true`) and a review's `review recorded` event are written
+    again, as is the review record of a review corrected to clean, while a review corrected away from clean leaves
+    the record as it is (`ccp tasks submit` asks that the record's review be the latest done review and clean); the
+    phase move, like the friction lines and the suite filing, is the first submission's."""
     q = root()
     rec = runs.load(q, run_id)
     state = runs.state(rec)
