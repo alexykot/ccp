@@ -1,5 +1,5 @@
 ---
-task_id: 0319-a-path-the-affected-map-names-is-the-map-s-alone-so-a-plane-json-edit-runs-the-tests-that-read-it
+task_id: 0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it
 title: A changed path that plane.json suite.affected_map matches is no longer matched to tests by its name, so the language pack stops marking every test that names the file while a changed test module and a module's importers still count, and this repo maps its own plane.json to the tests that read it
 status: pending
 kind: feature
@@ -15,7 +15,7 @@ created: 2026-11-24
 updated: 2026-11-24
 ---
 
-# Task: 0319-a-path-the-affected-map-names-is-the-map-s-alone-so-a-plane-json-edit-runs-the-tests-that-read-it
+# Task: 0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it
 
 ## Intent
 

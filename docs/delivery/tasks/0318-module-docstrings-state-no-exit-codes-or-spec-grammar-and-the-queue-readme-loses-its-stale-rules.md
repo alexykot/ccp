@@ -8,7 +8,7 @@ rule_refs: ["E24", "E10"]
 review_refs: ["ar-20261123T230912Z-197a#F03", "ar-20261123T230912Z-197a#F08"]
 review_point: R32
 paths: ["ccp/suite.py", "ccp/mutate.py", "ccp/report.py", "ccp/init.py", "ccp/sandbox.py", "ccp/architect.py", "ccp/rules.py", "docs/delivery/plane.json", "queue/README.md"]
-clashes_with: ["0191-the-grace-release-ends", "0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log", "0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared", "0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails", "0319-a-path-the-affected-map-names-is-the-map-s-alone-so-a-plane-json-edit-runs-the-tests-that-read-it"]
+clashes_with: ["0191-the-grace-release-ends", "0310-worker-briefs-name-suite-run-affected-and-log-texts-follow-the-pruning-of-every-suite-run-log", "0311-suite-affected-and-suite-run-affected-run-a-staged-part-lane-as-declared", "0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails", "0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it"]
 adopt: "none"
 created: 2026-11-24
 updated: 2026-11-24

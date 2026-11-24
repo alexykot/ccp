@@ -1567,8 +1567,8 @@ tasks:
     title: The suite, mutate, report, init, sandbox, architect and rules module docstrings state no exit code, refusal list or SPEC grammar, E24's two counts drop to match, and the queue README loses its stale Rules table
     depends_on: []
     path: tasks/0318-module-docstrings-state-no-exit-codes-or-spec-grammar-and-the-queue-readme-loses-its-stale-rules.md
-  - id: 0319-a-path-the-affected-map-names-is-the-map-s-alone-so-a-plane-json-edit-runs-the-tests-that-read-it
+  - id: 0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it
     status: pending
     title: A changed path that plane.json suite.affected_map matches is no longer matched to tests by its name, so the language pack stops marking every test that names the file while a changed test module and a module's importers still count, and this repo maps its own plane.json to the tests that read it
     depends_on: []
-    path: tasks/0319-a-path-the-affected-map-names-is-the-map-s-alone-so-a-plane-json-edit-runs-the-tests-that-read-it.md
+    path: tasks/0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it.md
