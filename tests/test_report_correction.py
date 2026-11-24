@@ -96,7 +96,8 @@ class Correction(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         rec = self.run_rec(REVIEW)
         self.assertEqual((rec["head"], rec["pr"], rec["spec_beyond_intent"]), (A, "7", 0))
-        self.assertIsNone(runs.unreviewed_fix(self.q, "0002-second", A))
+        self.assertIn(f"is not {A[:12]}, the head the last review {REVIEW} judged",
+                      runs.unreviewed_fix(self.q, "0002-second", "b" * 40) or "")
 
     def test_a_second_correction_keeps_both_earlier_reports(self):
         self.reported_review()

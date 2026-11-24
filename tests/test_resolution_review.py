@@ -302,6 +302,14 @@ class Resolution(ReviewFlow, ToolkitFixture, unittest.TestCase):
         rec = json.loads(runs.path(self.q, run_id).read_text())
         self.assertEqual((rec["resolution"], rec["affected_checks"]), ("beyond", ["cmd-02"]))
 
+    def test_a_correction_with_no_resolution_line_drops_the_earlier_one(self):
+        _, h2 = self.to_merge_round()
+        run_id = self.contained(h2)
+        code, _, out, err = self.report(run_id, "Outcome: blocked\n## Friction\nnone\n")
+        self.assertEqual(code, 0, out + err)
+        rec = json.loads(runs.path(self.q, run_id).read_text())
+        self.assertEqual((rec["outcome"], "resolution" in rec, "affected_checks" in rec), ("blocked", False, False))
+
     # ------------------------------------------------------------------ verify after it
 
     def test_a_contained_resolution_lets_verify_open_and_names_what_to_rerun(self):
