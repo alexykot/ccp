@@ -132,6 +132,9 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
             self.assertIn("ccp suite run --affected", prompt_mod.suite_lanes(c, phase), phase)
         # the staged gate lane gets no such tail: the verify line names it once, for the part lane
         self.assertEqual(prompt_mod.suite_lanes(c, "verify").count("ccp suite run --affected"), 1)
+        # nor does an undeclared part lane, which takes the command after `--`
+        bare = dataclasses.replace(c, suite={"lanes": {}})
+        self.assertNotIn("ccp suite run --affected", prompt_mod.suite_lanes(bare, "implement"))
 
 
 class GateOnlyLanes(ReviewFlow, ToolkitFixture, unittest.TestCase):
