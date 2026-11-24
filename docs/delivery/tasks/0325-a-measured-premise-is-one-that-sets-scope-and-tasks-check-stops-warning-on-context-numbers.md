@@ -1,7 +1,7 @@
 ---
 task_id: 0325-a-measured-premise-is-one-that-sets-scope-and-tasks-check-stops-warning-on-context-numbers
 title: A measured premise is one that sets a task's scope (the sites it edits, a figure a check holds), and only it carries a command and commit and is re-run by the implementer; the lead re-measures only the briefs ccp tasks check --stale names; and ccp tasks check stops warning on any number in Context
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S21"]
@@ -169,3 +169,5 @@ Measured at `146cae57` (origin/main after R28, R29 and R31 closed):
   SPEC line) are as stated; the repo's own warning count was 2, not 5 (tasks since closed), which sets no scope.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #395 head `2846288` (squash `48eb40c`): APPROVE. Passed: code-01, cmd-01, code-02, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0325-a-measured-premise-is-one-that-sets-scope-and-tasks-check-stops-warning-on-context-numbers.json.
+
