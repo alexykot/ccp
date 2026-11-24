@@ -13,13 +13,12 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E2** Tests are fenced: no live queue, no real plane or product repo, no forge (GitHub or other), no launchd;
   end-to-end tests use the local PR host; no test leaves a `state/*` branch behind.
   check: command — scripts/gate.sh fails on a leftover `state/*` branch; fencing in tests/__init__.py
-- **E4** A test checks behaviour, not wording: no assertion on prose, help text or prompt text beyond
-  the token it pins. A test names a plane constant or shared fixture fact (the worktrees directory, a
-  binding) through the code or a fixture helper, never as a copied literal. A fixture or helper other
-  modules reuse lives in a module that holds no tests; no module imports a test module or binds
-  another module's test-class methods.
-  check: command — architect.checks `E4`: four greps and an import check, each printing its hits, and a count of assert
-  calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over
+- **E4** A test checks behaviour, not wording: no assertion on prose, help text or prompt text beyond the token it
+  pins. A test names a plane constant or shared fixture fact (the worktrees directory, a binding) through the code or
+  a fixture helper, never as a copied literal. A fixture or helper other modules reuse lives in a module that holds no
+  tests; no module imports a test module or binds another module's test-class methods.
+  check: command — architect.checks `E4`: greps and scripts/house_checks.py `e4-imports`, each printing its hits, and its
+  `e4-count` of assert calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch: a change that gives a branch a
   plain-value test cuts that branch's end-to-end test in the same change.
@@ -31,7 +30,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   command, so the run's exit code decides, never by a grep of the runner's text or a bare test runner's output. A
   check that needs a modified copy (a planted fault) names `ccp mutate` where it can run one test (§20.6), else a
   `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text is proved by
-  `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row.
+  `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row. A check that needs a
+  scratch product builds it with `bin/ccp sandbox create` in the step that uses it and runs `ccp` there, with no `<…>`
+  placeholder but the verifier's `<your run>`.
   check: pass — the architect and the reviewer read new tasks' dod_checks
 
 ## Publishing
@@ -48,29 +49,28 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 
 ## Architecture
 
-- **E6** The plane never parses a product's prose for a fact: the product declares it in
-  `plane.json` or reports it as JSON. An action the plane needs from a product is a hook, never an
-  instruction in prompt prose.
+- **E6** The plane never parses a product's prose for a fact: the product declares it in `plane.json` or reports it as
+  JSON. An action the plane needs from a product is a hook, never an instruction in prompt prose.
   check: pass
-- **E7** Every queue write goes through `ccp` and records its own event; scripts only wrap `ccp` or Git.
-  check: pass
+- **E7** Every queue write goes through `ccp` and records its own event. A script a seat or product calls only wraps
+  `ccp` or Git; a plane-development script (the gate's, the house checks') may hold its own program and writes no queue
+  state.
+  check: pass — the architect lists the scripts/ files that write the queue or that a seat calls, and compares them with ccp
 - **E8** Headless children strip `ANTHROPIC_API_KEY`, `CLAUDE_API_KEY` and `ANTHROPIC_AUTH_TOKEN`.
   check: pass
-- **E9** Readers accept every value a live queue may hold; writers emit only the current one. A
-  renamed value stays as a deprecated alias in code and schema until the managed products have
-  rewritten their data; then the alias is removed. A contract no code writes or reads is removed,
-  not kept.
+- **E9** Readers accept every value a live queue may hold; writers emit only the current one. A renamed value stays as
+  a deprecated alias in code and schema until the managed products have rewritten their data; then the alias is
+  removed. A contract no code writes or reads is removed, not kept.
   check: pass — the architect lists contracts with no writer or reader
 - **E27** A seat's actor id (the lead's, the runner's, the verifier's) is named once, in the seat table, and code and tests
   read it by name. A command the SPEC gives to one seat refuses, through one shared guard, every ACTOR that does not name
   that seat (unset or unknown included), and a reader counts only that seat's records.
   check: command — architect.checks `E27`; pass for the guard (the architect compares the commands the SPEC gives one seat)
-- **E12** One source per enumerated concept: a list of values (round phases, event types and
-  ops, plane.json's blocks, their keys and defaults, the roles and their default models) is defined
-  once in code. Other code derives from it. One test compares every plane.json block's keys and
-  defaults with contracts/plane_config.schema.json, one compares the ledger's event types, ops and
-  required payloads with contracts/observability_event.schema.json, and one compares the agent
-  definitions' models with the role table.
+- **E12** One source per enumerated concept: a list of values (round phases, event types and ops, plane.json's blocks,
+  their keys and defaults, the roles and their default models) is defined once in code. Other code derives from it.
+  One test compares every plane.json block's keys and defaults with contracts/plane_config.schema.json, one compares
+  the ledger's event types, ops and required payloads with contracts/observability_event.schema.json, and one compares
+  the agent definitions' models with the role table.
   check: pass, plus the gate — tests.test_plane_config_defaults and tests.test_event_registry run in
   the gate (E1); no architect.checks entry, so the pre-gate never renders a bare test run
 - **E14** Git merge analysis (merge-tree, patch-id, remerge-diff) goes through one helper module; no
@@ -119,20 +119,19 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   they never restate its text, a prohibition included. The root CLAUDE.md, the session's own instructions,
   is exempt.
   check: pass — the architect greps each package doc for a rule's distinctive clause (`git grep -n 'only wrap\|imports another\|copied literal\|names no language' -- '*/CLAUDE.md'`)
-- **E13** Briefs and prompt templates name the command and the § that decides; they never restate a
-  rule's conditions, a tool's quirk a `ccp` command can absorb, or a sample record (a sample lives in
-  contracts/ as `*.example.json`, and a test runs it through the command). The report's lines and
-  sections are given once, in the rendered prompt's last part, from the parser's own table. An
-  instruction several phases share is written once, in `_common.md` or a shared part, and template
-  text is one sentence per line. The command's refusal names the condition that failed.
+- **E13** Briefs and prompt templates name the command and the § that decides; they never restate a rule's conditions,
+  a tool's quirk a `ccp` command can absorb, or a sample record (a sample lives in contracts/ as `*.example.json`, and
+  a test runs it through the command). The report's lines and sections are given once, in the rendered prompt's last
+  part, from the parser's own table. An instruction several phases share is written once, in `_common.md` or a shared
+  part, and template text is one sentence per line. The command's refusal names the condition that failed.
   check: pass, plus command — architect.checks `E13`: `awk 'length > 600' templates/prompts/*.md` prints nothing, a
   proxy for one sentence per line, not a rule of its own; the architect compares plugin/agents and templates/prompts
   with the § rules they cite, ccp/report.py's sections, and looks for inline sample records and sentences repeated
   across templates
 - **E24** A module docstring names the § it implements and what the module is for; it never lists the
   keys, checks, refusals, exit codes or formats the code or the SPEC holds.
-  check: pass, plus command — architect.checks `E24`: the counts of ccp module docstrings over 30 lines and stating an
-  exit code, each at or below its figure (named when over); the architect compares the rest with the § they restate
+  check: pass, plus command — architect.checks `E24`: scripts/house_checks.py `e24`, the counts of ccp module docstrings
+  over 30 lines and stating an exit code, each at or below its figure (named when over); the architect compares the rest with their §
 
 ## Known intentional
 
@@ -148,3 +147,4 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   rows included (§19.6: all the notes go to the pass); only the due trigger leaves overrides out (ar-20261123T230912Z-197a F09).
 - Close's overlap refusal keeps its end-to-end test: it alone kills a mutant that drops the tip's files from the catch-up's (b) call (E15; ar-20261124T034246Z-e089 F11).
 - Dry-run's placeholder pattern also lists a redirection such as `sort <in >out` or `<<EOF >f` as not run: safe, as it runs nothing (0320; ar-20261124T034246Z-e089).
+- The worker definitions state §13.1's four generic rules, the evidence rule among them, which `_common.md` also gives as rendered commands: §13.1 puts them in the definitions (ar-20261124T205520Z-4ce8 F04).
