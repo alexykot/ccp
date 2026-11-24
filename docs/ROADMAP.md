@@ -48,63 +48,32 @@ All reshape phases have landed.
 - **Tasked in R15:** ADR-0044 (a follow-up is tracked, not left in notes; tasks 0223, 0230-0232),
   ADR-0045 (checks only the operator's machine can run; 0224, 0237, 0238) and ADR-0046 (decisions may
   depend on other ADRs' decisions; 0225, 0251, 0252).
-- **Deferred from architect pass `ar-20261120T234012Z-27eb`** (record in `docs/delivery/reviews/`):
-  - F10: replace the tests' sentence assertions (hundreds of them, across most modules) with the
-    token each guards, and derive the template flags' defaults from the templates. Too large for one
-    task; house rule E4 keeps new tests clean meanwhile.
-  - F17: move `scripts/observability/lib.py` and `architecture_review.py` into the `ccp` package, so
-    `ccp` imports nothing from `scripts/`. The move also amends E7 ("`ccp` imports nothing from scripts/", with a
-    command check; operator, 2026-11-22). Architect pass
-    `ar-20261122T055103Z-11aa` (F01) found the first trigger fired; task 0282 (R25) moves the headless
-    helpers and the open-question rule out of `spec_maintainer.py`. Tasked once 0296, which edits lib.py and
-    its importers, is done (0272, 0277, 0282, 0283 and 0293 are; `ar-20261122T100027Z-dd31`).
-    It also corrects the text on the observability scripts' direction (`ar-20261122T162238Z-9098` F03, deferred
-    here by the operator, 2026-11-23): §10.6, §23.4, `docs/cli/04-observability.md` and E7 call
-    `scripts/observability/*.sh` wrappers over `ccp`, but `emit-event.sh` and `heartbeat.sh` write the ledger
-    themselves through `lib.py`, and `ccp` calls `heartbeat.sh` and `set-waiting-on.sh` as single writers that
-    share `lib.py` with it. F17 states the direction it lands on in those four places.
-    Architect pass `ar-20261124T034246Z-e089` (F04) found the trigger met and untasked; its triage, at the
-    five-task cap, sets a new one: tasked once 0323 (the package docs on lib.py and the queue-write route) and 0324
-    (the test helpers that import lib) are done.
-  - `ar-20261124T034246Z-e089` F06, deferred at that triage's five-task cap: `ccp architect triage` validates a
-    triage against `contracts/architecture_review_triage.schema.json` through `ccp/schema.py`, and a test compares
-    `DISPOSITIONS` and `RULE_DISPOSITIONS` with the schema's enums. Tasked with the next architect pass's fixes.
-  - Found applying E17 at that triage: `ccp/otel.py` (three `bindings_dir() / f"{pid}.yaml"` reads) and
-    `scripts/sync-product-docs.sh` read a binding by path and ignore `PROJECT_YAML`. Routing them through lib's
-    resolver changes which file is read when it is set, so it is a feature, not a refactor; tasked with the next
-    architect pass's fixes.
-- **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
-  - F12: the plane's own `pregate` lane: taken up by task 0285 (R25), after architect pass
-    `ar-20261122T055103Z-11aa` (F07) found it still undeclared.
-- **Deferred from architect pass `ar-20261121T132817Z-d5e5`** (record in `docs/delivery/reviews/`):
-  - F06: taken up by task 0271 (R23), after architect pass `ar-20261121T223646Z-f0a7` (F06) found
-    `tests.test_mutate` still the second slowest module after 0255.
-- **Deferred from architect pass `ar-20261121T174754Z-7df5`** (record in `docs/delivery/reviews/`):
-  - F01: a change to `ccp/cli.py` or `ccp/config.py` names more than a quarter of the test modules as
-    affected, so `ccp suite affected` says to run the full lane. Re-measured after R19's 0261 runs a
-    declared part lane in parallel: if a cli or config task's part run still takes longer than the
-    gate lane, the lead chooses between each command module registering its own parser and handler
-    (cli.py only dispatches) and a language-pack rule for a declared hub module. Other widely read files
-    bring the part-lane pre-gate near a full gate too: `ccp suite affected` at `ad9b4f84` names 44 of
-    226 test modules for `ccp/tasklog.py`, 99 for `docs/delivery/plane.json`, 127 for 0301's change.
-    Config files are taken up by task 0319 (architect pass `ar-20261123T230912Z-197a` F01, a signed §14.7
-    brief): the pack stops matching tests by the name of a path `suite.affected_map` matches. The cli and config hub
-    modules stay here.
-  - F10: the six retirement-guard test modules. Re-measured after R17's 0255 makes `ToolkitFixture`
-    cheap; a guard with no reader left is cut then, by one refactor task.
-- **Deferred from architect pass `ar-20261122T055103Z-11aa`** (record in `docs/delivery/reviews/`):
-  - F08: a render-only `ccp prompt` (no audit, no run), so a template refactor proves "rendered prompt
-    unchanged" with one command at base and head. Tasked if the seats of R24's 0276, the next template
-    refactor, note the same scratch render-and-compare work. 0317's seats noted it (`ar-20261124T034246Z-e089` F04);
-    its triage, at the five-task cap, sets a new trigger: the next task that refactors a prompt template builds it,
-    as its first check.
-- **Deferred from architect pass `ar-20261122T162238Z-9098`** (record in `docs/delivery/reviews/`):
-  - F03: the observability scripts called wrappers over `ccp`; with F17 above (operator, 2026-11-23).
-  - F09 and F11: task 0324 split `tests/helpers.py` by concern and replaced the module-level git runners with one
-    shared runner. Left: fixture-class runners and inline git calls, and the fixtures' importers still take `git`
-    through the fixture, so an edit to the shared runner marks too few modules affected (0324 follow-ups). The language
-    pack selecting only a changed name's importers is not taken: a test reaches a changed helper through another
-    helper of the same module, so it would miss tests.
+- **Deferred from architect passes** (each review record in `docs/delivery/reviews/` holds the finding's trail):
+  - `ar-20261120T234012Z-27eb` F10: replace the tests' sentence assertions (hundreds of them, across most modules)
+    with the token each guards, and derive the template flags' defaults from the templates. Too large for one task;
+    house rule E4 keeps new tests clean meanwhile.
+  - `ar-20261120T234012Z-27eb` F17: move `scripts/observability/lib.py` and `architecture_review.py` into the `ccp`
+    package, so `ccp` imports nothing from `scripts/`, and amend E7 to say so with a command check (operator,
+    2026-11-22). It states the observability scripts' direction where §10.6, §23.4, `docs/cli/04-observability.md` and
+    E7 call them wrappers over `ccp` (`ar-20261122T162238Z-9098` F03, operator, 2026-11-23). Two items ride with it:
+    the architect's triage is validated against `contracts/architecture_review_triage.schema.json` through
+    `ccp/schema.py`, with a test comparing `DISPOSITIONS` and `RULE_DISPOSITIONS` with the schema's enums
+    (`ar-20261124T034246Z-e089` F06); and `ccp/otel.py` and `scripts/sync-product-docs.sh` read a binding through the
+    one resolver, honouring `PROJECT_YAML` (a change of behaviour, so the task is a feature). Trigger: the first task
+    of the next triage, ahead of its new findings (`ar-20261124T205520Z-4ce8` F02).
+  - `ar-20261121T174754Z-7df5` F01: a change to `ccp/cli.py` or `ccp/config.py` names more than a quarter of the test
+    modules as affected, so `ccp suite affected` says to run the full lane. Trigger: a cli or config task's part run
+    taking longer than the gate lane; then the lead chooses between each command module registering its own parser
+    and handler (cli.py only dispatches) and a language-pack rule for a declared hub module.
+  - `ar-20261122T055103Z-11aa` F08: a render-only `ccp prompt` (no audit, no run), so a template refactor proves
+    "rendered prompt unchanged" with one command at base and head. Trigger: the next task that refactors a prompt
+    template builds it, as its first check.
+  - `ar-20261122T162238Z-9098` F09 and F11: left after 0324 and 0329, the fixture-class git runners and inline git
+    calls. The language pack selecting only a changed name's importers is not taken: a test reaches a changed helper
+    through another helper of the same module, so it would miss tests.
+  - `ar-20261124T205520Z-4ce8` F08: `ccp mutate`'s rows are `mutation` on the run record and `mutants` in its output
+    and event, and no code reads the record's list. Trigger: the first reader of those rows (a verdict checked
+    against them); it reads one name, `mutants`, with `mutation` as a deprecated alias (E9).
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).

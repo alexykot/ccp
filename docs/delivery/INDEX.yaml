@@ -1602,3 +1602,28 @@ tasks:
     title: A measured premise is one that sets a task's scope (the sites it edits, a figure a check holds), and only it carries a command and commit and is re-run by the implementer; the lead re-measures only the briefs ccp tasks check --stale names; and ccp tasks check stops warning on any number in Context
     depends_on: []
     path: tasks/0325-a-measured-premise-is-one-that-sets-scope-and-tasks-check-stops-warning-on-context-numbers.md
+  - id: 0326-a-corrected-review-report-keeps-the-head-and-pr-its-run-was-opened-with
+    status: pending
+    title: A corrected report keeps the head and PR its run was opened with when its phase's report gives no such line, so a verify after a clean review, a correction and a clean catch-up merge round passes
+    depends_on: []
+    path: tasks/0326-a-corrected-review-report-keeps-the-head-and-pr-its-run-was-opened-with.md
+  - id: 0327-init-keeps-an-empty-task-log-in-git-and-checks-build-scratch-products-with-sandbox-create
+    status: pending
+    title: ccp init keeps an empty task log in git, so a fresh clone of a new product passes tasks check and docs check; the writing-tasks skill has a check that needs a scratch product build it with ccp sandbox create in the step that uses it
+    depends_on: []
+    path: tasks/0327-init-keeps-an-empty-task-log-in-git-and-checks-build-scratch-products-with-sandbox-create.md
+  - id: 0328-the-fail-fast-rule-and-the-worker-prompt-name-suite-run-affected-for-a-staged-part-lane
+    status: pending
+    title: §13.5's Fail fast rule says what ccp suite run --affected runs for a staged part lane, the worker prompt names --affected for one, and a language pack's affected reader is typed with the named keyword suite passes
+    depends_on: []
+    path: tasks/0328-the-fail-fast-rule-and-the-worker-prompt-name-suite-run-affected-for-a-staged-part-lane.md
+  - id: 0329-tests-edit-plane-json-through-one-helper-name-the-plane-root-once-and-take-git-from-its-own-module
+    status: pending
+    title: Tests edit the fixture's plane.json through one ToolkitFixture helper, name the plane root only as PLANE_ROOT, take the git runner from tests.git_helpers, pin the house-check import rule's package condition, and drop the retirement guards with no reader left; tests/CLAUDE.md names each helper module's concern, not its inventory
+    depends_on: []
+    path: tasks/0329-tests-edit-plane-json-through-one-helper-name-the-plane-root-once-and-take-git-from-its-own-module.md
+  - id: 0330-docs-cli-rows-give-call-syntax-not-spec-rules-the-reviewer-brief-leaves-the-prompt-s-rule-to-it-and-the-scripts-doc-follows-e7
+    status: pending
+    title: The docs/cli rows give call syntax, who calls it, one clause of purpose and the §, not the SPEC's rules or exit codes, and E25 checks it; the reviewer brief leaves the Spec-beyond-intent instruction to the review prompt; the scripts package doc follows E7
+    depends_on: []
+    path: tasks/0330-docs-cli-rows-give-call-syntax-not-spec-rules-the-reviewer-brief-leaves-the-prompt-s-rule-to-it-and-the-scripts-doc-follows-e7.md
