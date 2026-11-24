@@ -30,7 +30,7 @@ Options:
   --session-id UUID
   --resume                mark resume=true
   --argv JSON             JSON array of argv strings
-  --actor ACTOR           default $ACTOR or task-runner
+  --actor ACTOR           default $ACTOR or task-runner; refused unless an actor the ledger accepts
   --project-id ID
   --git-head SHA
   --worktree PATH
@@ -121,7 +121,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get("PYTHONPATH", ".").split(":")[0])
-from lib import die, fmt_dt, looks_like_secret, write_json
+from lib import ACTORS, RUNNER, die, fmt_dt, looks_like_secret, write_json
+
+actor = os.environ.get("ACTOR_IN") or RUNNER
+if actor not in ACTORS:
+    die(f"invalid actor {actor!r}")
 
 path_in = Path(os.environ["PROMPT_FILE"])
 try:
@@ -178,7 +182,7 @@ obj = {
     "project_id": project_id,
     "task_id": task_id,
     "phase": phase,
-    "actor": os.environ.get("ACTOR_IN") or "task-runner",
+    "actor": actor,
     "session_id": os.environ.get("SESSION_ID") or None,
     "resume": os.environ.get("RESUME") == "true",
     "argv": argv,

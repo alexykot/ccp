@@ -1,9 +1,11 @@
 """`ccp prompt` (SPEC §13.2): the worker's prompt, rendered by the plane.
 
 `build` renders the plane template `templates/prompts/<phase>.md` with `_common.md` and the product's fragment
-and `--note`, writes the prompt and its audit (§23.8), opens the run (§11.1), moves the task's phase and prints
-the Agent call the runner makes. The refusals that stand between a request and an opened run are the `*_gate`
-functions (§13.2, §15.2, §15.6, §16.5, §6.7); the allowance reading and the session park are §25.1 and §25.4.
+and `--note`, writes the prompt and its audit (§23.8: ids, refs, the prompt's hash and length; the full text only under a
+still-set `prompts.keep_body`; audits older than a still-set `prompts.audit_keep_days` are pruned, §29.3), opens the
+run (§11.1), moves the task's phase and prints the Agent call the runner makes. The refusals that stand between a
+request and an opened run are the `*_gate` functions (§13.2, §15.2, §15.6, §16.5, §6.7); the allowance reading and the
+session park are §25.1 and §25.4.
 The prompt's last line is `Prompt end: <token>`, which `ccp report` checks against the report (§13.4).
 `ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree (§13.3).
 
@@ -25,8 +27,8 @@ from typing import Any
 
 from ccp import models, prhost, refs, report, runs, tasklog, verify
 from ccp.config import PREGATE_LANE, Config, lane_for
-from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, git, integration_branch, load_task_state, load_work, phase_move,
-                       runner_slots,
+from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, actor, git, integration_branch, load_task_state, load_work,
+                       phase_move, runner_slots,
                        holder_teammate, root, task_meta)
 
 TEMPLATES = PLANE / "templates" / "prompts"
@@ -358,7 +360,8 @@ def base_sha(cfg: Config, q: Path) -> str:
 def audit(q: Path, cfg: Config, task_id: str, phase: str, prompt_file: Path, run_id: str, meta: dict[str, Any],
           worktree: str | None, note: str | None) -> str:
     cmd = [str(OBS / "write-prompt-audit.sh"), "--task-id", task_id, "--phase", phase, "--prompt-file", str(prompt_file),
-           "--session-id", run_id, "--project-id", cfg.project_id, "--argv", json.dumps(["Agent", runs.AGENT_TYPE[phase]]),
+           "--actor", actor(), "--session-id", run_id, "--project-id", cfg.project_id,
+           "--argv", json.dumps(["Agent", runs.AGENT_TYPE[phase]]),
            "--durable-task-path", cfg.rel(meta["_file"]),
            "--spec-refs", json.dumps(tasklog._as_list(meta.get("spec_refs")))]
     if worktree:

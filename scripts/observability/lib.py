@@ -2,9 +2,10 @@
 """The event ledger shared by `ccp` and the observability scripts: QUEUE_ROOT/observability/events.jsonl.
 
 It validates and appends events, holds the work.json lock and the shared constants, among them the
-values only read, never written (`WAIT_READ_ONLY`, `LEGACY_EVENT_TYPES`, `LEGACY_ACTORS`: house rule E9), and folds a
-task's events into its timers. The board (`ccp board`, SPEC §28) is the status; the older snapshot and
-its scripts are retired (SPEC §23.4).
+values only read, never written (`WAIT_READ_ONLY`, `LEGACY_EVENT_TYPES`, `LEGACY_ACTORS`: house rule E9; a test,
+`tests/test_event_registry.py`, holds the contracts' enums to the written values plus these), and folds a task's events
+into its timers. The board (`ccp board`, SPEC §28) is the status; the older snapshot and its scripts are retired
+(SPEC §23.4).
 
 The timers (`wall_hours`, `wait_hours`, `work_hours`) are SPEC §23.3's.
 """
@@ -25,7 +26,9 @@ LEAD = "design-seat"  # §2: the actor the lead's commands record as (queue.lead
 RUNNER = "task-runner"  # §2: the actor the runner's commands record as
 VERIFIER = "task-verifier"  # §2: the actor the verifier's records are written as (queue.seat_actor)
 SEAT_IDS = (RUNNER, VERIFIER, LEAD)  # §18.3
-LEGACY_ACTORS = ("delivery-watchdog",)  # the retired watchdog seat: a bound product's old rows hold it, read only (E9)
+# The retired watchdog seat: old rows hold it, read only (E9); a test (`tests/test_event_registry.py`) holds the
+# contracts' actor enums to the written values plus this.
+LEGACY_ACTORS = ("delivery-watchdog",)
 ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-session: §31.5 triage
 REVIEW_EVENT_TYPES = ("architecture_review", "docs_audit", "architect")
 TEAM_EVENT_TYPES = ("gate", "runner")
@@ -325,14 +328,13 @@ def load_events(path: Path) -> list[dict[str, Any]]:
     return out
 
 
-def validate_event(ev: dict[str, Any], *, require_payload: bool = True, reading: bool = False) -> list[str]:
-    """The errors of one event. `reading` is a row read from a ledger: it accepts a `LEGACY_ACTORS` actor too,
-    which a row to be written never may."""
+def validate_event(ev: dict[str, Any], *, require_payload: bool = True) -> list[str]:
+    """The errors of one event to be written: its actor is one of `ACTORS`, never a `LEGACY_ACTORS` one."""
     errors: list[str] = []
     for key in ("at", "project_id", "task_id", "actor", "type", "op", "payload"):
         if key not in ev:
             errors.append(f"missing {key}")
-    if ev.get("actor") not in (ACTORS + LEGACY_ACTORS if reading else ACTORS):
+    if ev.get("actor") not in ACTORS:
         errors.append(f"invalid actor {ev.get('actor')!r}")
     if ev.get("type") not in EVENT_TYPES:
         errors.append(f"invalid type {ev.get('type')!r}")
