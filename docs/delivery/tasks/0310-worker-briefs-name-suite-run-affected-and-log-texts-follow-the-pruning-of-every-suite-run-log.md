@@ -167,4 +167,16 @@ Covers these open follow-ups (`ccp --root . tasks follow-ups --open`), `0299` an
 
 ## Implementation notes
 
+- Premises re-measured at `f7b43ccf`: every figure in Context held (2 `--affected` lines in templates/prompts; 3 `suite affected`
+  lines in prompt.py and the implementer brief; 1 in the test; 3 `summary-mode` lines; 1 `no log was kept`; 11 retired-type lines).
+- `suite_lanes`, the config comment and error, the schema description, `ended_summary`'s line, the lib comment and both tests
+  follow the rulings word for word.
+- **The implementer bullet departs from the ruled text.** The ruled sentence names `ccp suite run --affected`, a second
+  `ccp suite run` in `plugin/agents/delivery-implementer.md`, which §13.5's "One statement of each rule" forbids (a worker
+  definition names the command only in §13.1's evidence rule) and which `test_suite.ReportCrossCheck.test_the_prompt_tells_workers_to_use_it`
+  and `test_worker_efficiency.Definitions.test_the_suite_rule_is_stated_once_in_the_prompt` hold. The bullet reads "run the tests
+  the change touches with the suite run's `--affected` (`--since <ref>` for what a merge brought in), not a guess at module names":
+  the ruling's meaning without restating the command. Raised with the runner as an open question.
+- The ClosedLog pipe closes through `addCleanup(src.close)`, which runs after the test body's `pump.join`.
+
 ## Verification notes
