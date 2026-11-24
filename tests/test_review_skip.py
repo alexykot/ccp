@@ -185,12 +185,13 @@ class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):
     def test_verify_record_holds_an_approve_to_the_proven_head(self):
         self.reviewed()
         head = self.fix()
-        code, _, out, err = self.verify(head)
+        code, body, out, err = self.verify(head)
         self.assertEqual(code, 0, out + err)
         later = self.fix(text="check it  # comment fixed again\n")  # pushed while the verifier ran
         code, _, out, err = self.verdict(later)
         self.assertEqual(code, 1, out + err)
-        self.assertIn(f"head_sha {later[:12]} is not {head[:12]}", err)  # §15.4: the run's head, checked first
+        for token in (later[:12], head[:12], body["run_id"]):  # §15.4: checked first, both heads and the run named
+            self.assertIn(token, err)
         rec = {"task_id": "0002-second", "verdict": "approve", "head_sha": later}
         self.assertIn("or verify.skip_review proved this head's fix", "".join(verify.review_errors(self.q, rec)))
 

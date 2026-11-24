@@ -173,11 +173,12 @@ class SkipAfterClean(Rounds, unittest.TestCase):
     def test_verify_record_holds_an_approve_to_the_verify_runs_head(self):
         self.review()
         self.fix()
-        code, _, out, err = self.verify()
+        code, body, out, err = self.verify()
         self.assertEqual(code, 0, out + err)
         code, _, out, err = self.verdict(C)
         self.assertEqual(code, 1, out + err)
-        self.assertIn(f"head_sha {C[:12]} is not {B[:12]}", err)  # §15.4: the run's head, checked first
+        for token in (C[:12], B[:12], body["run_id"]):  # §15.4: checked first, both heads and the run named
+            self.assertIn(token, err)
         self.assertFalse((self.q / "verification/0002-second.json").exists())
         rec = {"task_id": "0002-second", "verdict": "approve", "head_sha": C}
         self.assertIn("skip_review_after_clean", "".join(verify.review_errors(self.q, rec)))

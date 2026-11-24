@@ -2,6 +2,7 @@
 before any other check, naming both heads."""
 from __future__ import annotations
 
+import json
 import os
 import unittest
 from pathlib import Path
@@ -9,7 +10,7 @@ from unittest import mock
 
 from ccp import config
 from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, SkipFlow
-from tests.toolkit_fixture import ToolkitFixture
+from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 
 class RecordHead(SkipFlow, ToolkitFixture, unittest.TestCase):
@@ -41,8 +42,8 @@ class RecordHead(SkipFlow, ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.verdict(self.typo, verdict)
         self.assertEqual(code, 1, out + err)
         self.assertFalse((self.q / "verification/0002-second.json").exists())  # nothing written
-        self.assertIn(f"head_sha {self.typo[:12]} is not {self.head[:12]}, the head of the open verify run "
-                      f"{self.run_id}", err)
+        for token in (self.typo[:12], self.head[:12], self.run_id):  # both heads and the run, named
+            self.assertIn(token, err)
         return err
 
     def test_an_approve_of_another_head_after_a_proven_fix_is_refused_as_a_head_mismatch(self):
@@ -51,6 +52,17 @@ class RecordHead(SkipFlow, ToolkitFixture, unittest.TestCase):
 
     def test_a_reject_of_another_head_is_refused_as_a_head_mismatch(self):
         self.refused_as_a_head_mismatch("reject")
+
+    def test_a_reject_with_no_head_sha_is_not_held_to_the_runs_head(self):
+        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec.update(task_id="0002-second", verdict="reject")
+        rec.pop("head_sha", None)
+        rec.pop("checked_at", None)
+        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": False, "evidence": "ran it", "produced_by": "verifier"}]
+        f = Path(self._tmp.name) / "verdict.json"
+        f.write_text(json.dumps(rec))
+        code, _, out, err = self.ccp("verify", "record", str(f))
+        self.assertEqual(code, 0, out + err)
 
     def test_a_record_at_the_runs_head_passes(self):
         code, _, out, err = self.verdict(self.head)
