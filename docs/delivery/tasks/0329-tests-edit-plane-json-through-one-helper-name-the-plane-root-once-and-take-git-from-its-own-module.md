@@ -162,4 +162,8 @@ Measured at `cd3a6bf5`:
 - `tests/test_backstop_retired.py` is removed, and `tests/test_snapshot_retired.py` keeps the live board-status test (its docstring
   now says so).
 
+- Fix round 1: `TemplatesAndContracts.PLANE = PLANE_ROOT` in `tests/test_rules.py` was a surviving class-attribute alias; it is gone
+  and its two tests name `PLANE_ROOT`. `tests/git_helpers.py`'s docstring keeps "(a few older private runners remain)", which the
+  move from `tests/CLAUDE.md` had dropped. E4's column-0 anchors are left as the task gives them (reported as a follow-up).
+
 ## Verification notes
