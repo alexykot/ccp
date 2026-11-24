@@ -110,4 +110,25 @@ Measured at `db68df5b`:
 
 ## Implementation notes
 
+- Premises re-measured at 49fc0406 before building: 16 docs/cli rows over 300 bytes, 13 exit-code lines, 2 `beyond intent` hits in the reviewer brief, 2 `scripts/CLAUDE.md` hits: unchanged.
+- docs/cli: 19 rows rewritten (the 16 long ones, plus the exit-code rows `tasks migrate`, `tasks prefer`, `tasks hold`, `tasks sign-off`, `tasks ruling`, `tasks checks`, `team.sh runner spawn --dry-run`, and `ccp board status`'s "exits non-zero"). Who is said inside the row's own text where a file has no Who column, and only in the rows rewritten.
+- `ccp prompt` is four rows, not one: its syntax alone is about 280 bytes, so the one row cannot hold the 300-byte limit with its who and §. Row 1 has the flags every phase takes; `--allow-unreviewed-fix`, `--mode resolution` and `--waived` each sit on a row naming the one phase that takes them. `tests.test_cli_reference` credits flags per command, so it passes as before.
+- Clauses kept because no § states them, shortened: `ccp init`'s `--starter-rules` is a no-op (the flag must stay in the syntax; only the parser's help says it), `ACTOR=design-seat` for the lead's writing commands (`tasks prefer`, `hold`, `sign-off`, `ruling`, `follow-up`), `tasks next --json` carries `passed_over`, `tasks follow-up` run again replaces the outcome.
+- Left as they were, outside the rows: the "Exit 1 on a PR-host error ... 2 on a usage error" line under `## Pull requests` in `02-delivery.md` (capital E, so E25's grep does not match it) and the closing `Exit codes for these commands follow §10's contract` paragraph of `03-quality.md`.
+- E25 in `docs/ENGINEERING.md` and `architect.checks` `E25` in `docs/delivery/plane.json` as the task gives them; `docs/ENGINEERING.md` stays at 150 lines.
+- The reviewer brief's Spec-beyond-intent bullet is gone; `templates/prompts/review.md` still carries the instruction. `tests/test_sign_off_beyond_intent.py` no longer pins the reviewer brief for it.
+- `scripts/CLAUDE.md`: title and last line as given.
+
 ## Verification notes
+
+### Fix round 1
+
+- Brought every remaining docs/cli row to the ruled shape (syntax, who, at most one clause of purpose, the §), not only the 19 the E25 command flags: refusals, conditions, output formats and "needs `QUEUE_ROOT`" went from the rows of 01-model, 02-delivery, 03-quality and 04-observability, each found in the § the row cites first (§4.5 and §3.6 for `init` and `notify`, §16.5 for `idle_runners` and `vacant_slots`, §10.7 for `tasks orphans`, §21.1 and §22.2 for `--closed-points`, §15.5 for `pr`). Who is now in each row's own text where the file has no Who column; the 03-quality Cost cells are untouched.
+- `ccp health`'s row keeps the adoption-point window for the measurements and suite series only, and names the usage advice apart (§27.1). `ccp usage --by-model` keeps "default `implementer`". `ccp init` and `--rules-doc` name the operator (README step 2, §4.5); `tasks dry-run` names the lead, and any worker for `--here` (§21.1). The `ccp docs check` row names `--only` as taking an `architect.checks` or `docs.checks` entry (§21.2).
+- Clauses no § states, left out and named under the report's follow-ups: `health.small_task_lines`, `advice_since`, `usage --by-model`'s per-model measures and attribution rule, `tasks check --stale`'s "no other flag", `ccp usage`'s window.
+
+### Fix round 2
+
+- The `ccp init` row now says "(the operator)", as round 1's notes claimed (README step 2, §4.5).
+- Clauses no cited § states stay in their rows, shortened, instead of being cut: `ccp otel status` ("reports the counts and checks the user settings"), `ccp pr open` ("prints its number"), `ccp pr view` ("`--json` gives one object"), `ccp tasks estimate show` ("latest of each source"). They are named under the report's follow-ups as SPEC gaps.
+- The `ccp forecast` row cites §26.5 as well as §26.4, where the allowance projection is.

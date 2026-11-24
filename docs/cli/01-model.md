@@ -4,27 +4,27 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 
 | Command | What it does | SPEC |
 |---|---|---|
-| `ccp adr new "<title>"` | the next ADR, from the template, `proposed` | §6.6 |
-| `ccp adr status N <status> [--note T]` | an allowed status move | §6.4, §6.6 |
-| `ccp adr supersede OLD NEW [--decisions D2,D4] [--by Dk] [--archive]` | links both ways; retires the decisions or the ADR | §6.5, §6.6 |
-| `ccp adr decide N Dn <state> [--by REF] [--note T]` | one decision's build state | §6.3 |
-| `ccp adr check` | the ADR checks | §6.7 |
-| `ccp adr index [--stdout]` | regenerate the ADR index | §6.6 |
-| `ccp adr list [--json] [--dir DIR]` | every ADR's frontmatter | §6.6 |
-| `ccp adr migrate --markers [--dry-run]` | rewrite non-canonical decision markers | §6.3 |
-| `ccp docs adr index [--stdout]` | the same as `ccp adr index\|list` | §6.6 |
-| `ccp docs adr list [--json] [--dir DIR]` | the same as `ccp adr index\|list` | §6.6 |
-| `ccp tasks index [--stdout]` | regenerate `INDEX.yaml` | §5.7 |
-| `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--language L] [--gate CMD] [--no-starter-rules] [--telemetry on\|off] [--force]` | adopt this repository: the templates, `plane.json` (with `--language` the product's language, the architect's adoption point; the result names each required key still unset), `.gitignore`, the plugin anchor and the `CLAUDE.md` line, the binding and its queue; the starter house rules and their settings are written unless the product has `docs/ENGINEERING.md` or `--no-starter-rules` says not (`--starter-rules` is accepted and changes nothing); keeps existing files unless `--force` | §4.3, §4.5, §8.3, §20.5 |
-| `ccp init --rules-doc PATH [--adopt]` | list each house rule with no `check:` line and point at the starter rules; `--adopt` gives each `check: pass`, refused over `rules_max_lines`; writes nothing else | §4.5, §20.1, §20.5 |
-| `ccp init --permissions` | print the runner's and workers' allowlist and a deny list as a JSON `permissions` block for the operator to apply; writes nothing | §4.5, §18.5 |
-| `ccp notify render <trigger> [--task ID] [--id ID] [--reason R] [--json]` | the notice for a trigger (or `other`): a subject and a body of ids, nothing else | §3.6 |
-| `ccp notify sent <trigger> [--task ID] [--id ID] --via command\|lead [--note T]` | the lead records a notice it sent; `other` needs `--note` (needs `QUEUE_ROOT`) | §3.6 |
-| `ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]` | a test notice, fired as a step fires one: the `pending` record, the product's notify command, the rendered notice on stderr; `blocker`, `decision`, `review_point_done` or `allowance_checkpoint`; in a sandbox only; refused without `--task` or `--id` | §3.6, §29.3 |
-| `ccp notify pending` | every notice fired and not yet sent, with its subject, body and the `sent` call that records it (needs `QUEUE_ROOT`) | §3.6 |
-| `ccp notify upgrade [--since COMMIT]` | record this product's `upgrade` notice for a release: the `adopt` steps of the plane tasks merged since COMMIT (default: the plane checkout's previous release) that it has not taken, as `ccp upgrade status` lists them, with the plane checkout's HEAD as its id; records nothing when there are none; `scripts/run-checkout.sh update` runs it (needs `QUEUE_ROOT`) | §3.6, §29.3 |
-| `ccp where` | the project, binding, queue, plane checkout and `ccp` path for this directory | §8.3, §9.2 |
-| `ccp orientation` | print the orientation the SessionStart hook gives a session in this product, followed by its pending notices; writes nothing | §9.3 |
-| `ccp orientation --tail` | print the text the SessionStart hook appends after the orientation: the pending notices, the allowance warning and the open follow-ups' count (needs `QUEUE_ROOT`); writes nothing | §9.3 |
+| `ccp adr new "<title>"` | the next ADR, from the template, `proposed` (any seat) | §6.6 |
+| `ccp adr status N <status> [--note T]` | an allowed status move (any seat) | §6.4, §6.6 |
+| `ccp adr supersede OLD NEW [--decisions D2,D4] [--by Dk] [--archive]` | links both ways; retires the decisions or the ADR (any seat) | §6.5, §6.6 |
+| `ccp adr decide N Dn <state> [--by REF] [--note T]` | one decision's build state (any seat) | §6.3 |
+| `ccp adr check` | the ADR checks (any seat; `ccp docs check` runs them) | §6.7 |
+| `ccp adr index [--stdout]` | regenerate the ADR index (any seat) | §6.6 |
+| `ccp adr list [--json] [--dir DIR]` | every ADR's frontmatter (any seat) | §6.6 |
+| `ccp adr migrate --markers [--dry-run]` | rewrite non-canonical decision markers (any seat) | §6.3 |
+| `ccp docs adr index [--stdout]` | the same as `ccp adr index\|list` (any seat) | §6.6 |
+| `ccp docs adr list [--json] [--dir DIR]` | the same as `ccp adr index\|list` (any seat) | §6.6 |
+| `ccp tasks index [--stdout]` | regenerate `INDEX.yaml` (the lead, the runner) | §5.7 |
+| `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--language L] [--gate CMD] [--no-starter-rules] [--starter-rules] [--telemetry on\|off] [--force]` | adopt this repository, once (the operator); `--starter-rules` is a no-op | §4.3, §4.5, §8.3, §20.5 |
+| `ccp init --rules-doc PATH [--adopt]` | list each house rule with no `check:` line; `--adopt` gives each `check: pass` (the operator) | §4.5, §20.1, §20.5 |
+| `ccp init --permissions` | print the runner's and workers' permissions as a JSON `permissions` block (the operator) | §4.5, §18.5 |
+| `ccp notify render <trigger> [--task ID] [--id ID] [--reason R] [--json]` | the notice for a trigger (any seat) | §3.6 |
+| `ccp notify sent <trigger> [--task ID] [--id ID] --via command\|lead [--note T]` | record a notice sent (the lead) | §3.6 |
+| `ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]` | fire a test notice, in a sandbox (plane developers) | §3.6, §29.3 |
+| `ccp notify pending` | the notices fired and not yet sent (the lead) | §3.6 |
+| `ccp notify upgrade [--since COMMIT]` | record this product's `upgrade` notice (`scripts/run-checkout.sh update`) | §3.6, §29.3 |
+| `ccp where` | the binding this directory resolves to (any seat) | §8.3, §9.2 |
+| `ccp orientation` | print the orientation a session gets (any session that started before adoption) | §9.3 |
+| `ccp orientation --tail` | print the text the SessionStart hook appends to the orientation (the hook) | §9.3 |
 
 Global: `--root DIR` (else `$CCP_ROOT`, else the git top level), §8.2.

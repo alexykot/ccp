@@ -211,7 +211,7 @@ class CliReference(unittest.TestCase):
         self.assertEqual(problems_of(d), ["02-delivery.md: `--no-such-flag` is no flag of `ccp tasks index`"])
 
     def test_a_joined_row_giving_an_action_its_siblings_flags_is_found(self):
-        d = self.copy_with("`ccp adr index [--stdout]` | regenerate the ADR index | §6.6 |\n| `ccp adr list [--json] [--dir DIR]` | every ADR's frontmatter |",
+        d = self.copy_with("`ccp adr index [--stdout]` | regenerate the ADR index (any seat) | §6.6 |\n| `ccp adr list [--json] [--dir DIR]` | every ADR's frontmatter (any seat) |",
                            "`ccp adr index\\|list [--stdout] [--json] [--dir DIR]` | the ADR index, or every ADR's frontmatter |")
         self.assertEqual(sorted(problems_of(d)), [
             "01-model.md: `--dir` is no flag of `ccp adr index`",

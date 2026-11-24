@@ -53,6 +53,10 @@
         "cmd": "python3 -B scripts/house_checks.py e24 --long-max 10 --exit-max 0"
       },
       {
+        "id": "E25",
+        "cmd": "! awk '/^\\| `ccp/ && length > 300 {print FILENAME \": \" substr($0, 1, 60); n++} END {exit n == 0}' docs/cli/*.md && ! git grep -nP '\\bexits? (code )?[0-9]|\\bexit code' -- docs/cli"
+      },
+      {
         "id": "E27",
         "cmd": "! git grep -nE '\"(design-seat|task-runner|task-verifier)\"' -- ccp scripts tests ':(exclude)ccp/board_page.html' ':(exclude)scripts/observability/lib.py' ':(exclude,glob)scripts/**/*.sh'"
       }
