@@ -156,4 +156,22 @@ Measured at `bb102371` (origin/main after 0305's reconcile):
 
 ## Implementation notes
 
+- `ccp/config.py` `_toolkit`: beside `task_log.reviews_dir`'s check, a `task_log.dir` that is not a non-empty string
+  (after the §29.3 constant outcome, so a string other than the constant still applies with its warning) is refused
+  at load with the ruled message; `ccp tasks check` on the cmd-01 product now exits 2 naming `task_log.dir`. The
+  check is the narrowest the ruling gives: an absolute or `..` string is not refused here.
+- `tests/test_notify_lead.py` `Gates`: the unreadable plane.json is written after `gate open`; `ask-operator`'s
+  warning reaches its JSON `warnings` (stdout), not stderr, so the test reads it there.
+- `tests/test_tasks_close.py` `CloseKeepsTheCaller`: `prhost.merge` and `prhost.confirm` are patched; the confirm
+  returns the approved head with `state="open"` and no merge commit.
+- `tests/architect_fixture.py`: `Harness.setUp` patches `architect.spawn_detached` to keep each child; `tearDown`
+  waits 30 s for each (`DETACHED_WAIT`), kills a late one's session (`os.killpg`) and fails with
+  `detached pass <pid> still running after 30 s`, after the queue and product are removed. A probe at the base
+  (the child kept, both trees snapshotted when the test returned and after the child exited) showed the child's
+  writes after the status the test waits for: `reviews/<rid>.log` (its JSON), `observability/events.jsonl`,
+  `architect.lock` removed in the queue, and its worktree dropped in the product (`.plane-runtime/arch-<rid>`,
+  `.git/worktrees/arch-<rid>`).
+- `tests/test_suite_run_affected.py`: new `AffectedUsage` (seven `affected_usage(` calls); the end-to-end test keeps
+  `--affected --lane part` and is renamed `test_affected_with_a_lane_exits_2_with_nothing_run` to say what it runs.
+
 ## Verification notes
