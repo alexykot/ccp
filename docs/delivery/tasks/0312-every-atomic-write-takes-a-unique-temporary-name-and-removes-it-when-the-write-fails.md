@@ -1,7 +1,7 @@
 ---
 task_id: 0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails
 title: Every atomic write goes through one helper that takes a unique temporary name beside the file and removes it when the write fails, so two concurrent writers of one file both succeed
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S16", "S23", "S31"]
@@ -10,7 +10,7 @@ paths: ["scripts/observability/lib.py", "scripts/observability/CLAUDE.md", "ccp/
 clashes_with: []
 adopt: "none"
 created: 2026-11-23
-updated: 2026-11-23
+updated: 2026-11-24
 ---
 
 # Task: 0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails
@@ -154,3 +154,5 @@ The lead's priority item (a friction seen when two runners claimed at once). Mea
   names (the fixed `.tmp` name kills the concurrency and name tests; dropping the unlink kills the failed-write test).
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #380 head `c79c27a` (close's catch-up of the approved `0eb6a33`, gate run st-20261124T023640Z-14661f) (squash `66ada5a`): APPROVE. Passed: code-01, code-02, code-03, test-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0312-every-atomic-write-takes-a-unique-temporary-name-and-removes-it-when-the-write-fails.json.
+
