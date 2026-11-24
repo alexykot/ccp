@@ -78,6 +78,8 @@ a minor point, rule and record your reasoning.
   against (plane SPEC §17.4). SPEC and PROJECT wording still lands on the integration branch.
   Marking a task `dropped` is the one exception. `ccp tasks check --lease` names such an edit before
   you push.
+- **A ruling never replaces a check step; it says what the verifier holds instead** (its `held_instead`,
+  plane SPEC §15.4), so the check text stays the signed one.
 
 ## Answer file
 
