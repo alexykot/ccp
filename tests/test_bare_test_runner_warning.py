@@ -70,6 +70,23 @@ class RunsBare(unittest.TestCase):
             with self.subTest(cmd=cmd):
                 self.assertTrue(self.bare(cmd))
 
+    def test_bare_past_env_time_and_timeout_options(self):
+        for cmd in ("env -u X python3 -m unittest", "env -C /tmp python3 -m unittest",
+                    "timeout -k 5 60 python3 -m unittest", "timeout -s KILL 60 python3 -m unittest",
+                    "timeout --signal=KILL 60 python3 -m unittest", "env --unset X python3 -m unittest",
+                    "env --chdir /tmp python3 -m unittest", "timeout --kill-after 5 60 python3 -m unittest",
+                    "timeout --signal KILL 60 python3 -m unittest", "time -p python3 -m unittest",
+                    "time -o out.txt python3 -m unittest", "time -f %e python3 -m unittest",
+                    "time --output out.txt python3 -m unittest", "time --format %e python3 -m unittest",
+                    "env -u X A=1 time -p timeout -k 5 60 python3 -m unittest"):
+            with self.subTest(cmd=cmd):
+                self.assertTrue(self.bare(cmd))
+        with self.subTest(cmd="timeout -k 5 python3 -m unittest"):
+            self.assertFalse(self.bare("timeout -k 5 python3 -m unittest"))
+        for cmd in ("timeout -k 5 foo python3 -m unittest", "timeout foo python3 -m unittest"):
+            with self.subTest(cmd=cmd):
+                self.assertFalse(self.bare(cmd))  # a word that is no duration follows timeout's options
+
     def test_a_ccp_command_or_another_command_is_not_bare(self):
         for cmd in ("ccp suite run --lane part -- python3 -m unittest", "./bin/ccp mutate --test tests.x",
                     "A=1 bin/ccp suite run --lane part -- python3 -m unittest tests.x", "python3 -c 'import unittest'",

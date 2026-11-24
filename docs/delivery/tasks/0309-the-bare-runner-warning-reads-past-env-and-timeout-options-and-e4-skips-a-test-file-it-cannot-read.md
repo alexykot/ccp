@@ -1,7 +1,7 @@
 ---
 task_id: 0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read
 title: ccp tasks check's bare-runner warning reads past the options of an env, time or timeout prefix and loses its dead ccp guard, and E4's import check skips a tracked test file it cannot read and says so
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S21"]
@@ -11,7 +11,7 @@ paths: ["ccp/tasklog.py", "tests/test_bare_test_runner_warning.py", "docs/delive
 clashes_with: []
 adopt: "none"
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-24
 ---
 
 # Task: 0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read
@@ -130,4 +130,11 @@ Measured at `15dbfe7a` (origin/main; first at `ad9b4f84`, every figure re-ran un
 
 ## Implementation notes
 
+- `runs_bare` (`ccp/tasklog.py`): the prefix walk is now an index loop with a helper `_skip_options` that, after `env`, `time` or `timeout`, skips each `-` word and the next word too when the option is in `PREFIX_OPTION_ARGS[prefix]`. `timeout` is read past only when a `TIMEOUT_RE` duration follows its options, else the walk stops at `timeout` (so `timeout -k 5 python3 -m unittest` and `timeout python3 -m unittest` stay not bare). `CCP_COMMANDS`, its guard and the docstring sentence are removed.
+- E4's import part (`docs/delivery/plane.json`) is a multi-line `python3 -B -c` program (newlines inside its quotes, no ` && `): a `for` loop with `try`/`except (OSError, SyntaxError, ValueError)` prints `E4: skipped <path>: <message>` on stderr and goes on; hits still print `<path>:<line>` on stdout, exit 1 on a hit, 0 otherwise.
+- New tests: `test_bare_past_env_time_and_timeout_options` (`RunsBare`) and `test_the_check_skips_a_tracked_test_file_it_cannot_read_and_says_so` (`TestModulesImportNoTestModule`).
+- Fix round 1 (review MINOR-1, NIT-1; tests only, no code change): `test_bare_past_env_time_and_timeout_options` also asserts `timeout -k 5 foo python3 -m unittest` and `timeout foo python3 -m unittest` are not bare, which pins the duration check after `timeout`'s options; the E4 test tracks a fourth file, `tests/test_d.py` holding non-UTF-8 bytes, and asserts its `skipped` line in both runs, which pins `ValueError` in the part's `except`.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #377 head `476ee34` (squash `7584bb9`): APPROVE. Passed: code-01, code-02, cfg-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read.json.
+
