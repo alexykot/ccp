@@ -142,26 +142,6 @@ FENCE_RE = re.compile(r"^[ \t]*(?P<f>(?P<c>[`~])(?P=c){2,})(?:(?<=~)[^\n]*|[^`\n
 CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)[^\n]+?(?<!`)\1(?!`)")
 # A task file's section heading; one inside a fenced block is quoted text, not read (`unfence`).
 HEADING_RE = re.compile(r"^## ", re.M)
-# §5: a measured premise in Context names the command that measured it. A number here is a figure
-# stated in prose: a run of digits that is not part of an id or a ref (`R5`, `§31.1`, `ADR-0033`,
-# `PR #89`, a date, a time, a sha), not a zero-padded id (`0000`), not a list marker and not in a
-# date written with its month's name (`11 Nov 2026`, `November 11, 2026`). A size or a time joined
-# to its unit (`40MB`, `300ms`) and a dash range (`5-10`, `2-3s`) are numbers too; a year and month
-# (`2026-11`) is not. A command is a code span of at least two words (`git grep -c foo`); a lone path
-# or id in backticks is not one.
-_NUM = r"\d+(?:[.,]\d+)*"
-_UNIT = r"(?i:[kmgtp]i?b|b|k|m|ns|us|µs|ms|s|secs?|mins?|h|hrs?|d|x)"
-CONTEXT_NUMBER_RE = re.compile(rf"(?<![\w§.\-/:#])(?!0\d)(?!(?:19|20)\d\d-(?:0[1-9]|1[0-2])(?!\d))"
-                               rf"{_NUM}(?:-{_NUM})?{_UNIT}?(?![\w\-/:]|[.,]\d)")
-# A stated limit or a protocol code is not a measurement: the number right after one of these words.
-NOT_MEASURED_RE = re.compile(r"(?i:\b(?:at most|at least|up to|no more than|no less than|within|under|status code|status|"
-                             rf"HTTP|exit code|exits|exit)[ \t]+)({_NUM}(?:-{_NUM})?{_UNIT}?)")
-LIST_MARKER_RE = re.compile(r"^([ \t]*)\d+[.)](?=[ \t])")
-_MONTH = (r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|"
-          r"Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?")
-WORD_DATE_RE = re.compile(rf"\b(?:\d{{1,2}}[ \t]+{_MONTH}(?:[ \t]+\d{{4}})?|{_MONTH}[ \t]+\d{{1,2}}(?:,?[ \t]+\d{{4}})?)\b")
-# §10.5, §5.5: a line of a quoted block, where a ruling written verbatim goes; not read for numbers.
-QUOTED_RE = re.compile(r"^[ \t]*>(?:[ \t]|$)")
 # §21.1: the commit a task's Context was measured at, its first ``Measured at `<sha>` ``; a stale-Context
 # warning names this many of the commits since, then counts the rest.
 MEASURED_AT_RE = re.compile(r"\bMeasured at `([0-9a-f]{7,40})`", re.I)
@@ -884,35 +864,6 @@ def _check_placeholders(t: dict[str, Any], rel: str) -> list[str]:
             for n, line in enumerate(text.split("\n"), 1) for ph in PLACEHOLDERS if ph in line]
 
 
-def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
-    """§5: a task not yet done or dropped whose Context states a number on a line with no backticked
-    command, named with its line. Fenced blocks, code spans and the lines of a quoted block (`> `, where a
-    ruling written verbatim goes, §10.5) are quoted text, not read for numbers, nor is a stated limit or a
-    protocol code: a number right after `at most`, `at least`, `up to`, `no more than`, `no less than`,
-    `within` or `under`, or after `status`, `status code`, `HTTP`, `exit`, `exits` or `exit code` (any case)."""
-    if t.get("status") in TERMINAL:
-        return []
-    span = section_span(t["_text"], SEC_CONTEXT)
-    if span is None:
-        return []
-    _, start, end = span
-    first = t["_text"].count("\n", 0, start) + 1
-    unfenced = unfence(t["_text"][start:end])
-    out = []
-    for n, line in enumerate(unfenced.split("\n")):
-        if QUOTED_RE.match(line):
-            continue
-        if any(len(span.group(0).strip("`").split()) > 1 for span in CODE_SPAN_RE.finditer(line)):
-            continue
-        prose = WORD_DATE_RE.sub(_blank, LIST_MARKER_RE.sub(r"\1", CODE_SPAN_RE.sub(_blank, line)))
-        prose = NOT_MEASURED_RE.sub(lambda m: m.group(0)[:m.start(1) - m.start(0)] + " " * len(m.group(1)), prose)
-        nums = [m.group(0) for m in CONTEXT_NUMBER_RE.finditer(prose)]
-        if nums:
-            out.append(f"{rel}:{first + n}: Context states a number ({', '.join(nums)}) with no backticked command on "
-                       "its line: name the command that measured it and the commit it ran at (§5)")
-    return out
-
-
 def stale_warning(rel: str, sha: str, commits: list[str]) -> list[str]:
     """§21.1: the warning for a task whose Context was measured at `sha` when `commits` (newest first) have
     changed its paths since: the first few named, the rest counted. None without commits."""
@@ -1239,7 +1190,6 @@ def warnings(cfg: Config) -> list[str]:
            f"not the task file (§5): it reads as {t['status']!r}; write that"
            for t in tasks if t.get("_legacy_status")]
     for t in tasks:
-        out += unmeasured_numbers(t, cfg.rel(t["_file"]))
         out += unsigned_spec_edit(cfg, t, cfg.rel(t["_file"]))
         out += unreadable_proposed(t, cfg.rel(t["_file"]))
         out += missing_adopt(t, cfg.rel(t["_file"]))

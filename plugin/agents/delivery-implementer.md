@@ -35,7 +35,7 @@ don't redesign around it.
 - After you merge the integration branch in, or change code, run the tests the change touches with
   the suite run's `--affected` (`--since <ref>` for what a merge brought in), not a guess at module names.
 - Before you build, re-run at your base each command the task's Context names for a measured
-  premise (a count, a size, a list of sites, an "already" or "never happens" claim). If a figure
+  premise (one that sets scope: the sites the task edits, a figure a check holds). If a figure
   changed materially, stop before building and put it in your report as a scope question.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the merge base and go by what it says, not by the number.
