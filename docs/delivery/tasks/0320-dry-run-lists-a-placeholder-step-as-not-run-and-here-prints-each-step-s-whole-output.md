@@ -144,4 +144,18 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 
 ## Implementation notes
 
+- `ccp/dryrun.py`: `PLACEHOLDER_RE` and `placeholder(cmd)` (the first match); `runnable(steps)` gives the steps both
+  modes run (one backticked command holding no placeholder), so `plan` keeps each command and `printout` names the
+  placeholder: `step <n>: not run (holds the placeholder <span>)`. `Ran` carries the step's whole output's lines;
+  `printout(..., whole=True)`, which only `_here` passes, prints them under the step's line, indented six spaces
+  (`HERE_INDENT`), uncapped. The worktree mode's printout and `--write` records are unchanged; a placeholder step
+  is left out of its check's record like any step not run.
+- Tests: `test_a_step_holding_a_placeholder_is_not_run_and_names_it` and
+  `test_here_prints_each_step_s_whole_output_and_without_it_only_the_first_line` on plain values; the shared
+  `CHECKS` fixture's `cmd-01` gains a placeholder step (the worktree mode and its `--write` record end to end), and
+  the `--here` end-to-end test a step `touch ran # <your run>`, which bash would run, so a clean status shows it did
+  not; its line indexes move by the whole output now printed.
+- Docs: §21.1's passage as signed, the `ccp tasks dry-run` row in `docs/cli/03-quality.md`, `_common.md`'s
+  mutation-worktree bullet and the runner brief's fix-round sentence as the Context gives them.
+
 ## Verification notes
