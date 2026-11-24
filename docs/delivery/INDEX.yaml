@@ -1503,7 +1503,7 @@ tasks:
     depends_on: []
     path: tasks/0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values.md
   - id: 0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes
-    status: pending
+    status: done
     title: ccp verify record refuses, first and by name, a head_sha that is not its open verify run's head, and the re-verify packet contract nothing writes or reads goes with the brief line and refusal text that name it
     depends_on: []
     path: tasks/0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes.md

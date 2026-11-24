@@ -1,7 +1,7 @@
 ---
 task_id: 0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes
 title: ccp verify record refuses, first and by name, a head_sha that is not its open verify run's head, and the re-verify packet contract nothing writes or reads goes with the brief line and refusal text that name it
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15"]
@@ -13,7 +13,7 @@ paths: ["ccp/verify.py", "docs/spec/02-delivery.md", "contracts/reverify_packet.
 adopt: "none"
 sign_off: brief
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-24
 ---
 
 # Task: 0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes
@@ -125,3 +125,5 @@ From architect pass `ar-20261122T162238Z-9098`, F07 (`incoherence`) and F04 (`ho
   in that module and in the two skip tests (E4); the skip tests take the run id from the verify they open.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #373 head `f018669` (squash `7e28497`): APPROVE. Passed: spec-01, code-01, code-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes.json.
+
