@@ -1603,7 +1603,7 @@ tasks:
     depends_on: []
     path: tasks/0325-a-measured-premise-is-one-that-sets-scope-and-tasks-check-stops-warning-on-context-numbers.md
   - id: 0326-a-corrected-review-report-keeps-the-head-and-pr-its-run-was-opened-with
-    status: pending
+    status: done
     title: A corrected report keeps the head and PR its run was opened with when its phase's report gives no such line, so a verify after a clean review, a correction and a clean catch-up merge round passes
     depends_on: []
     path: tasks/0326-a-corrected-review-report-keeps-the-head-and-pr-its-run-was-opened-with.md

@@ -1,7 +1,7 @@
 ---
 task_id: 0326-a-corrected-review-report-keeps-the-head-and-pr-its-run-was-opened-with
 title: A corrected report keeps the head and PR its run was opened with when its phase's report gives no such line, so a verify after a clean review, a correction and a clean catch-up merge round passes
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S15"]
@@ -95,3 +95,5 @@ Measured at `cd3a6bf5`:
   correction kept it.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #399 head `6985702` (squash `59e53ce`): APPROVE. Passed: code-01, code-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0326-a-corrected-review-report-keeps-the-head-and-pr-its-run-was-opened-with.json.
+
