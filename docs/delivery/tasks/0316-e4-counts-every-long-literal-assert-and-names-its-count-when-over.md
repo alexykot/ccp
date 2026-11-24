@@ -1,7 +1,7 @@
 ---
 task_id: 0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over
 title: E4's long-literal count reads every assert call with a string argument of 40 or more characters, f-strings and concatenations included, and prints its count and figure when it is over
-status: pending
+status: done
 kind: refactor
 depends_on: ["0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read"]
 rule_refs: ["E4"]
@@ -105,3 +105,5 @@ Measured at `bb102371`:
 - Fix round 1 (review MINOR 1-4, all in `tests/test_self_hosting.py`; the plane.json program and the figure 482 are unchanged): the scratch source of `test_the_long_literal_count_reads_every_assert_form_and_names_its_figure` now also holds a non-assert call with a 50-character literal (not counted), a long `msg=` keyword argument (counted), a 39-character `assertIn` literal (not counted) and an implicit concatenation of exactly 40 characters (counted); it counts 5 (figures 4 and 5). A new test, `test_the_long_literal_count_skips_a_file_it_cannot_parse`, passes a second file with a syntax error and expects the `E4: skipped <path>: ` line on stderr and exit 0. Recorded mutants killed: keywords dropped, no `assert` name filter, threshold 41 and 45, the skip line moved to stdout.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #379 head `6115ac8` (squash `4621cf1`): APPROVE. Passed: cfg-01, cfg-02, code-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over.json.
+

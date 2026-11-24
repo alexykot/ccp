@@ -1553,7 +1553,7 @@ tasks:
     depends_on: []
     path: tasks/0315-a-null-task-log-dir-is-refused-at-load-and-the-test-gaps-left-by-0296-and-0305-close.md
   - id: 0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over
-    status: pending
+    status: done
     title: E4's long-literal count reads every assert call with a string argument of 40 or more characters, f-strings and concatenations included, and prints its count and figure when it is over
     depends_on: [0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read]
     path: tasks/0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over.md
