@@ -100,13 +100,11 @@ All reshape phases have landed.
     as its first check.
 - **Deferred from architect pass `ar-20261122T162238Z-9098`** (record in `docs/delivery/reviews/`):
   - F03: the observability scripts called wrappers over `ccp`; with F17 above (operator, 2026-11-23).
-  - F09 and F11: `tests/helpers.py` is imported by most test modules, so an edit to it makes the part lane
-    nearly the whole suite, and tests keep private git runners (the shared one strips its output) beside it.
-    Split `tests/helpers.py` by concern and give it one git runner with a raw-output option, by one refactor
-    task, once the R26 tasks that edit shared test fixtures (0293, 0302) are done: taken up by task 0324 (R33,
-    `ar-20261124T034246Z-e089` F04). The language pack selecting only a
-    changed name's importers is not taken: a test reaches a changed helper through another helper of the
-    same module, so it would miss tests.
+  - F09 and F11: task 0324 split `tests/helpers.py` by concern and replaced the module-level git runners with one
+    shared runner. Left: fixture-class runners and inline git calls, and the fixtures' importers still take `git`
+    through the fixture, so an edit to the shared runner marks too few modules affected (0324 follow-ups). The language
+    pack selecting only a changed name's importers is not taken: a test reaches a changed helper through another
+    helper of the same module, so it would miss tests.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).
