@@ -34,7 +34,7 @@ class PythonPack(unittest.TestCase):
         self.assertEqual(self.pack.count_re, r"^Ran (\d+) tests? in ")
         self.assertEqual(self.pack.test_command, "python3 -m unittest")
         self.assertEqual(self.pack.test_glob, "test*.py")
-        self.assertEqual(self.pack.unbuilt_re, (r'^  File "[^<"][^"]*", line \d+$',
+        self.assertEqual(self.pack.unbuilt_re, (r'^  File "(?P<path>[^<"][^"]*)", line \d+$',
                                                 r"^SyntaxError: source code (string )?cannot contain null bytes",
                                                 r"^ImportError: Failed to import test module: "))
         self.assertEqual(sorted(self.pack.summary), ["failed_re", "section_re", "skipped_re"])

@@ -476,7 +476,7 @@ nothing else.
 - **Killed only when a named test fails.** Each named test first runs unmutated; when one fails, the
   call stops (exit 1), nothing applied or recorded. Then each mutant is applied alone and the named
   tests run in order until one exits non-zero; the mutant is `killed` when one does and `survived`
-  when every one exits 0, except that one whose run exits non-zero with an output line matching plane.json `mutate.unbuilt_re` (a regular expression or a list of them; unset, the language pack's did-not-build lines) is `unbuilt`: the code did not build or import, which proves nothing about the test. A test not named that
+  when every one exits 0, except that one whose run exits non-zero with an output line matching plane.json `mutate.unbuilt_re` (a regular expression or a list of them; unset, the language pack's did-not-build lines) is `unbuilt`: the code did not build or import, which proves nothing about the test. A pattern with a group named `path` matches a line only when that group's text is a file the mutant touched (its root-relative path, or ending with `/` and that path), so a test whose output quotes another file's syntax error leaves the mutant `killed`; the Python pack's source-location line has such a group. A test not named that
   the mutant breaks does not count.
 - **The tree is restored** after each mutant: every file it touched is written back byte for byte
   (a file it made is removed, with any directory it made) and checked before the next. A file that
@@ -491,7 +491,8 @@ nothing else.
   touched, a 12-character digest, the outcome, the exit code, the seconds, `timed_out` and the worktree's name;
   never the mutant's text, old or new, or the test's output, which goes to `<run record>-mutate.log`
   beside the run record.
-  The call ends with one `run`/`recorded` event (run id and the counts).
+  The call ends with one `run`/`recorded` event (run id and the counts) and prints on stderr one line per mutant,
+  `mutant <n>: <outcome> (<test id>)`, the test that decided it.
 - **Exit codes:** 0 when every mutant was killed, 1 when one survived or was `unbuilt`.
 
 Choosing mutants is the seat's; the plane ships no mutation operators.
