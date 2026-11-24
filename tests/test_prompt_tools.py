@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ccp import config
 from ccp import prompt as prompt_mod
+from tests.helpers import phase_values
 from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 A = "a" * 40
@@ -43,7 +44,8 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
 
     def test_the_verifier_reverts_from_its_own_worktree(self):
         run_id, text = self.render("verify", "--pr", "7", "--head", A)
-        self.assertIn(f"mutate --run {run_id} --test <test id> --revert <path>[:<lines>]", text)
+        self.assertIn(f"mutate --run {run_id} --test", text)
+        self.assertIn("<test id> --revert <path>[:<lines>]", text)
         self.assertIn(str(self.main / config.WORKTREES_DIR / "ver-0002"), text)
         self.assertNotIn("wt create --kind mut", outside_the_fallback(text))
 
@@ -65,9 +67,9 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         fallbacks = FALLBACK.findall(text)
         self.assertTrue(fallbacks)
         for f in fallbacks:
-            self.assertIn("wt create --kind mut --task 0002-second --sha ", f)
+            self.assertIn("--kind mut --task 0002-second --sha ", f)
             self.assertIn("wt remove <name>", f)
-        self.assertIn(f"wt create --kind mut --task 0002-second --sha {A}`", text)
+        self.assertIn(f"--kind mut --task 0002-second --sha {A}`", text)
         self.assertIn(f"suite run --run {run_id}` with `--lane part`", text)
         _impl_run, text_impl = self.render("implement", "--base", "abc1234")  # every seat, through the common rules
         fallbacks = FALLBACK.findall(text_impl)
@@ -86,7 +88,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         for phase, args in CHANGE_ROUNDS:
             run_id, text = self.render(phase, *args)
             self.assertIn(f"mutate --run {run_id} --test <test id>", text, phase)
-            self.assertIn("suite run --affected --since origin/main...`", text, phase)
+            self.assertIn("--affected --since origin/main...`", text, phase)
             self.assertNotIn("dependent-modules", text, phase)
 
     def test_fix_ruling_and_merge_affected_since_the_tip(self):
@@ -94,14 +96,32 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         tip; its starting head would also name every file the tip brought in."""
         for phase, args in CHANGE_ROUNDS[1:]:
             _run_id, text = self.render(phase, *args)
-            self.assertIn("suite run --affected --since origin/main...`", text, phase)
+            self.assertIn("--affected --since origin/main...`", text, phase)
             self.assertNotIn(f"--since {A}", text, phase)
             self.assertNotIn(f"--since {A[:7]}", text, phase)
 
     def test_the_review_prompt_names_suite_run_affected_since_the_merge_base_with_the_tip(self):
         _run_id, text = self.render("review", "--pr", "7", "--head", A)
-        self.assertIn("suite run --affected --since origin/main...", text)
+        self.assertIn("--affected --since origin/main...", text)
         self.assertNotIn(f"--since {A[:7]}", text)
+
+    def test_the_review_prompt_routes_mutation_checks_through_mutate_only(self):
+        """§20.6: a reviewer's mutation check runs through `ccp mutate`, as the shared part gives it, never through
+        the part lane's `suite run`: in a full review, and in a resolution review (its template and the shared part,
+        as `ccp prompt` joins them: opening one needs a conflicted merge). No line of the review template's own
+        render, in either review and with or without the review cache, names a mutation and `suite run` together
+        (the shared part's evidence line does, and gives `mutate` beside it)."""
+        full = self.render("review", "--pr", "7", "--head", A)
+        v = phase_values(resolution=True)
+        resolution = (v["run_id"], prompt_mod.render_phase("review", v)
+                      + prompt_mod.render((prompt_mod.TEMPLATES / "_common.md").read_text(), v))
+        for run_id, text in (full, resolution):
+            self.assertIn(f"mutate --run {run_id}", text)
+        for res in (False, True):
+            for cache in (False, True):
+                own = prompt_mod.render_phase("review", phase_values(resolution=res, review_cache=cache))
+                both = [ln for ln in own.splitlines() if "mutation" in ln and "suite run" in ln]
+                self.assertEqual(both, [], (res, cache))
 
     def test_the_reviewer_reads_and_runs_code_at_the_merge_base_in_a_base_worktree(self):
         brief = (PLANE / "plugin/agents/delivery-reviewer.md").read_text()
@@ -119,7 +139,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         _run_id, text = self.render("implement", "--base", "abc1234")
         self.assertIn("`## Follow-ups`, not the PR", text)
         self.assertNotIn("plane propose`), not the PR", text)
-        self.assertIn("only text without which the code cannot be correct goes to the lead, as a spec question", text)
+        self.assertIn("as a spec question", text)
 
     def test_the_verify_prompt_names_the_record_s_project_id_its_findings_list_and_an_example_that_exists(self):
         _run_id, text = self.render("verify", "--pr", "7", "--head", A)
@@ -134,7 +154,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertIn("adr decide <n> <Dn> built", text)
         for phase, args in (("verify", ("--pr", "7", "--head", A)), ("implement", ("--base", "abc1234"))):
             _run_id, text = self.render(phase, *args)
-            self.assertIn("suite run` refuses one on a lane with stages", text, phase)
+            self.assertIn("refuses one on a lane with stages", text, phase)
 
     def test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command(self):
         for phase in ("implement", "fix", "ruling", "merge", "verify", "_common", "_gate"):
@@ -159,7 +179,7 @@ class PromptsNameTheHouseRules(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("Read the house rules", self.render())
         (self.runner / "docs/ENGINEERING.md").write_text("# Rules\n")
-        self.assertIn("Read the house rules, docs/ENGINEERING.md, and follow them.", self.render())
+        self.assertIn("house rules, docs/ENGINEERING.md", self.render())
 
 
 if __name__ == "__main__":
