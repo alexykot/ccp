@@ -37,8 +37,7 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
   (`python3 -B` over `ast.walk`, the probe in the triage record): 184 modules import it; `Product` 105, `PLANE_ROOT` 65,
   `TASK` 33, `binding` 26. `CCP_DEV=1 ./bin/ccp suite affected --paths tests/helpers.py 2>/dev/null | wc -l`: 171.
   Under the split below, the same read gives 28 importers of the report helpers, 16 of the ledger helpers and 5 of
-  the render helpers. Report helpers' transitive fan-in (what code-01 counts) is 36 by the triage review's import-graph
-  read, against code-01's limit of 40.
+  the render helpers. code-01 holds report helpers' transitive fan-in to at most 40 modules.
 - **The git runners.** `tests/helpers.py` has `git_run` (any command with `GIT_ENV`, a `CompletedProcess`),
   `release_git` (stripped, asserting exit 0), `repo_git` and `health_git` (output as written, `check=True`).
   `git grep -nE '^def git\(' -- tests` at `9691fd9c`: 6 module-level runners, in `tests/architect_fixture.py`,
