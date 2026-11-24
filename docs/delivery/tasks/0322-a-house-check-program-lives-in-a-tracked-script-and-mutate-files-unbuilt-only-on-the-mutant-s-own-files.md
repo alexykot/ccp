@@ -158,4 +158,21 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 
 ## Implementation notes
 
+- `scripts/house_checks.py` holds E4's two programs (`e4-count --max N [FILE …]`, `e4-imports`) and E24's (`e24
+  --long-max N --exit-max N`), moved without changing what they count or print; one shared `parsed` reads and parses
+  each file and names one it cannot on stderr. `architect.checks` `E4` is 445 characters and `E24` one call; neither
+  embeds a program (`code-01` prints `0 445`). At the base, both scripts' figures match the old programs' (E4 446,
+  E24 10 over 30 lines).
+- E24's program used to stop on a file it could not parse; it now skips and names it as E4's do, with its own rule
+  id: `E24: skipped <file>: <error>` (the narrowest reading of "each skips … as now").
+- The unbuilt decision is `mutate.says_unbuilt(text, patterns, files)`, a plain function; `_says_unbuilt` reads the
+  run's log and passes the mutant's `files`. A pattern whose `path` group did not take part in the match counts as
+  naming no touched file.
+- The stderr lines come from `mutate.lines(body)`; `ccp/cli.py`'s `_toolkit` takes an optional `after` that prints
+  them after the JSON, used by `ccp mutate` alone.
+- `tests/test_self_hosting.py` runs the script (`house_check`); besides the ruled
+  `test_the_house_checks_name_their_figure_when_over`, `LongLiteralCount` gains
+  `test_the_docstring_counts_read_the_tracked_ccp_modules_and_skip_one_they_cannot_parse`, a scratch repo for E24's
+  two counts and its skip, which no test covered.
+
 ## Verification notes
