@@ -74,6 +74,10 @@ All reshape phases have landed.
   - `ar-20261124T205520Z-4ce8` F08: `ccp mutate`'s rows are `mutation` on the run record and `mutants` in its output
     and event, and no code reads the record's list. Trigger: the first reader of those rows (a verdict checked
     against them); it reads one name, `mutants`, with `mutation` as a deprecated alias (E9).
+  - T102 at triage `ar-20261124T205520Z-4ce8`: init's starter `citations` rule covers `docs/*.md`, so a product
+    doc that names its own stages `S1`, `S2` reads as SPEC citations. A product fixes it with
+    `package_docs.rules.citations.ignore` (§21.6). Trigger: a second product hits it; then the starter globs leave
+    out the planning doc, or the rule gains a per-file exclude.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).
