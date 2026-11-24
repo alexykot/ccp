@@ -1623,7 +1623,7 @@ tasks:
     depends_on: []
     path: tasks/0329-tests-edit-plane-json-through-one-helper-name-the-plane-root-once-and-take-git-from-its-own-module.md
   - id: 0330-docs-cli-rows-give-call-syntax-not-spec-rules-the-reviewer-brief-leaves-the-prompt-s-rule-to-it-and-the-scripts-doc-follows-e7
-    status: pending
+    status: done
     title: The docs/cli rows give call syntax, who calls it, one clause of purpose and the §, not the SPEC's rules or exit codes, and E25 checks it; the reviewer brief leaves the Spec-beyond-intent instruction to the review prompt; the scripts package doc follows E7
     depends_on: []
     path: tasks/0330-docs-cli-rows-give-call-syntax-not-spec-rules-the-reviewer-brief-leaves-the-prompt-s-rule-to-it-and-the-scripts-doc-follows-e7.md

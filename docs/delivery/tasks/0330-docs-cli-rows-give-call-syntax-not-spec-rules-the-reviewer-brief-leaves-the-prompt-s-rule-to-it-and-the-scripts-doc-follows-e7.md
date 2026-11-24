@@ -1,7 +1,7 @@
 ---
 task_id: 0330-docs-cli-rows-give-call-syntax-not-spec-rules-the-reviewer-brief-leaves-the-prompt-s-rule-to-it-and-the-scripts-doc-follows-e7
 title: The docs/cli rows give call syntax, who calls it, one clause of purpose and the §, not the SPEC's rules or exit codes, and E25 checks it; the reviewer brief leaves the Spec-beyond-intent instruction to the review prompt; the scripts package doc follows E7
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E25", "E13", "E7", "E26"]
@@ -132,3 +132,5 @@ Measured at `db68df5b`:
 - The `ccp init` row now says "(the operator)", as round 1's notes claimed (README step 2, §4.5).
 - Clauses no cited § states stay in their rows, shortened, instead of being cut: `ccp otel status` ("reports the counts and checks the user settings"), `ccp pr open` ("prints its number"), `ccp pr view` ("`--json` gives one object"), `ccp tasks estimate show` ("latest of each source"). They are named under the report's follow-ups as SPEC gaps.
 - The `ccp forecast` row cites §26.5 as well as §26.4, where the allowance projection is.
+- 2026-11-24 — verifier, PR #402 head `eb24982` (squash `f62d016`): APPROVE. Passed: code-01, doc-01, doc-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0330-docs-cli-rows-give-call-syntax-not-spec-rules-the-reviewer-brief-leaves-the-prompt-s-rule-to-it-and-the-scripts-doc-follows-e7.json.
+
