@@ -100,4 +100,14 @@ printed `False`; `grep -c 'no module touched, no pack count' ccp/suite.py` print
 
 ## Implementation notes
 
+- `AffectedReader` (`ccp/doclang/__init__.py`) is a `typing.Protocol` whose `__call__` takes `(root, changed, files,
+  *, named=None)`; its docstring, in place of the old comment, names `named`. The Python pack's `affected` already
+  matches it; nothing else changed type.
+- `suite_lanes` (`ccp/prompt.py`) appends `, or `ccp suite run --affected`, which runs it as declared` to the part
+  role's lane when plane.json declares it and it is not an argv (so: stages); the argv branch is unchanged, and an
+  undeclared part lane, or a declared lane of another role, gets no tail. The docstring says so.
+- `test_a_staged_part_lane_names_suite_run_affected` (`DeclaredPartLane`) asserts the token in the implement and
+  review Lanes lines, once in the verify line (a staged gate lane gets no tail), and not for an undeclared part lane.
+- The `affected_modules` docstring and §13.5's Fail fast bullet carry the ruled and signed text.
+
 ## Verification notes
