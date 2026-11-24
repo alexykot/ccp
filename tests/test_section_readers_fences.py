@@ -31,9 +31,8 @@ class SectionReadersFences(unittest.TestCase):
         self.assertIn(f"## Scope\n\n{fenced}\nScope tail.\n\n{VERIFY}\n", out)
 
     def test_the_estimators_text_keeps_a_fenced_notes_heading_and_drops_the_real_notes(self):
-        s = estimate.strip_notes(f"## Scope\n\n{FENCE}\n{IMPL}\n{FENCE}\n\nScope tail.\n\n## dod_checks\n\n- id: x\n\n"
-                                 f"{IMPL}\n\nIMPL\n\n{VERIFY}\n\nVER\n")
-        self.assertEqual(s, f"## Scope\n\n{FENCE}\n{IMPL}\n{FENCE}\n\nScope tail.\n\n## dod_checks\n\n- id: x\n\n")
+        kept = f"## Scope\n\n{FENCE}\n{IMPL}\n{FENCE}\n\nScope tail.\n\n## dod_checks\n\n- id: x\n\n"
+        self.assertEqual(estimate.strip_notes(f"{kept}{IMPL}\n\nIMPL\n\n{VERIFY}\n\nVER\n"), kept)
         task = TASK.format(tid="0001-x", title="A task", status="pending", deps="", ver="*Append-only.*")
         task = task.replace("- **In:** it\n", f"- **In:** it\n\n{FENCE}\n{IMPL}\n{FENCE}\n", 1)
         real = task.rindex(IMPL) + len(IMPL)  # the real heading, after the fenced one
