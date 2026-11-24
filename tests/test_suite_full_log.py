@@ -69,6 +69,7 @@ class ClosedLog(unittest.TestCase):
         src_r, src_w = os.pipe()  # the command's output, still held open (a background child)
         out_r, out_w = os.pipe()  # where the pump copies it through
         src = os.fdopen(src_r, "rb", buffering=0)
+        self.addCleanup(src.close)  # cleanups run after the test, so after the pump has stopped
         pump = threading.Thread(target=suite._pump, args=(src, out_w, suite._Counter([]), tee), daemon=True)
         pump.start()
         os.write(src_w, b"one\n")

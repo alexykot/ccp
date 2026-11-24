@@ -30,6 +30,7 @@ SEAT_IDS = (RUNNER, VERIFIER, LEAD)  # §18.3
 # contracts' actor enums to the written values plus this.
 LEGACY_ACTORS = ("delivery-watchdog",)
 ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-session: §31.5 triage
+# architecture_review and docs_audit: the retired review kinds' types (§19.12), still read so an older ledger folds; nothing writes them (E9)
 REVIEW_EVENT_TYPES = ("architecture_review", "docs_audit", "architect")
 TEAM_EVENT_TYPES = ("gate", "runner")
 TOOLKIT_EVENT_TYPES = ("run", "review", "verify", "allowance", "plane", "suite", "prefer", "hold", "sign_off",
