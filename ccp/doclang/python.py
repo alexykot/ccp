@@ -142,11 +142,12 @@ def suite_size(root: Path, files: list[str]) -> int:
     return sum(1 for rel, _ in _test_files(files) if _read(root / rel) is not None)
 
 
-def affected(root: Path, changed: list[str], files: list[str]) -> list[str]:
+def affected(root: Path, changed: list[str], files: list[str], *, named: list[str] | None = None) -> list[str]:
     """The test modules a change touches (`files`: what git tracks or would track): each `test*.py` file git tracks or would track that changed itself, imports a
     changed module directly or through one package level (a package it imports whose `__init__.py`
-    imports it), or names a changed file's name in its text: a name with an extension, never a directory's
-    (an extension-less name such as `Makefile`, or `pkg`, would match nearly every test)."""
+    imports it), or names in its text the name of a file in `named` (default: all of `changed`): a name
+    with an extension, never a directory's (an extension-less name such as `Makefile`, or `pkg`, would
+    match nearly every test)."""
     changed_mods = {m for m in map(_py_module, changed) if m}
     packages = {m: rel for rel in files if rel.endswith("/__init__.py") and (m := _py_module(rel))}
     init_imports: dict[str, set[str]] = {}
@@ -156,7 +157,8 @@ def affected(root: Path, changed: list[str], files: list[str]) -> list[str]:
             init_imports[pkg] = _py_imports(_read(root / packages[pkg]) or "", pkg, True)
         return init_imports[pkg]
 
-    names = {Path(c).name for c in changed if Path(c).suffix and not (root / c).is_dir()}  # a file's name only
+    names = {Path(c).name for c in (changed if named is None else named)
+             if Path(c).suffix and not (root / c).is_dir()}  # a file's name only
     name_re = re.compile("|".join(rf"(?<![\w.-]){re.escape(n)}(?![\w-])" for n in sorted(names))) if names else None
     out, touched = set(), set(changed)
     for rel, mod in _test_files(files):

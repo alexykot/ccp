@@ -2024,16 +2024,25 @@ def _tracked_files(root: Path) -> list[str]:
     return _git_lines(root, "ls-files", "--cached", "--others", "--exclude-standard")
 
 
-def _mapped(amap: dict[str, list[str]], changed: list[str]) -> set[str]:
-    """§14.7: the test ids plane.json `suite.affected_map` gives the changed paths: every glob a path
-    matches (`fnmatch.fnmatchcase` on the root-relative path, so `*` crosses `/`) adds its ids."""
-    return {t for rel in changed for glob, ids in amap.items() if fnmatch.fnmatchcase(rel, glob) for t in ids}
+def _mapped(amap: dict[str, list[str]], changed: list[str]) -> tuple[set[str], list[str]]:
+    """§14.7: (the test ids plane.json `suite.affected_map` gives the changed paths, the changed paths no
+    glob matches): every glob a path matches (`fnmatch.fnmatchcase` on the root-relative path, so `*`
+    crosses `/`) adds its ids; the pack matches tests by name only for the paths no glob matches."""
+    ids: set[str] = set()
+    unmatched: list[str] = []
+    for rel in changed:
+        hits = [glob for glob in amap if fnmatch.fnmatchcase(rel, glob)]
+        ids.update(t for glob in hits for t in amap[glob])
+        if not hits:
+            unmatched.append(rel)
+    return ids, unmatched
 
 
 def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[list[str], list[str]]:
     """(the changed paths, the tests they touch): what the product's language pack reads
     (`language`, §8.1) and what plane.json
-    `suite.affected_map` maps them to, sorted, each once. A pack with no reader uses the map alone, and
+    `suite.affected_map` maps them to, sorted, each once. The pack reads every changed path but matches
+    tests by name only for the paths no glob matches. A pack with no reader uses the map alone, and
     with no map either it is refused."""
     pack = doclang.for_tests(cfg)
     reader = pack.affected
@@ -2046,8 +2055,9 @@ def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[l
     changed = changed_paths(cfg.root, since, paths)
     if not changed:
         return changed, []
-    found = set(reader(cfg.root, changed, _tracked_files(cfg.root))) if reader is not None else set()
-    return changed, sorted(found | _mapped(amap, changed))
+    mapped, unmatched = _mapped(amap, changed)
+    found = set(reader(cfg.root, changed, _tracked_files(cfg.root), named=unmatched)) if reader is not None else set()
+    return changed, sorted(found | mapped)
 
 
 def affected_modules(cfg: Config, since: str | None, paths: list[str] | None

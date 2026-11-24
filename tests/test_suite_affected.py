@@ -453,6 +453,18 @@ class AffectedMap(Scratch, unittest.TestCase):
         self.p.write("scripts/x.sh", "echo hi\n")
         self.assertEqual(self.affected(), ["tests.test_scripts"])
 
+    def test_a_path_the_map_matches_is_not_matched_by_name(self):
+        reads = ["tests.test_reads_conf"]
+        self.p.write("docs/delivery/plane.json", json.dumps(merged_plane({"language": "python", "suite": {
+            "affected_map": {"conf.json": reads, "pkg/*": reads, "tests/*": reads}}})))
+        self.p.write("conf.json", "{}\n")
+        self.p.write("tests/test_names_conf.py", 'import unittest\nFILES = ["conf.json", "pkg/a.py"]\n')
+        self.p.write("tests/test_imports_a.py", "import unittest\nimport pkg.a\n")
+        self.assertEqual(self.affected("--paths", "conf.json"), reads)
+        # tests.test_a is the scratch product's own importer of pkg.a
+        self.assertEqual(self.affected("--paths", "pkg/a.py"), ["tests.test_a", "tests.test_imports_a", *reads])
+        self.assertEqual(self.affected("--paths", "tests/test_names_conf.py"), ["tests.test_names_conf", *reads])
+
 
 class AffectedMapConfig(unittest.TestCase):
     def test_a_map_of_another_shape_fails_the_load_naming_the_key(self):
