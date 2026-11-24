@@ -124,4 +124,18 @@ Measured at `bb102371`:
 
 ## Implementation notes
 
+- `templates/prompts/review.md`: the full review's affected-run line drops its mutation clause, and the resolution
+  line reads "Run any test you need through `{{ccp}} suite run` with `--lane {{part_lane}}`."; the uncached line stays.
+- New test `test_the_review_prompt_routes_mutation_checks_through_mutate_only`: the full review through `ccp prompt`,
+  the resolution review as its template and `_common.md` render together (opening one needs a conflicted merge). It
+  looks for lines holding `mutation run` and `suite run`, not `mutation` alone: `_common.md`'s evidence line ("a
+  mutation check included, is a recorded one: the `suite run` command above, or … `mutate`") holds `mutation` and
+  `suite run` in every rendered prompt, and `_common.md` is out of scope.
+- The 35 long-literal assertions of the three prompt-text modules (18, 9 and 8; the Context's 34 was measured before
+  later merges) pin a token each, or several; `--lane <part_lane> --cold` in `test_worker_efficiency` now pins
+  `--cold` on the affected run, its one remaining place. E4's figure: 483 to 448, the count at this head.
+- `tests/test_suite.py`: the review row of `test_the_mutation_runs_name_the_part_roles_lane` goes; the verify row
+  stays as it was.
+- `plugin/skills/writing-tasks/SKILL.md`: the two bullets, worded as ruled.
+
 ## Verification notes
