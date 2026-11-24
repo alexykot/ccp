@@ -36,8 +36,9 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 - **The fan-in.** `wc -l < tests/helpers.py`: 470. An AST read of every `from tests.helpers import …` in `tests/*.py`
   (`python3 -B` over `ast.walk`, the probe in the triage record): 184 modules import it; `Product` 105, `PLANE_ROOT` 65,
   `TASK` 33, `binding` 26. `CCP_DEV=1 ./bin/ccp suite affected --paths tests/helpers.py 2>/dev/null | wc -l`: 171.
-  Under the split below, the same read gives 28 importers of the report helpers, 16 of the ledger helpers, 8 of the
-  git helpers and 5 of the render helpers.
+  Under the split below, the same read gives 28 importers of the report helpers, 16 of the ledger helpers and 5 of
+  the render helpers. Report helpers' transitive fan-in (what code-01 counts) is 36 by the triage review's import-graph
+  read, against code-01's limit of 40.
 - **The git runners.** `tests/helpers.py` has `git_run` (any command with `GIT_ENV`, a `CompletedProcess`),
   `release_git` (stripped, asserting exit 0), `repo_git` and `health_git` (output as written, `check=True`).
   `git grep -nE '^def git\(' -- tests` at `9691fd9c`: 6 module-level runners, in `tests/architect_fixture.py`,
@@ -52,6 +53,8 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
     `health_commit`) and `HEALTH_T0`. `release_git`, `repo_git` and `health_git` go: their importers call `git`
     (`raw=True` where they used `repo_git` or `health_git` and read the output as written). The six module-level
     `def git(` runners above go; those modules import `git` from `tests.git_helpers`.
+  - The shared runner passes `GIT_ENV`, which sets `GIT_CONFIG_GLOBAL=/dev/null`, so the converted runners become
+    hermetic: a test that relied on the operator's global git config sets what it needs explicitly (`env=`).
   - `tests/ledger_helpers.py` (new): `ledger_event`, `spawn_event`, `lease_event`, `suite_started`, `suite_ended`,
     `SUITE_RUN_ID`, `good_then_failed`, `api_request`, `advice_row`, `ADVICE_SPANS`, `FoldRuns`.
   - `tests/report_helpers.py` (new): `done_sections`, `done_report`, `implement_report`, `REPORT_HEAD`,

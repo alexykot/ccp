@@ -63,6 +63,9 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
   `/tmp/x/tasks: missing` (then `../x/tasks: missing`) with the §29.3 constant warning, exit 1. `task_log.reviews_dir`
   is refused at load when it starts with `/` or has a `..` part (`"def _toolkit"`). No bound product's plane.json sets
   `task_log.dir` (read from each binding's product on this machine).
+- **The harm.** The same product with `"task_log": {"dir": "<scratch>/elsewhere/tasks"}` (an absolute path outside it):
+  `tasks index` printed `wrote <scratch>/elsewhere/tasks/INDEX.yaml`, exit 0: the index is written outside the
+  product, where no commit carries it.
 - **Ruled.**
   - `ccp/tasklog.py` gains `section_span(text, name) -> tuple[int, int, int] | None`: the offsets in `text` of the
     heading line's start, the body's start (right after the heading's name and trailing blanks, before any `\r`, as

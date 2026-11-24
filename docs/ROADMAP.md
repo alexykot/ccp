@@ -65,9 +65,14 @@ All reshape phases have landed.
     share `lib.py` with it. F17 states the direction it lands on in those four places.
     Architect pass `ar-20261124T034246Z-e089` (F04) found the trigger met and untasked; its triage, at the
     five-task cap, sets a new one: tasked once 0323 (the package docs on lib.py and the queue-write route) and 0324
-    (the test helpers that import lib) are done. The move also folds the architect report's and triage's
-    hand-written validators into `ccp/schema.py` against their contracts (`ar-20261124T034246Z-e089` F06), since it
-    brings `architecture_review.py` into `ccp`.
+    (the test helpers that import lib) are done.
+  - `ar-20261124T034246Z-e089` F06, deferred at that triage's five-task cap: `ccp architect triage` validates a
+    triage against `contracts/architecture_review_triage.schema.json` through `ccp/schema.py`, and a test compares
+    `DISPOSITIONS` and `RULE_DISPOSITIONS` with the schema's enums. Tasked with the next architect pass's fixes.
+  - Found applying E17 at that triage: `ccp/otel.py` (three `bindings_dir() / f"{pid}.yaml"` reads) and
+    `scripts/sync-product-docs.sh` read a binding by path and ignore `PROJECT_YAML`. Routing them through lib's
+    resolver changes which file is read when it is set, so it is a feature, not a refactor; tasked with the next
+    architect pass's fixes.
 - **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
   - F12: the plane's own `pregate` lane: taken up by task 0285 (R25), after architect pass
     `ar-20261122T055103Z-11aa` (F07) found it still undeclared.
