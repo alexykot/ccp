@@ -304,6 +304,16 @@ class Gates(unittest.TestCase):
         self.assertIn("channel: the lead sends it with mail-send to operator@example.invalid", r.stderr)
         self.assertIn(f"ccp notify sent decision --task 0001-a --id {eid} --via lead", r.stderr)
 
+    def test_an_unreadable_plane_json_warns_and_the_notice_is_still_recorded(self):
+        eid = json.loads(self.run_script("gate", "open", "--task-id", "0001-a", "--class", "spend",
+                                         "--brief", "a paid cycle").stdout)["escalation_id"]
+        self.prod.write("docs/delivery/plane.json", "{not json")
+        r = self.run_script("gate", "ask-operator", eid)
+        self.assertIn("could not read", " ".join(json.loads(r.stdout).get("warnings", [])))
+        evs = [json.loads(x) for x in (self.q / "observability/events.jsonl").read_text().splitlines()]
+        got = [(e["payload"]["trigger"], e["payload"]["task"], e["payload"]["id"]) for e in evs if e["type"] == "notify"]
+        self.assertEqual(got, [("decision", "0001-a", eid)])
+
     def test_a_needs_operator_answer_records_one_pending_decision(self):
         r = subprocess.run(["bash", str(PLANE / "scripts/spec-maintainer-ask.sh"), "raise", "--raised-by", lib.RUNNER,
                             "--task-id", "0001-a", "--text", "Which?", "--inconsistency", "task vs SPEC",
