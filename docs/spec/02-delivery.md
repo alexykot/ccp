@@ -891,7 +891,9 @@ slower than the full lane. A declared part lane, and a product that maps tests w
   `.gitignore` has none) and is not a directory matches tests by name.
 - **A product's map.** plane.json `suite.affected_map` maps globs to test ids: each changed path is
   matched against every glob (`fnmatch.fnmatchcase` on the root-relative path, so `*` crosses `/`),
-  and the ids of each match are added to what the pack reads; the list stays sorted, each id once.
+  and the ids of each match are added to what the pack reads. The pack does not match tests by the
+  name of a changed path that a glob matches; a changed test module still counts for itself and a
+  changed module's importers are still found. The list stays sorted, each id once.
 - With nothing changed, or no test touched, it prints nothing, says so on stderr and exits 0. A ref
   git cannot read, or a path outside the root, exits 2.
 

@@ -122,7 +122,13 @@
     },
     "exclusive_lanes": [
       "gate"
-    ]
+    ],
+    "affected_map": {
+      "docs/delivery/plane.json": [
+        "tests.test_doclang_test_facts",
+        "tests.test_self_hosting"
+      ]
+    }
   },
   "auth_check": {
     "probes": [
