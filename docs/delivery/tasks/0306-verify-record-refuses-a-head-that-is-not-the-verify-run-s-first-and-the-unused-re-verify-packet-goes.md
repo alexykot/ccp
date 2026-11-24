@@ -110,6 +110,13 @@ From architect pass `ar-20261122T162238Z-9098`, F07 (`incoherence`) and F04 (`ho
   test record at the run's head (`A`, with the fix or ruling to `B` after it), so the `since` refusal still
   fires. The head-the-review-did-not-judge test opens no verify run, the one way `record` reaches that refusal
   now. No expectation changed.
+- The full gate showed four more of these. `tests/test_suite.py`'s earlier-round gate test now records at
+  verify-2's head (`b`). `tests/test_sign_off.py`'s stale-sign-off test now opens its second verify round with
+  `--supersede` and asserts that it opened; before, it was refused and the verdict went onto the first run.
+  `tests/test_review_skip.py`'s proven-head test and `tests/test_review_skip_clean.py`'s run-head test hold an
+  approve of another head. `record` now refuses that approve as a head mismatch, and both tests assert that
+  refusal. They also call `verify.review_errors` on the same record, so its skip exemptions' head comparison is
+  still tested.
 - Premises re-measured at `bb102371`: the packet grep still printed 10 lines plus `2`, and `latest_open` still
   had 3 lines in `ccp/verify.py`.
 

@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import config
+from ccp import config, verify
 from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, ReviewFlow, SkipFlow
 from tests.toolkit_fixture import PLANE, ToolkitFixture
 
@@ -177,8 +177,10 @@ class SkipAfterClean(Rounds, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         code, _, out, err = self.verdict(C)
         self.assertEqual(code, 1, out + err)
-        self.assertIn("skip_review_after_clean", err)
+        self.assertIn(f"head_sha {C[:12]} is not {B[:12]}", err)  # §15.4: the run's head, checked first
         self.assertFalse((self.q / "verification/0002-second.json").exists())
+        rec = {"task_id": "0002-second", "verdict": "approve", "head_sha": C}
+        self.assertIn("skip_review_after_clean", "".join(verify.review_errors(self.q, rec)))
 
     def test_a_verify_with_no_skip_has_no_minor_only_section(self):
         self.review()

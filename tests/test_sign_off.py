@@ -71,7 +71,9 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         git(wt, "commit", "-q", "-am", "Task 0002: fix it")
         git(wt, "push", "-q", "origin", "task/0002-second")
         head_b = git(wt, "rev-parse", "HEAD")
-        self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head_b, "--note", "the new head")
+        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head_b, "--note", "the new head",
+                                     "--supersede")
+        self.assertEqual(code, 0, out + err)
         self.verify_at(head_b, "verdict-b.json")
         code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)

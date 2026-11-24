@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import config
+from ccp import config, verify
 from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, SkipFlow
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
@@ -190,7 +190,9 @@ class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):
         later = self.fix(text="check it  # comment fixed again\n")  # pushed while the verifier ran
         code, _, out, err = self.verdict(later)
         self.assertEqual(code, 1, out + err)
-        self.assertIn("or verify.skip_review proved this head's fix", err)
+        self.assertIn(f"head_sha {later[:12]} is not {head[:12]}", err)  # §15.4: the run's head, checked first
+        rec = {"task_id": "0002-second", "verdict": "approve", "head_sha": later}
+        self.assertIn("or verify.skip_review proved this head's fix", "".join(verify.review_errors(self.q, rec)))
 
 
     def test_an_override_is_taken_as_given_and_runs_no_proof(self):
