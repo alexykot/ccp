@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp.queue import lib
+from ccp.queue import OBS, lib
 
 WRITES = 300  # each writer's writes: enough that two writers with one temporary name collide
 
@@ -60,8 +60,7 @@ class AtomicWriteTest(unittest.TestCase):
         self.assertIn(json.loads(self.path.read_text())["by"], ("a", "b"))
         self.assertEqual(sorted(self.dir.iterdir()), [self.path])
 
-        obs = str(Path(lib.__file__).resolve().parent)
-        procs = [subprocess.Popen([sys.executable, "-B", "-c", WRITER, obs, str(self.path), tag, str(WRITES)],
+        procs = [subprocess.Popen([sys.executable, "-B", "-c", WRITER, str(OBS), str(self.path), tag, str(WRITES)],
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for tag in ("c", "d")]
         for p in procs:
             out, err = p.communicate(timeout=120)
