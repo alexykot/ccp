@@ -52,6 +52,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
                             ("verify", ("--pr", "7", "--head", A))):
             _run_id, text = self.render(phase, *args)
             self.assertIn("tasks dry-run 0002-second --check", text, phase)
+            self.assertIn("--check <check id> --here", text, phase)
             self.assertIn("docs check --only", text, phase)
 
     def test_the_verifier_is_told_the_flag_that_runs_the_prs_own_hooks(self):
