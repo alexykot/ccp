@@ -1618,7 +1618,7 @@ tasks:
     depends_on: []
     path: tasks/0328-the-fail-fast-rule-and-the-worker-prompt-name-suite-run-affected-for-a-staged-part-lane.md
   - id: 0329-tests-edit-plane-json-through-one-helper-name-the-plane-root-once-and-take-git-from-its-own-module
-    status: pending
+    status: done
     title: Tests edit the fixture's plane.json through one ToolkitFixture helper, name the plane root only as PLANE_ROOT, take the git runner from tests.git_helpers, pin the house-check import rule's package condition, and drop the retirement guards with no reader left; tests/CLAUDE.md names each helper module's concern, not its inventory
     depends_on: []
     path: tasks/0329-tests-edit-plane-json-through-one-helper-name-the-plane-root-once-and-take-git-from-its-own-module.md

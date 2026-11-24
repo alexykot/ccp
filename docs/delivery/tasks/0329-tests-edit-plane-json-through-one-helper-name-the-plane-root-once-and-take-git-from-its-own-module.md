@@ -1,7 +1,7 @@
 ---
 task_id: 0329-tests-edit-plane-json-through-one-helper-name-the-plane-root-once-and-take-git-from-its-own-module
 title: Tests edit the fixture's plane.json through one ToolkitFixture helper, name the plane root only as PLANE_ROOT, take the git runner from tests.git_helpers, pin the house-check import rule's package condition, and drop the retirement guards with no reader left; tests/CLAUDE.md names each helper module's concern, not its inventory
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E4"]
@@ -167,3 +167,5 @@ Measured at `cd3a6bf5`:
   move from `tests/CLAUDE.md` had dropped. E4's column-0 anchors are left as the task gives them (reported as a follow-up).
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #398 head `5ebfe89` (squash `1706f4b`): APPROVE. Passed: code-01, code-02, code-03, code-04, code-05, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0329-tests-edit-plane-json-through-one-helper-name-the-plane-root-once-and-take-git-from-its-own-module.json.
+
