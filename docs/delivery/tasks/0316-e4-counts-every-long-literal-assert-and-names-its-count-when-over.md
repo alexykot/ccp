@@ -102,5 +102,6 @@ Measured at `bb102371`:
 - Figure: `figure = 482`, the count at this head (the task measured 481 at `bb102371`; 0309 landed since and added one). The new test adds no counted assert.
 - The test also runs a `+` concatenation (1 counted) besides the four forms the task names; `e4_part(marker)` in `tests/test_self_hosting.py` is the shared extraction, `e4_import_check` calls it.
 - `cfg-02` was run by hand (its step is not one backticked command): `E4 long-literal asserts: 483 > 482`, exit 1.
+- Fix round 1 (review MINOR 1-4, all in `tests/test_self_hosting.py`; the plane.json program and the figure 482 are unchanged): the scratch source of `test_the_long_literal_count_reads_every_assert_form_and_names_its_figure` now also holds a non-assert call with a 50-character literal (not counted), a long `msg=` keyword argument (counted), a 39-character `assertIn` literal (not counted) and an implicit concatenation of exactly 40 characters (counted); it counts 5 (figures 4 and 5). A new test, `test_the_long_literal_count_skips_a_file_it_cannot_parse`, passes a second file with a syntax error and expects the `E4: skipped <path>: ` line on stderr and exit 0. Recorded mutants killed: keywords dropped, no `assert` name filter, threshold 41 and 45, the skip line moved to stdout.
 
 ## Verification notes
