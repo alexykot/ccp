@@ -85,6 +85,7 @@ class TestModulesImportNoTestModule(unittest.TestCase):
             (repo / "tests" / "test_a.py").write_text("x = 1\n")
             (repo / "tests" / "test_b.py").write_text("def (\n")
             (repo / "tests" / "test_c.py").write_text("x = 1\n")
+            (repo / "tests" / "test_d.py").write_bytes(b"\xff\xfe x")  # not UTF-8
             subprocess.run(["git", "init", "-q", str(repo)], check=True)
             subprocess.run(["git", "-C", str(repo), "add", "tests"], check=True)
             (repo / "tests" / "test_a.py").unlink()  # tracked, gone from the working tree
@@ -92,6 +93,7 @@ class TestModulesImportNoTestModule(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertIn("E4: skipped tests/test_a.py: ", r.stderr)
             self.assertIn("E4: skipped tests/test_b.py: ", r.stderr)
+            self.assertIn("E4: skipped tests/test_d.py: ", r.stderr)
             self.assertNotIn("Traceback", r.stderr)
             (repo / "tests" / "test_c.py").write_text("from tests import test_x\n")
             r = self.check(repo)
@@ -99,6 +101,7 @@ class TestModulesImportNoTestModule(unittest.TestCase):
             self.assertIn("tests/test_c.py:1", r.stdout)
             self.assertIn("E4: skipped tests/test_a.py: ", r.stderr)
             self.assertIn("E4: skipped tests/test_b.py: ", r.stderr)
+            self.assertIn("E4: skipped tests/test_d.py: ", r.stderr)
 
 
 if __name__ == "__main__":
