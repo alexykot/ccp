@@ -97,4 +97,16 @@ Measured at `bb102371`, with `git ls-files 'ccp/*.py' | python3 -c '…'` over e
 
 ## Implementation notes
 
+- Premises re-measured at `261e7ef7`: the same figures as at `bb102371` (7 modules with an exit statement, 15 over
+  30 lines, the four refusal counts, no `project.example` file).
+- The seven module docstrings now name their § and what the module is for. Cut as SPEC-held: every exit code,
+  refusal list and `--mutant-file`/`check:` grammar. Moved, as facts the SPEC does not hold, to function
+  docstrings: `ccp/suite.py` `run` (a command after `--` runs from the current directory; a run that records
+  nothing takes no lock) and `_run_stage` (the watchdog); `ccp/mutate.py` `together` (its files and digest) and
+  `_test` (`PYTHONDONTWRITEBYTECODE`); `ccp/report.py` `submit` (what a correction rewrites and what it leaves);
+  `ccp/init.py` `init` (the refusals §4.5 does not list); `ccp/rules.py` `rule_blocks` (a `docs` check's trailing
+  description). The sandbox's moved facts were already in `seal`, `remove` and the `REFUSED` comment.
+- `ccp/architect.py` loses only its exit-code sentence (now a § pointer) and stays over 30 lines (32), so the
+  over-30 count is 11: E24 holds `long_max = 11` and `exit_max = 0`.
+
 ## Verification notes
