@@ -1,7 +1,7 @@
 ---
 task_id: 0323-the-package-docs-name-lib-py-s-roles-the-architect-writes-its-queue-files-atomically-and-queue-goes
 title: The observability package doc names lib.py as the one binding reader and the seat table, ccp's conventions name the atomic write as it is, the architect writes its report and failure text into the queue atomically, and the tracked queue directory goes
-status: pending
+status: done
 kind: refactor
 depends_on: []
 review_refs: ["ar-20261124T034246Z-e089#F08", "ar-20261124T034246Z-e089#F09", "ar-20261124T034246Z-e089#F12"]
@@ -91,4 +91,18 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 
 ## Implementation notes
 
+- Premises re-measured at `8d016bea`: unchanged (`read_binding|SEAT_IDS` absent from the observability doc, 7 files
+  call `write_atomic`, 2 `write_text` lines in `ccp/architect.py`, `queue/README.md` the only tracked file under `queue`).
+- `scripts/observability/CLAUDE.md`: the first paragraph now names `read_binding` (with `binding_path`,
+  `product_binding`, `binding_data`, `read_machine`) and the seat table (`RUNNER`, `VERIFIER`, `LEAD`, `SEAT_IDS`),
+  citing E17 and E27.
+- `ccp/CLAUDE.md`: the queue-write convention is the ruled sentence.
+- `ccp/architect.py`: both queue writes are `write_atomic` (imported from `lib`) with the same text. `write_text`
+  used the locale's default encoding, `write_atomic` writes UTF-8: the text is the same, the encoding is now fixed.
+- `queue/README.md` removed. The grep for references missed `templates/`: `templates/docs-delivery/README.md` still pointed at it.
+- Fix round 1: that pointer now reads `(SPEC §23.7)`, where the deleted README sent readers; the `ccp/CLAUDE.md`
+  convention's second sentence is on its own line (review NIT).
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #386 head `8c9c39e` (squash `b0b0591`): APPROVE. Passed: doc-01, doc-02, code-01, doc-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0323-the-package-docs-name-lib-py-s-roles-the-architect-writes-its-queue-files-atomically-and-queue-goes.json.
+

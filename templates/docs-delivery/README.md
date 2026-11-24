@@ -8,7 +8,7 @@ and notes stay in history. It sits beside `docs/PROJECT.md` and `docs/SPEC.md` (
 which the lead (the design seat) owns, with the operator for PROJECT.
 
 Runtime state (leases, runs, waits, questions, credential status) lives in the queue,
-`.delivery-queue/<project_id>/`, outside the product's git (see `queue/README.md`). Never put it in
+`.delivery-queue/<project_id>/`, outside the product's git (SPEC §23.7). Never put it in
 the task log.
 
 ## Files
