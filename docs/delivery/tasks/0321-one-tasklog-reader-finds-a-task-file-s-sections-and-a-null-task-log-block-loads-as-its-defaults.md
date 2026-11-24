@@ -1,7 +1,7 @@
 ---
 task_id: 0321-one-tasklog-reader-finds-a-task-file-s-sections-and-a-null-task-log-block-loads-as-its-defaults
 title: One public tasklog reader finds a task file's sections, close and the estimator call it and E22 checks it; the Context number scan blanks fences through unfence; a null task_log block loads as its defaults and an absolute or .. task_log.dir is refused at load
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S8", "S20"]
@@ -166,3 +166,5 @@ Measured at `9691fd9c` (origin/main after 0317's reconcile):
 - E22's text and `architect.checks` `E22` are the Context's, word for word; `docs/ENGINEERING.md` stays at 150 lines.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #387 head `d72cda8` (squash `b2c2149`): APPROVE. Passed: code-01, code-02, code-03, cmd-01, cmd-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0321-one-tasklog-reader-finds-a-task-file-s-sections-and-a-null-task-log-block-loads-as-its-defaults.json.
+
