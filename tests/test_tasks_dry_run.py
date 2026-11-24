@@ -21,6 +21,7 @@ CHECKS = """- id: `cmd-01`
   story: As a writer, my check's command runs.
   steps:
     1. Run `echo one`.
+    2. Run `cat <your run>`.
   expect: prints one.
 
 - id: `cmd-02`
@@ -194,6 +195,7 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         lines = out.splitlines()
         first, second = lines.index("  cmd-01:"), lines.index("  cmd-02:")
         self.assertIn("exited 0, 1 line, first: `one`", lines[first + 1])
+        self.assertIn(dryrun.NOT_RUN, lines[first + 2])  # a placeholder step: --write's record is step 1's alone
         self.assertIn(dryrun.NOT_RUN, lines[second + 1])
         self.assertIn(git(self.main, "rev-parse", "--short=7", "origin/main"), lines[0])
 
@@ -233,7 +235,7 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         rel = "docs/delivery/tasks/0002-second.md"
         self.write(rel, with_checks((self.main / rel).read_text(), CHECKS + (
             "\n- id: `cmd-09`\n  story: s.\n  steps:\n    1. Run `echo a 2>&1 >/dev/null; echo \"$0\"`.\n"
-            "    2. Run `git rev-parse HEAD`.\n  expect: e.\n")))
+            "    2. Run `git rev-parse HEAD`.\n    3. Run `cat <your run>`.\n  expect: e.\n")))
         git(self.main, "commit", "-qam", "0002's own check, not pushed")
         head, before = git(self.main, "rev-parse", "HEAD"), (self.main / rel).read_text()
         worktrees = git(self.main, "worktree", "list")
@@ -245,6 +247,7 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         self.assertIn("exited 0, 1 line, first: `bash`", lines[2])
         self.assertEqual(lines[3].strip(), "bash")  # --here: the step's whole output, under its line
         self.assertIn(f"first: `{head}`", lines[4])
+        self.assertIn(dryrun.NOT_RUN, lines[6])
         self.assertNotEqual(head, git(self.main, "rev-parse", "origin/main"))
         self.assertEqual((self.main / rel).read_text(), before)
         self.assertEqual(git(self.main, "worktree", "list"), worktrees)
