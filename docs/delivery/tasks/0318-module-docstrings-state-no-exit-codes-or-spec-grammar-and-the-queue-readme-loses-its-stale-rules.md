@@ -56,6 +56,22 @@ Measured at `bb102371`, with `git ls-files 'ccp/*.py' | python3 -c '…'` over e
   `## Rules` heading and table; nothing else in it changes.
 - **No SPEC change**: the build cuts copies and writes no SPEC or docs/cli text.
 
+### Ruling 0318-module-docstrings-state-no-exit-codes-or-spec-grammar-and-the-queue-readme-loses-its-stale-rules-r1
+
+As the runner passed it (lead, 2026-11-24, spec question `sm-20261124T012740Z-c6bd`):
+
+> Option (a): cut the §19.6 restatements in ccp/architect.py's module docstring (the two sentences on the failed-pass
+> grace restart and the two-failed-passes rule; keep the §19.6 pointer), and set E24's long_max to the count measured
+> at the build's head (10 if architect.py drops under 30). No check needs amending: read the brief at the task branch's
+> merge base (it is on main after the #372 review fix): cfg-01 expects `long_max = <n>` with n from doc-01, and doc-01
+> expects at most 11. If your task file copy differs, merge origin/main in first.
+>
+> Also fix review round 1's MINOR 1 and NIT: (MINOR 1) ccp/init.py module docstring: do not credit §4.5 with every
+> warning; name §25.1 for the missing allowance_cmd warning and §31.3 for the queue-leftovers warning, and add one
+> clause to `init`'s docstring that it warns of task files with no frontmatter (`ccp tasks migrate`), a fact no § holds.
+> (NIT) name the two knobs `grace_tasks` and `triage_grace_tasks` in `gate()`'s docstring in ccp/architect.py.
+> Behaviour must stay unchanged.
+
 ## Scope
 
 - **In:** the module docstrings of `ccp/suite.py`, `ccp/mutate.py`, `ccp/report.py`, `ccp/init.py`, `ccp/sandbox.py`,
@@ -108,5 +124,11 @@ Measured at `bb102371`, with `git ls-files 'ccp/*.py' | python3 -c '…'` over e
   description). The sandbox's moved facts were already in `seal`, `remove` and the `REFUSED` comment.
 - `ccp/architect.py` loses only its exit-code sentence (now a § pointer) and stays over 30 lines (32), so the
   over-30 count is 11: E24 holds `long_max = 11` and `exit_max = 0`.
+- Fix round 1 (the lead's ruling r1, in Context): `ccp/architect.py`'s module docstring loses the two §19.6 sentences on
+  the failed-pass grace restart and the two-failed-passes rule (the § pointer stays) and drops under 30 lines, so the
+  over-30 count measured at the head is 10 and E24 holds `long_max = 10`. `gate()`'s docstring names the knobs
+  `grace_tasks` and `triage_grace_tasks`. `ccp/init.py`'s module docstring credits §25.1 with the missing
+  `allowance_cmd` warning and §31.3 with the queue-leftovers warning, and `init`'s docstring says it warns of task
+  files with no frontmatter (`ccp tasks migrate`). Docstrings and the one figure only; no code changed.
 
 ## Verification notes

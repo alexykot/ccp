@@ -1,9 +1,10 @@
 """`ccp init`: adopt a product with one command (SPEC §4.3, §4.5, §8.3).
 
 The call syntax is in `docs/cli`. What it writes, keeps, warns of and records, and its `--permissions` and
-`--rules-doc` steps, are §4.5's; the binding, the one source of truth every reader resolves through
-`lib.binding_path`, is §8.3's; the telemetry consent and the keys it writes are §4.5's and §24.1's; adopting
-inside a sandbox (`ccp sandbox`) is §29.3's. `init` adopts the product and `main` prints its result.
+`--rules-doc` steps, are §4.5's, except the missing `allowance_cmd` warning (§25.1's) and the queue-leftovers
+warning (§31.3's); the binding, the one source of truth every reader resolves through `lib.binding_path`, is
+§8.3's; the telemetry consent and the keys it writes are §4.5's and §24.1's; adopting inside a sandbox
+(`ccp sandbox`) is §29.3's. `init` adopts the product and `main` prints its result.
 """
 from __future__ import annotations
 
@@ -261,9 +262,10 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
          gate: str | None, force: bool, starter_rules: bool = True, language: str | None = None,
          telemetry: str | None = None) -> dict[str, Any]:
     """Adopt the product at `root`; returns what was written, merged and kept. Raises QueueError
-    (nothing written) on a refusal. Besides §4.5's, it refuses a blank `--gate` or one `shlex` cannot split, a
-    `--language` that names no pack and is not `none`, a product root or queue path holding `#` (the binding
-    reader cuts a value at ` #` as a comment), and, inside a sandbox, `--telemetry on` (§29.3)."""
+    (nothing written) on a refusal. It warns of task files with no frontmatter (`ccp tasks migrate`). Besides
+    §4.5's, it refuses a blank `--gate` or one `shlex` cannot split, a `--language` that names no pack and is
+    not `none`, a product root or queue path holding `#` (the binding reader cuts a value at ` #` as a
+    comment), and, inside a sandbox, `--telemetry on` (§29.3)."""
     if gate is not None and not gate.strip():  # §4.5: refused before anything is written
         raise QueueError("ccp init: --gate is blank: give the gate lane's command, or leave --gate out", 2)
     from ccp import doclang  # noqa: PLC0415
