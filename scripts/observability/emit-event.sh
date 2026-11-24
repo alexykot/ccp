@@ -36,8 +36,6 @@ Env:
 Examples:
   emit-event.sh --type phase --op transition --task-id ex-0001 \
     --payload '{"from":"leased","to":"implementing"}'
-  emit-event.sh --type seat --op heartbeat --actor task-verifier \
-    --payload '{"seat_id":"task-verifier","wake_kind":"priority","action_summary":"tick"}'
 EOF
 }
 

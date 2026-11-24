@@ -1,5 +1,6 @@
-"""The prompt audit (SPEC §23.8): ids, refs, the prompt's hash and length by default; the full text
-only under `prompts.keep_body`; audits older than `prompts.audit_keep_days` pruned by `ccp prompt`."""
+"""The prompt audit (SPEC §23.8): ids, refs, the prompt's hash and length by default; the full text only under a
+still-set `prompts.keep_body`; audits older than a still-set `prompts.audit_keep_days` pruned by `ccp prompt`
+(§29.3); no audit names an actor the ledger would refuse."""
 from __future__ import annotations
 
 import hashlib
@@ -14,7 +15,7 @@ from unittest import mock
 
 from ccp import config, estimator, health
 from ccp import prompt as prompt_mod
-from ccp.queue import OBS
+from ccp.queue import OBS, lib
 from tests.helpers import Product
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -79,6 +80,19 @@ class PromptAudit(ToolkitFixture, unittest.TestCase):
         self.assertLessEqual(set(schema["required"]), set(audit))
         self.assertNotIn("prompt_body", schema["required"])
 
+    def test_a_stray_actor_in_the_env_audits_as_the_runner(self):
+        with mock.patch.dict(os.environ, {"ACTOR": "nobody"}):
+            _, audit, _ = self.render()
+        self.assertEqual(audit["actor"], lib.RUNNER)
+
+    def test_an_unknown_estimate_actor_falls_back(self):
+        with mock.patch.object(estimator, "run", return_value={"ok": True}) as run:
+            self.ccp("tasks", "estimate", "0001", "--actor", "nobody")
+            self.assertEqual(run.call_args.args[6], "system")
+            run.reset_mock()
+            self.ccp("tasks", "estimate", "0001", "--actor", lib.LEAD)
+            self.assertEqual(run.call_args.args[6], lib.LEAD)
+
     def test_the_knobs_are_checked(self):
         for prompts, want in (({"keep_body": "yes"}, "prompts.keep_body must be true or false"),
                               ({"audit_keep_days": 0}, "prompts.audit_keep_days must be an integer >= 1"),
@@ -117,12 +131,16 @@ class Pruning(unittest.TestCase):
 class Writer(unittest.TestCase):
     PROMPT = "Do the task.\nThen report."
 
+    def run_writer(self, qd: str, env: dict, *extra: str) -> subprocess.CompletedProcess[str]:
+        base = {k: v for k, v in os.environ.items() if k != "ACTOR"}
+        return subprocess.run(
+            ["bash", str(OBS / "write-prompt-audit.sh"), "--task-id", "t1", "--phase", "estimate", "--prompt-file", "-",
+             "--project-id", "demo", "--argv", json.dumps(["claude", "-p", self.PROMPT, "--x"]), *extra],
+            input=self.PROMPT, capture_output=True, text=True, env={**base, "QUEUE_ROOT": qd, **env})
+
     def write(self, *extra: str) -> dict:
         with tempfile.TemporaryDirectory() as qd:
-            r = subprocess.run(
-                ["bash", str(OBS / "write-prompt-audit.sh"), "--task-id", "t1", "--phase", "estimate", "--prompt-file", "-",
-                 "--project-id", "demo", "--argv", json.dumps(["claude", "-p", self.PROMPT, "--x"]), *extra],
-                input=self.PROMPT, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": qd})
+            r = self.run_writer(qd, {}, *extra)
             self.assertEqual(r.returncode, 0, r.stderr)
             return json.loads((Path(qd) / r.stdout.strip().splitlines()[-1]).read_text())
 
@@ -132,6 +150,18 @@ class Writer(unittest.TestCase):
         self.assertEqual(audit["argv"], ["claude", "-p", "<prompt>", "--x"])
         self.assertEqual(audit["prompt_chars"], len(self.PROMPT))
         self.assertNotIn("Then report", json.dumps(audit))
+
+    def test_an_actor_the_ledger_refuses_writes_no_audit(self):
+        retired = lib.LEGACY_ACTORS[0]
+        with tempfile.TemporaryDirectory() as qd:
+            for env, args in (({"ACTOR": retired}, ()), ({}, ("--actor", "nobody"))):
+                r = self.run_writer(qd, env, *args)
+                self.assertNotEqual(r.returncode, 0, r.stdout)
+                self.assertIn("invalid actor", r.stderr)
+                self.assertEqual([p for p in Path(qd).rglob("*") if p.is_file()], [])
+            r = self.run_writer(qd, {}, "--actor", lib.LEAD)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(json.loads((Path(qd) / r.stdout.strip().splitlines()[-1]).read_text())["actor"], lib.LEAD)
 
     def test_keep_body_keeps_the_text_and_the_argv(self):
         audit = self.write("--keep-body")

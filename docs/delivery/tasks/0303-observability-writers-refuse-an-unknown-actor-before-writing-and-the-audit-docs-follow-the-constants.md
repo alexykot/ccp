@@ -1,7 +1,7 @@
 ---
 task_id: 0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants
 title: The prompt-audit writer refuses an actor the ledger would refuse, heartbeat.sh validates before it writes the seat file, validate_event loses its unused reading keyword while a test holds the schemas' actor enums, and the audit docs describe keep_body and audit_keep_days as constants
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S23", "S29"]
@@ -11,7 +11,7 @@ paths: ["scripts/observability/lib.py", "scripts/observability/heartbeat.sh", "s
 clashes_with: ["0191-the-grace-release-ends", "0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes", "0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once", "0296-the-spec-question-script-loads-the-product-config-once-and-reads-its-task-dir", "0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log", "0300-mutant-file-texts-end-where-written-a-revert-takes-several-ranges-and-mutate-s-refusal-copies-go"]
 adopt: "none"
 created: 2026-11-22
-updated: 2026-11-22
+updated: 2026-11-24
 ---
 
 # Task: 0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants
@@ -130,6 +130,12 @@ Measured at `7a2993b` (origin/main).
   `ccp/prompt.py`'s module docstring reads "(the full text only under a still-set `prompts.keep_body`; audits older than a still-set
   `prompts.audit_keep_days` are pruned, §29.3)".
 
+### Ruling 0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants-r1
+
+As the runner passed it (lead, 2026-11-23, spec question `sm-20261123T235446Z-d2b0`, spec commit bb1023716a02):
+
+> doc-01 step 1 (lead, 2026-11-23): option (a). Narrow the pattern to the old paragraph only, e.g. '^.prompts.audit_keep_days. (default null', expecting nothing. The ruled replacement text at docs/design/observability.md stays as written; step 1's meaning (the stale paragraph is gone) is unchanged. The implementer writes this into 0303's Context on the task branch and fixes the three NITs in the same round.
+
 ## Scope
 
 - **In:** `scripts/observability/lib.py` (`validate_event`), `scripts/observability/heartbeat.sh`,
@@ -182,4 +188,12 @@ Measured at `7a2993b` (origin/main).
 
 ## Implementation notes
 
+- Built as the rulings give it. Premises re-measured at 506bfca1: `reading` at 4 lines in `lib.py` and `tests/test_seat_actors.py`, `validate_event`'s callers as stated, the emit example's 2 lines, the design doc's 3 lines and `prune-prompts.sh`'s 2 lines: all as the task states.
+- The task places "(the full text only under a still-set `prompts.keep_body`; audits older than a still-set `prompts.audit_keep_days` are pruned, §29.3)" in `ccp/prompt.py`'s module docstring, but that docstring held no such sentence (it says "writes the prompt and its audit (§23.8)"); the stale text sat in `tests/test_prompt_audit.py`'s docstring. Both now carry the wording: `ccp/prompt.py`'s as a parenthetical after "its audit (§23.8", the test's as a rewrite of its own sentence.
+- `write-prompt-audit.sh`'s usage line for `--actor` adds that an actor the ledger refuses is refused; `lib.py`'s module docstring says a test holds the contracts' enums to the legacy lists.
+- `tests/test_prompt_audit.py`'s `Writer` gains `run_writer` (the subprocess call `write` made), so the refusal test reads the exit code and stderr.
+- Fix round 1: the lead's ruling r1 (in Context) narrows doc-01 step 1's design-doc pattern to the old paragraph, so the ruled replacement text at `docs/design/observability.md` line 68 stays as written; the old paragraph is gone (`git grep -n '^.prompts.audit_keep_days. (default null' -- docs/design/observability.md` prints nothing). The review's three NITs: `prune-prompts.sh`'s header says "on demand" once; `lib.py`'s docstring and `LEGACY_ACTORS` comment name `tests/test_event_registry.py` as holding the contracts' enums to the written values plus the legacy actors, rewrapped; `ccp/prompt.py`'s module docstring line is rewrapped to about 120 characters.
+
 ## Verification notes
+- 2026-11-24 — verifier, PR #371 head `0319711` (squash `8a3c1e4`): APPROVE. Passed: code-01, cmd-01, cmd-02, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants.json.
+

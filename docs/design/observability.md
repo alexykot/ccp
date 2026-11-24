@@ -62,17 +62,17 @@ Contract: `contracts/prompt_audit.schema.json`.
 }
 ```
 
-`prompt_body` is opt-in (`prompts.keep_body`, default false; ADR-0034 D8): without it the audit holds
-the hash and the length, and an `argv` entry that is the prompt itself reads `<prompt>`. Health's
-prompt sizes (§27.1) read `prompt_chars`, or the body's length in an audit from before it.
-`prompts.audit_keep_days` (default null, keep all) has `ccp prompt` remove audits older than that
-many days, by the stamp in the file name, each time it writes one; the rendered prompt and env
-files beside them are not audits and stay. `prune-prompts.sh` prunes on demand.
+`prompts.keep_body` and `prompts.audit_keep_days` are constants (ADR-0043 D9): an audit holds the hash and the length, never
+the body, and an `argv` entry that is the prompt itself reads `<prompt>`; every audit is kept (SPEC §23.8). A product that
+still sets either key gets its value until it deletes the key, and `ccp upgrade status` lists it (SPEC §29.3):
+`keep_body: true` keeps the body, and `audit_keep_days: N` has `ccp prompt` remove audits older than N days, by the stamp in
+the file name, each time it writes one; the rendered prompt and env files beside them are not audits and stay. Health's
+prompt sizes (§27.1) read `prompt_chars`, or the body's length in an audit from before it. `prune-prompts.sh` prunes on demand.
 
 Health (§27) and the board's per-task drill-down (§28.3) read each audit's name stamp as a worker's
 launch time: a task's prompt count and sizes, and the start of each phase's span. A pruned audit
 drops out of both, so a task whose audits are pruned loses its launch times, and its spans fall back
-to the previous phase's end. Set `audit_keep_days` above the longest life of a task, from its first
+to the previous phase's end. A product that still sets `audit_keep_days` keeps it above the longest life of a task, from its first
 launch to its close, so no audit of a task still measured is pruned.
 
 
