@@ -1,38 +1,10 @@
 """`ccp init`: adopt a product with one command (SPEC §4.3, §4.5, §8.3).
 
-The call syntax is in `docs/cli`; what it writes, keeps and refuses is §4.5's. This holds what only the code does.
-
-The binding is the one source of truth: every reader resolves it through `lib.binding_path`, and no copy goes into
-the queue (§8.3). Inside a sandbox (`ccp sandbox`, §29.3) the binding is `<project_id>.yaml` in the sandbox's
-bindings directory and the queue is the sandbox's, `--force` or not; a `--queue-root` naming any other path is
-refused, writing nothing, and so is `--telemetry on`.
-
-Telemetry (§4.5, §24.1): the tag goes in whatever the consent. With consent recorded in `machine.json`, init also
-writes the user-level keys (`ccp otel env`, absent ones only, never the prompt and tool-content keys), installs
-the receiver and the board timer (macOS; elsewhere it prints the commands) and checks the receiver. With
-`--telemetry on` it first says the keys cover every Claude Code session on the machine; with `off` recorded, or
-nothing recorded and no flag, it writes nothing outside the product (with nothing recorded it prints that notice).
-
-It never overwrites a file without `--force` (an existing one is listed as kept, so a second run changes nothing),
-and never a session setting the product already has, `--force` or not; the result's `settings` names each as
-added or kept. It refuses, writing nothing, when keeping a file would leave the product inconsistent (a
-`plane.json` naming another project id or not loading, a binding naming another product root, a settings file
-that is not a JSON object), a `--gate` it cannot split or that is blank, a `--language` that names no pack and is
-not `none` (exit 2, before anything is written), and a product root or queue path holding `#`, since the binding
-reader cuts a value at ` #` as a comment.
-
-The result's `required_unset` lists each required plane.json key (§8.1) still unset, the gate lane among them
-(each gets its own stderr line). Its `warnings`, every one also printed on stderr, carry what to do next: an origin
-that does not suit the PR host adapter (`pr_host.adapter`, ADR-0040 D5), adopting all the same; no `allowance_cmd`
-in the machine file (§25.1), so no usage is read and nothing bounds spend; task files with no frontmatter
-(`ccp tasks migrate`, §5.3); queue entries `ccp plane check` would list (`ccp plane check --archive`, §31.3), which
-init moves nothing of; and, for a kept binding checked against the current shape (§8.3), each key it lacks and each
-obsolete key it carries, with the file and the fix (`lib.binding_findings`).
-
-The adoption is recorded in the ledger as a `plane`/`adopted` event (§4.5, §23.2) when the binding is written or the
-ledger holds none yet, with `since`, the binding file's last change, added when the binding was kept; a rerun on an
-adopted product records nothing. `--permissions` writes nothing but the block it prints, and `--rules-doc` lists the
-rules with no `check:` line; with `--adopt` it also gives each a `check: pass` line (§4.5, §18.5, §20.1).
+The call syntax is in `docs/cli`. What it writes, keeps, warns of and records, and its `--permissions` and
+`--rules-doc` steps, are §4.5's, except the missing `allowance_cmd` warning (§25.1's) and the queue-leftovers
+warning (§31.3's); the binding, the one source of truth every reader resolves through `lib.binding_path`, is
+§8.3's; the telemetry consent and the keys it writes are §4.5's and §24.1's; adopting inside a sandbox
+(`ccp sandbox`) is §29.3's. `init` adopts the product and `main` prints its result.
 """
 from __future__ import annotations
 
@@ -290,7 +262,10 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
          gate: str | None, force: bool, starter_rules: bool = True, language: str | None = None,
          telemetry: str | None = None) -> dict[str, Any]:
     """Adopt the product at `root`; returns what was written, merged and kept. Raises QueueError
-    (nothing written) on a refusal."""
+    (nothing written) on a refusal. It warns of task files with no frontmatter (`ccp tasks migrate`). Besides
+    §4.5's, it refuses a blank `--gate` or one `shlex` cannot split, a `--language` that names no pack and is
+    not `none`, a product root or queue path holding `#` (the binding reader cuts a value at ` #` as a
+    comment), and, inside a sandbox, `--telemetry on` (§29.3)."""
     if gate is not None and not gate.strip():  # §4.5: refused before anything is written
         raise QueueError("ccp init: --gate is blank: give the gate lane's command, or leave --gate out", 2)
     from ccp import doclang  # noqa: PLC0415
