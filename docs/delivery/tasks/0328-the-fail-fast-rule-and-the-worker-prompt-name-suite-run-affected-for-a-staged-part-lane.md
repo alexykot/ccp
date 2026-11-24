@@ -1,7 +1,7 @@
 ---
 task_id: 0328-the-fail-fast-rule-and-the-worker-prompt-name-suite-run-affected-for-a-staged-part-lane
 title: §13.5's Fail fast rule says what ccp suite run --affected runs for a staged part lane, the worker prompt names --affected for one, and a language pack's affected reader is typed with the named keyword suite passes
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S14"]
@@ -111,3 +111,5 @@ printed `False`; `grep -c 'no module touched, no pack count' ccp/suite.py` print
 - The `affected_modules` docstring and §13.5's Fail fast bullet carry the ruled and signed text.
 
 ## Verification notes
+- 2026-11-24 — verifier, PR #400 head `fdc97bc` (squash `95c69f7`): APPROVE. Passed: code-01, code-02, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0328-the-fail-fast-rule-and-the-worker-prompt-name-suite-run-affected-for-a-staged-part-lane.json.
+
