@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import runs
-from tests.helpers import done_report, implement_report, REPORT_HEAD as HEAD
+from tests.report_helpers import done_report, implement_report, REPORT_HEAD as HEAD
 from tests.review_flow import ReviewFlow
 from tests.toolkit_fixture import ToolkitFixture
 

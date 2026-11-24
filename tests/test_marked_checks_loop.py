@@ -15,7 +15,8 @@ from ccp import prompt
 from tests.review_flow import ReviewFlow
 from tests.suite_fixture import ccp_proc
 from tests.toolkit_fixture import ToolkitFixture, git
-from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK, as_lead
+from tests.helpers import as_lead
+from tests.report_helpers import MARKED_BLOCK as MARKED, MARKED_CHECK_ID as CHECK, MARKED_TASK_ID as TASK
 
 
 def started(head: str, lane: str = CHECK, task: str = TASK, state: str = "passed", sid: str = "st-1") -> dict:

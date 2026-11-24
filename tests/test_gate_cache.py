@@ -15,7 +15,7 @@ from unittest import mock
 
 from tests.gate_parallel_fixture import MORE, OK, GateFixture, ROOT, SCRIPTS
 from tests.suite_stages_fixture import StagedFixture
-from tests.helpers import repo_git as git
+from tests.git_helpers import git
 
 # A test module that passes but leaves a `state/x` branch behind in the repository it runs in.
 LEAK = """
@@ -67,13 +67,13 @@ class ARepeatRunIsServedFromTheCache(GateCacheFixture):
         (self.repo / "new.py").write_text("Y = 1\n")  # an untracked file
         index = Path(git(self.repo, "rev-parse", "--git-path", "index").strip())
         index = index if index.is_absolute() else self.repo / index
-        before = (git(self.repo, "status", "--porcelain"), git(self.repo, "stash", "list"), index.read_bytes(),
-                  git(self.repo, "count-objects"))
+        before = (git(self.repo, "status", "--porcelain", raw=True), git(self.repo, "stash", "list", raw=True),
+                  index.read_bytes(), git(self.repo, "count-objects", raw=True))
         for _ in range(2):
             r, _res = self.cgate()
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual((git(self.repo, "status", "--porcelain"), git(self.repo, "stash", "list"),
-                          index.read_bytes(), git(self.repo, "count-objects")), before)
+        self.assertEqual((git(self.repo, "status", "--porcelain", raw=True), git(self.repo, "stash", "list", raw=True),
+                          index.read_bytes(), git(self.repo, "count-objects", raw=True)), before)
 
     def test_an_entry_records_the_key_the_pass_its_tests_seconds_and_time(self):
         self.commit()

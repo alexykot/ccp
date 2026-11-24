@@ -15,17 +15,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import adr, backfill, board, cli, config, plan, reviewpoints, tasklog
-from tests.helpers import (
-    LEAD_ENV,
-    GIT_ENV,
-    lease_event as claim,
-    ledger_event as ev,
-    Product,
-    REVIEW_REGISTER as REGISTER,
-    spawn_event as spawn,
-    tagged_task as _tagged,
-    TASK,
-)
+from tests.helpers import LEAD_ENV, GIT_ENV, Product, REVIEW_REGISTER as REGISTER, tagged_task as _tagged, TASK
+from tests.ledger_helpers import lease_event as claim, ledger_event as ev, spawn_event as spawn
 from tests.board_quality_fixture import HOSTILE, STUB, QualityBase, _hostile
 from tests.team_hosting_fixture import TeamCase
 

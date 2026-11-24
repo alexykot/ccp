@@ -11,7 +11,8 @@ from unittest import mock
 from ccp import config, prompt as prompt_mod
 from ccp.queue import QueueError
 from tests import helpers
-from tests.helpers import TASK, binding, done_report, as_lead
+from tests.helpers import TASK, binding, as_lead
+from tests.report_helpers import done_report
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 

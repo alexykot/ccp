@@ -14,7 +14,8 @@ from unittest import mock
 
 from ccp import cli, health
 from ccp.queue import lib
-from tests.helpers import health_commit as commit, health_git as git, HEALTH_T0 as T0, Product
+from tests.git_helpers import commit, git, HEALTH_T0 as T0
+from tests.helpers import Product
 
 MIN = 60
 

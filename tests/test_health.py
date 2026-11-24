@@ -11,7 +11,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, health
-from tests.helpers import health_commit as commit, health_git as git, HEALTH_T0 as T0, Product
+from tests.git_helpers import commit, git, HEALTH_T0 as T0
+from tests.helpers import Product
 
 
 class Merges(unittest.TestCase):
@@ -454,7 +455,7 @@ class AdoptionWindow(unittest.TestCase):
         self.assertNotIn("adopted_at", r)
 
     def test_the_queue_figures_before_adoption_are_left_out(self):
-        from tests.helpers import suite_ended as ended, suite_started as started
+        from tests.ledger_helpers import suite_ended as ended, suite_started as started
         mods = [{"name": "tests.test_a", "seconds": 1.0, "tests": 3}]
         self.rows("health/metrics.jsonl",
                   *({"at": at, "task_id": "0001-t1", "metric": "suite_seconds", "value": v, "kind": "cold"}

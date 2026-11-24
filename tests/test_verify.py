@@ -15,16 +15,8 @@ from unittest import mock
 
 from ccp import cli, prhost, verify
 from ccp.schema import schema_errors
-from tests.helpers import (
-    approve_verdict as approve,
-    binding,
-    HEAD_A,
-    HEAD_B,
-    judge_merge_ok as decide,
-    now_iso,
-    PLANE_ROOT as ROOT,
-    Product,
-)
+from tests.helpers import binding, now_iso, PLANE_ROOT as ROOT, Product
+from tests.report_helpers import approve_verdict as approve, HEAD_A, HEAD_B, judge_merge_ok as decide
 
 
 class MergeGate(unittest.TestCase):

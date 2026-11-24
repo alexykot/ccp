@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ccp import config
 from ccp import prompt as prompt_mod
-from tests.helpers import phase_values
+from tests.render_helpers import phase_values
 from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 A = "a" * 40

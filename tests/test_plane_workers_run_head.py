@@ -15,7 +15,8 @@ from unittest import mock
 
 from ccp import cli, prompt, wt
 from ccp.queue import CCP_BIN
-from tests.helpers import GIT_ENV, done_report, REPORT_HEAD as HEAD
+from tests.helpers import GIT_ENV
+from tests.report_helpers import done_report, REPORT_HEAD as HEAD
 from tests.toolkit_fixture import ToolkitFixture
 
 WT_EXEC = "wt exec --"

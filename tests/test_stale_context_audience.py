@@ -13,7 +13,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, tasklog
-from tests.helpers import PLANE_ROOT, REVIEW_REGISTER as REGISTER, Product, done_report, tagged_task as _tagged
+from tests.helpers import PLANE_ROOT, REVIEW_REGISTER as REGISTER, Product, tagged_task as _tagged
+from tests.report_helpers import done_report
 from tests.review_flow import A, ReviewFlow
 from tests.team_hosting_fixture import TeamCase
 from tests.toolkit_fixture import ToolkitFixture, git

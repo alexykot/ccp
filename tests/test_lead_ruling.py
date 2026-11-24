@@ -14,7 +14,8 @@ from unittest import mock
 
 from ccp import cli, queue, verify
 from ccp.queue import lib
-from tests.helpers import approve_verdict as approve, held_otherwise, Product, LEAD_ENV
+from tests.helpers import Product, LEAD_ENV
+from tests.report_helpers import approve_verdict as approve, held_otherwise
 
 
 class LeadRuling(unittest.TestCase):

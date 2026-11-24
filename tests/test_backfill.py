@@ -13,7 +13,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import backfill, cli
-from tests.helpers import GIT_ENV, lease_event as claim, ledger_event as ev, Product, spawn_event as spawn
+from tests.helpers import GIT_ENV, Product
+from tests.ledger_helpers import lease_event as claim, ledger_event as ev, spawn_event as spawn
 
 
 def done(at: str, tid: str) -> dict:

@@ -13,7 +13,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, otel, usage
-from tests.helpers import api_request as req, Product, T0
+from tests.helpers import Product
+from tests.ledger_helpers import api_request as req, T0
 
 OPUS, SONNET = "claude-opus-5-5", "claude-sonnet-5-5"
 

@@ -14,7 +14,8 @@ from unittest import mock
 
 from ccp import cli, config, otel, usage
 from ccp.queue import lib
-from tests.helpers import api_request as req, binding, FoldRuns, PLANE_ROOT, Product, T0
+from tests.helpers import binding, PLANE_ROOT, Product
+from tests.ledger_helpers import api_request as req, FoldRuns, T0
 
 PLANE = PLANE_ROOT
 

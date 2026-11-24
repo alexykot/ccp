@@ -11,7 +11,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, prhost, verify
-from tests.helpers import approve_verdict as approve, HEAD_A, HEAD_B, now_iso, Product
+from tests.helpers import now_iso, Product
+from tests.report_helpers import approve_verdict as approve, HEAD_A, HEAD_B
 
 TASK = "0001-a"
 

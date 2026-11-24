@@ -10,7 +10,8 @@ import unittest
 from pathlib import Path
 
 from ccp import config, otel, usage
-from tests.helpers import api_request as req, binding, PLANE_ROOT
+from tests.helpers import binding, PLANE_ROOT
+from tests.ledger_helpers import api_request as req
 from tests.team_hosting_fixture import TeamCase
 
 PLANE = PLANE_ROOT

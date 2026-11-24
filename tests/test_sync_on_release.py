@@ -10,7 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import binding, git_run as run, PLANE_ROOT as PLANE, release_git as git, RUN_CHECKOUT_SCRIPT as SCRIPT
+from tests.git_helpers import git, run
+from tests.helpers import binding, PLANE_ROOT as PLANE, RUN_CHECKOUT_SCRIPT as SCRIPT
 
 OLD_CCP = "#!/bin/sh\nexit 0\n"  # the old rules: every check passes
 NEW_CCP = f'#!/bin/sh\nexec python3 "{PLANE}/bin/ccp" "$@"\n'  # the new rules: this plane's ccp

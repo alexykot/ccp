@@ -10,7 +10,7 @@ from pathlib import Path
 
 from ccp import config, models, runs, seats, usage
 from tests.board_seats_fixture import SeatsBase, req as seat_req
-from tests.helpers import api_request as req, FoldRuns
+from tests.ledger_helpers import api_request as req, FoldRuns
 
 SONNET, OPUS = "claude-sonnet-5-5", "claude-opus-5-5"
 

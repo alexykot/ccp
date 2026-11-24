@@ -4,7 +4,6 @@ from __future__ import annotations
 import io
 import json
 import os
-import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -12,12 +11,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, health
+from tests.git_helpers import git
 from tests.helpers import TASK, Product
-
-
-def git(root, *a):
-    return subprocess.run(["git", "-C", str(root), "-c", "user.email=t@t", "-c", "user.name=t", *a], check=True,
-                          capture_output=True, text=True).stdout.strip()
 
 
 def covering(tid: str, shas: list[str], status: str = "pending") -> str:

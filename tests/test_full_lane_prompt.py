@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, prompt as prompt_mod
-from tests.helpers import done_report
+from tests.report_helpers import done_report
 from tests.review_flow import ReviewFlow
 from tests.toolkit_fixture import ToolkitFixture
 

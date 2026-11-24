@@ -15,7 +15,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, health, suite
-from tests.helpers import PLANE_ROOT, Product, suite_ended as ended, SUITE_RUN_ID as RUN, suite_started as started
+from tests.helpers import PLANE_ROOT, Product
+from tests.ledger_helpers import suite_ended as ended, SUITE_RUN_ID as RUN, suite_started as started
 from tests.suite_stages_fixture import StagedFixture, _shell_py
 
 

@@ -7,7 +7,6 @@ from __future__ import annotations
 import io
 import json
 import os
-import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -15,7 +14,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, prhost, verify
-from tests.helpers import approve_verdict as approve, binding, now_iso, Product, as_lead
+from tests.git_helpers import git
+from tests.helpers import binding, now_iso, Product, as_lead
+from tests.report_helpers import approve_verdict as approve
 
 TID = "0002-second"
 CID = "mac-01"
@@ -167,12 +168,6 @@ class CheckFacts(unittest.TestCase):
                                                             "produced_by": "operator"}])
         nothing = verify.check_facts([resting(f"approve at {OLD}")], [approved_at(OLD, {"id": CID, "ran": False})])
         self.assertNotIn("suite_id", nothing[0])
-
-
-def git(root: Path, *args: str) -> str:
-    out = subprocess.run(["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
-                         capture_output=True, text=True, check=True)
-    return out.stdout.strip()
 
 
 class RecordAndMerge(unittest.TestCase):
