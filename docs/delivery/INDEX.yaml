@@ -1547,3 +1547,28 @@ tasks:
     title: The writing-tasks skill says a revert check's fixture leaves an unchanged line between the hunks it tells apart, and the implement prompt and the implementer and runner briefs say an implementer's questions go in its report
     depends_on: []
     path: tasks/0314-task-writers-leave-a-line-between-a-revert-check-s-hunks-and-an-implementer-s-questions-go-in-its-report.md
+  - id: 0315-a-null-task-log-dir-is-refused-at-load-and-the-test-gaps-left-by-0296-and-0305-close
+    status: pending
+    title: plane.json refuses a task_log.dir that is not a path at load, notify's unreadable-plane.json branch and close's not_merged call each get a test, the architect fixture waits for its detached passes before cleanup, and affected_usage is tested on plain values
+    depends_on: []
+    path: tasks/0315-a-null-task-log-dir-is-refused-at-load-and-the-test-gaps-left-by-0296-and-0305-close.md
+  - id: 0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over
+    status: pending
+    title: E4's long-literal count reads every assert call with a string argument of 40 or more characters, f-strings and concatenations included, and prints its count and figure when it is over
+    depends_on: [0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read]
+    path: tasks/0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over.md
+  - id: 0317-the-review-prompt-routes-mutation-checks-through-mutate-prompt-tests-pin-tokens-and-checks-pin-tests-by-id
+    status: pending
+    title: The review prompt gives one route for a mutation check (ccp mutate, from the shared part), the prompt-text tests pin one token per instruction and E4's figure drops with them, and the writing-tasks skill has a check pin a test by its id so the run's exit code decides and a removal check miss the text that replaces it
+    depends_on: [0316-e4-counts-every-long-literal-assert-and-names-its-count-when-over]
+    path: tasks/0317-the-review-prompt-routes-mutation-checks-through-mutate-prompt-tests-pin-tokens-and-checks-pin-tests-by-id.md
+  - id: 0318-module-docstrings-state-no-exit-codes-or-spec-grammar-and-the-queue-readme-loses-its-stale-rules
+    status: pending
+    title: The suite, mutate, report, init, sandbox, architect and rules module docstrings state no exit code, refusal list or SPEC grammar, E24's two counts drop to match, and the queue README loses its stale Rules table
+    depends_on: []
+    path: tasks/0318-module-docstrings-state-no-exit-codes-or-spec-grammar-and-the-queue-readme-loses-its-stale-rules.md
+  - id: 0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it
+    status: pending
+    title: A changed path that plane.json suite.affected_map matches is no longer matched to tests by its name, so the language pack stops marking every test that names the file while a changed test module and a module's importers still count, and this repo maps its own plane.json to the tests that read it
+    depends_on: []
+    path: tasks/0319-the-pack-stops-matching-a-path-the-affected-map-names-by-name-so-a-plane-json-edit-runs-the-tests-that-read-it.md

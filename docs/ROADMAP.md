@@ -77,6 +77,9 @@ All reshape phases have landed.
     (cli.py only dispatches) and a language-pack rule for a declared hub module. Other widely read files
     bring the part-lane pre-gate near a full gate too: `ccp suite affected` at `ad9b4f84` names 44 of
     226 test modules for `ccp/tasklog.py`, 99 for `docs/delivery/plane.json`, 127 for 0301's change.
+    Config files are taken up by task 0319 (architect pass `ar-20261123T230912Z-197a` F01, a signed §14.7
+    brief): the pack stops matching tests by the name of a path `suite.affected_map` matches. The cli and config hub
+    modules stay here.
   - F10: the six retirement-guard test modules. Re-measured after R17's 0255 makes `ToolkitFixture`
     cheap; a guard with no reader left is cut then, by one refactor task.
 - **Deferred from architect pass `ar-20261122T055103Z-11aa`** (record in `docs/delivery/reviews/`):
