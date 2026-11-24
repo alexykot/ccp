@@ -120,11 +120,17 @@ Measured at `bb102371`:
   names match tests by text. The import rule and a changed test module still read every changed path.
 - `ccp/suite.py`: `_mapped` returns the map's ids and the changed paths no glob matches; `affected` passes every
   changed path as `changed` and the unmatched ones as `named`. A pack with no reader is unchanged.
-- `docs/delivery/plane.json`: `suite.affected_map` maps `docs/delivery/plane.json` to `tests.test_self_hosting`, the one
-  module both searches in Context find at `48c54981` (re-run; a wider search for `PLANE`/`REPO` aliases found no other
-  reader of the repo's own plane.json). `ccp suite affected --paths docs/delivery/plane.json` now lists that one module.
+- `docs/delivery/plane.json`: `suite.affected_map` maps `docs/delivery/plane.json` to `tests.test_doclang_test_facts`
+  and `tests.test_self_hosting`. The two searches in Context find only `tests.test_self_hosting` at `48c54981`;
+  `tests.test_doclang_test_facts` reads the repo's own plane.json through the alias `REPO = PLANE_ROOT`, which those
+  patterns do not name (fix round 1, review MAJOR 1). `ccp suite affected --paths docs/delivery/plane.json` now lists
+  those two modules.
 - The new test's `pkg/a.py` list also holds `tests.test_a`, the scratch product's own importer of `pkg.a`.
 - `ccp/doclang/__init__.py`'s `AffectedReader` type and comment still describe three positional arguments: the file is
   outside this task's paths, so it is left as a follow-up.
+- Fix round 1: the map gains `tests.test_doclang_test_facts` (its `CoreCheck.test_the_language_pack_check_is_declared`
+  reads `architect.checks` from the repo's plane.json). Found with
+  `git grep -nP '\b(PLANE|REPO|ROOT|PLANE_ROOT)\b[^#]{0,80}(plane\.json|"docs/delivery"|"delivery")' -- 'tests/*.py'`
+  over every alias of `PLANE_ROOT` the tests define; it finds those two modules and no other.
 
 ## Verification notes
