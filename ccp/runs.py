@@ -261,13 +261,8 @@ def expired(rec: dict[str, Any], now: float) -> bool:
     return state(rec) == "pending" and opened is not None and now - opened > PENDING_EXPIRY_S
 
 
-def check_pending(q: Path, cfg: Config, agent_type: str, supersede: bool, by: str | None = None,
-                  now: float | None = None) -> list[dict[str, Any]]:
-    """The pending runs of this agent type; refuses while there is one, unless superseding. Every
-    expired one is abandoned first and neither refuses nor is returned (§11.1). Even superseding,
-    another runner's (`opened_by`) run opened in the last SUPERSEDE_GRACE_S is refused (exit 3): with
-    several runners it is a launch seconds away, not a lost one (SPEC §16.4)."""
-    now = time.time() if now is None else now
+def unexpired_pending(q: Path, cfg: Config, agent_type: str, now: float) -> list[dict[str, Any]]:
+    """The pending runs of this agent type, oldest first; each expired one is abandoned instead (§11.1)."""
     pending = []
     for r in all_runs(q):
         if r.get("agent_type") != agent_type or state(r) != "pending":
@@ -276,6 +271,17 @@ def check_pending(q: Path, cfg: Config, agent_type: str, supersede: bool, by: st
             abandon(q, cfg, r, EXPIRED_REASON)
         else:
             pending.append(r)
+    return pending
+
+
+def check_pending(q: Path, cfg: Config, agent_type: str, supersede: bool, by: str | None = None,
+                  now: float | None = None) -> list[dict[str, Any]]:
+    """The pending runs of this agent type; refuses while there is one, unless superseding. Every
+    expired one is abandoned first and neither refuses nor is returned (§11.1). Even superseding,
+    another runner's (`opened_by`) run opened in the last SUPERSEDE_GRACE_S is refused (exit 3): with
+    several runners it is a launch seconds away, not a lost one (SPEC §16.4)."""
+    now = time.time() if now is None else now
+    pending = unexpired_pending(q, cfg, agent_type, now)
     if supersede and by:
         for r in pending:
             opened = opened_ts(r)
@@ -348,15 +354,7 @@ def bind(q: Path, cfg: Config, agent_type: str, agent_id: str, session_id: str |
     agent_type = unscoped(agent_type)
     if any(r.get("agent_id") == agent_id for r in all_runs(q)):
         return None  # a resumed agent: already bound
-    now = time.time()
-    pending = []
-    for r in all_runs(q):
-        if r.get("agent_type") != agent_type or state(r) != "pending":
-            continue
-        if expired(r, now):
-            abandon(q, cfg, r, EXPIRED_REASON)
-        else:
-            pending.append(r)
+    pending = unexpired_pending(q, cfg, agent_type, time.time())
     if not pending:
         return None
     rec = pending[0]
