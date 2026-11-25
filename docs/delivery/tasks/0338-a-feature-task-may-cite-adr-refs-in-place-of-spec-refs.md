@@ -1,11 +1,10 @@
 ---
 task_id: 0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs
 title: A feature task may cite the accepted ADR decisions it builds in adr_refs in place of spec_refs, and a task citing neither is told both lists
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S21", "S29"]
-adr_refs: ["0043 D9"]
 review_point: R36
 paths: ["ccp/config.py", "ccp/tasklog.py", "contracts/plane_config.schema.json", "tests/test_kinds.py", "tests/test_plane_json_constants.py", "tests/test_task_placeholders.py", "tests/test_task_format.py", "plugin/skills/writing-tasks/SKILL.md", "docs/spec/01-model.md", "docs/adr/0043-opinionated-defaults-short-configuration.md"]
 clashes_with: ["0191-the-grace-release-ends", "0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver", "0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps", "0337-five-constants-become-plane-json-settings-again", "0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock"]
@@ -76,6 +75,18 @@ Measured at `554fe3a`:
   `(refs_any spec_refs or adr_refs, required without spec_refs: operator 2026-11-24)`. Nothing else in the ADR
   changes.
 
+Lead's ruling on this task (0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs-r1, 2026-11-25), as the
+runner passed it:
+
+> Ruling 0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs-r1 (the lead, 2026-11-25): Option (a). Drop
+> `adr_refs: ["0043 D9"]` from this task's file on the task branch, as task 0192 did, so the edit lands in your PR.
+> adr.strict refuses approving a head whose cited decision is still not_built; D9 stays not_built until 0191. The
+> task's authority is the operator's 2026-11-24 ruling, which its Context quotes. Do not run `ccp adr decide 43 D9
+> built`. Remove the field outright (as 0192 did), quote this ruling in the task's Context (not checked) section, and
+> keep the rest of the task as written. Note: this task's own checks (a feature task citing only adr_refs) concern
+> scratch products, not this task's file, so dropping its adr_refs should leave its spec_refs (S5, S21, S29) as its
+> citations.
+
 ## Scope
 
 - **In:** `ccp/config.py` (two defaults), `ccp/tasklog.py` (the hint), `contracts/plane_config.schema.json` (two
@@ -145,4 +156,31 @@ Measured at `554fe3a`:
 
 ## Implementation notes
 
+- Premises re-measured at `e2e48b1e`: both defaults, the schema's defaults, `SPEC_REFS_HINT` and `_spec_hint`,
+  and `kind_forbids` read as Context says.
+- Defaults: `TASK_LOG_DEFAULTS["required"]` drops `spec_refs` and `refs_any` is `["spec_refs", "adr_refs"]`; both
+  stay in `_CONSTANT_KEYS`. The schema's two defaults follow; `refs_any`'s description reads `Constant,
+  ["spec_refs", "adr_refs"]`, and `required`'s says neither list is required on its own.
+- Hint: `SPEC_ADR_REFS_HINT` beside `SPEC_REFS_HINT`; `_spec_hint` gives it when both lists are among those the
+  task must cite one of, today's hint with `spec_refs` only, nothing without `spec_refs`.
+- Tests: `FeatureCitesAdrRefs` on a product with the architect seat on and no `task_log` block. In
+  `test_a_kind_with_its_own_refs_naming_spec_refs_gets_the_hint` one assertion pins today's hint (``in
+  `spec_refs` and cite them``), as the old one also matched the two-list hint. New asserts keep E4's long-literal
+  count at its base figure (445).
+- Skill: besides the row, the checks paragraph's sentence on a task citing nothing now mirrors the §5 list item.
+- Ruling r1 (lead, 2026-11-25): `adr_refs: ["0043 D9"]` removed from the front matter and the ruling quoted in
+  Context; `ccp adr decide 43 D9 built` not run (D9 stays `not_built` until 0191).
+- Fix round 1 (review MINOR, NIT), notes only, no code change:
+  - Consequence for configured kinds: `kind_forbids` (unchanged) forbids, for a kind with its own `refs_any`,
+    every task-log `refs_any` list the kind does not name. With `adr_refs` now in the default, a product that
+    sets `task_log.kinds` with such a kind (say a `chore` with `refs_any: ["review_refs"]`, or a `feature` with
+    `refs_any: ["spec_refs"]`) now refuses a task of that kind citing `adr_refs` ("a chore cites no adr_refs"),
+    where the base passed it. The default kinds are unaffected: `feature: {}` has no own `refs_any`, and
+    `refactor` already forbade both lists. `kind_forbids` is left as is, since the task puts `task_log.kinds`
+    out of scope; whether to keep this is the lead's call (Follow-ups in the fix report).
+  - `ccp tasks next` prints one line per task-log `refs_any` list, so a feature task now also shows an
+    `adr_refs:` line (`-` when empty). No test pins that output; left as is.
+
 ## Verification notes
+- 2026-11-25 — verifier, PR #415 head `5f9fb43` (squash `8913c61`): APPROVE. Passed: cmd-01, cmd-02, code-01, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs.json.
+

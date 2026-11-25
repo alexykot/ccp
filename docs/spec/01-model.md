@@ -491,7 +491,8 @@ A copy of the template that was not filled in fails `ccp tasks check`:
   refused. The message names each placeholder and its line. A placeholder quoted in a code span or a
   fenced block is not read.
 - A task that cites no ref list, where `spec_refs` is one of the lists it may cite, is told to list
-  the SPEC sections in `spec_refs` and cite them in its text.
+  the SPEC sections in `spec_refs` (or, where `adr_refs` is one too, the ADR decisions it builds in
+  `adr_refs`) and cite them in its text.
 - `plane.json` validation refuses a `suite.lanes` command that holds `<your test command>`.
 
 ### 5.1 File
@@ -543,8 +544,9 @@ dropped record marked converted and not re-verified. An open task is converted o
 
 Two kinds, read with the architect seat on, for tasks from its adoption point (§19.11). Each names
 the ref lists a task of that kind cites at least one of, and the lists it leaves empty: `feature`
-cites `spec_refs`; `refactor` cites `rule_refs` or `review_refs` and no `spec_refs` or `adr_refs` (a
-refactor changes no rule, §20).
+cites `spec_refs` or `adr_refs` (an accepted ADR decision is as traceable as a SPEC section);
+`refactor` cites `rule_refs` or `review_refs` and no `spec_refs` or `adr_refs` (a refactor changes
+no rule, §20).
 
 ### 5.5 Sections
 

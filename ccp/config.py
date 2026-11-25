@@ -34,9 +34,10 @@ CONFIG_REL = "docs/delivery/plane.json"
 
 TASK_LOG_DEFAULTS: dict[str, Any] = {
     "dir": "docs/delivery",
-    "required": ["task_id", "title", "status", "depends_on", "spec_refs", "created", "updated"],
-    # At least one of these must be non-empty: a task that cites nothing is not traceable.
-    "refs_any": ["spec_refs"],
+    "required": ["task_id", "title", "status", "depends_on", "created", "updated"],
+    # At least one of these must be non-empty: a task that cites nothing is not traceable. An accepted ADR decision
+    # is as traceable as a SPEC section, so neither list is required on its own (§5.4).
+    "refs_any": ["spec_refs", "adr_refs"],
     # SPEC §5: the canonical sections, required by default; a product may require more.
     "sections": ["Intent", "Context (not checked)", "Scope", "dod_checks",
                  "Implementation notes", "Verification notes"],

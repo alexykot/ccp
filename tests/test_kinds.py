@@ -71,6 +71,43 @@ class RefactorKind(unittest.TestCase):
         self.assertIn("cites none of spec_refs, adr_refs", self.errs())
 
 
+class FeatureCitesAdrRefs(unittest.TestCase):
+    """§5.4: on the task log's defaults (no `task_log` block), a feature cites spec_refs or adr_refs, neither key is
+    required on its own, and a refactor still cites neither."""
+
+    def setUp(self):
+        self.p = Product({"architect": {"shape_from_task": "0001"}})
+
+    def tearDown(self):
+        self.p.cleanup()
+
+    def errs(self):
+        self.p.index()
+        return "\n".join(tasklog.check(self.p.cfg))
+
+    def test_a_feature_citing_only_adr_refs_passes(self):
+        self.p.task("0001-a")
+        front(self.p, "0001-a", 'spec_refs: ["S1"]', 'kind: feature\nadr_refs: ["0001 D1"]')
+        self.assertEqual(self.errs(), "")
+
+    def test_a_feature_citing_only_spec_refs_passes(self):
+        self.p.task("0001-a")
+        front(self.p, "0001-a", 'spec_refs: ["S1"]', 'kind: feature\nspec_refs: ["S1"]')
+        self.assertEqual(self.errs(), "")
+
+    def test_a_task_citing_neither_is_told_both_lists(self):
+        self.p.task("0001-a")
+        front(self.p, "0001-a", 'spec_refs: ["S1"]', "kind: feature\nspec_refs: []\nadr_refs: []")
+        e = self.errs()
+        self.assertIn("a.md: cites none of spec_refs, adr_refs", e)
+        self.assertIn("in `adr_refs`, and cite them", e)
+
+    def test_a_refactor_citing_adr_refs_is_still_refused(self):
+        self.p.task("0001-r")
+        front(self.p, "0001-r", 'spec_refs: ["S1"]', 'kind: refactor\nadr_refs: ["0001 D1"]\nrule_refs: ["E1"]')
+        self.assertIn("a refactor changes no rule, so it cites no adr_refs", self.errs())
+
+
 class RefactorCapacity(unittest.TestCase):
     """`next` and the refactor lane under `refactor_in_scope: true`: in every scope, and ahead of
     features once refactor_every merged."""
