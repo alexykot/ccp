@@ -301,15 +301,20 @@ reported in.
   to the agent (`agent_id`, `agent_type`, `session_id`); `SubagentStop` calls `ccp agent stop`. So
   `ccp prompt` refuses a second pending run of an agent type that already has one unbound (exit 3;
   with several runners, wait a few seconds and ask again); `--supersede` lifts that, but never
-  abandons another slot's pending run opened in the last 120 s. A resumed agent is not bound again;
-  an agent of another type is skipped; a start with no pending run lands in `runs/_unbound.jsonl`,
-  as do hook errors, and the hook always exits 0. Headless runs bind directly.
+  abandons another slot's pending run opened in the last 120 s. A pending run whose agent has not
+  started within 10 minutes of its opening has expired: the next `ccp prompt` of its agent type, by
+  any slot, abandons it (`expired: its agent never started within 10 minutes`) instead of refusing,
+  `ccp agent start` binds no expired run, and the slot that opened it is told once, on its next
+  `ccp prompt`. A resumed agent is not bound again; an agent of another type is skipped; a start
+  with no pending run lands in `runs/_unbound.jsonl`, as do hook errors, and the hook always exits
+  0. Headless runs bind directly.
 - **Abandoning.** A run ends when its worker's `ccp report` closes it, or when it is abandoned
   (`abandoned_at`, `abandoned_reason`, `abandoned_by`, a `run` `abandoned` event) because a later
   round of its task and phase opens (`superseded by <new run_id>`; `ccp prompt` warns when the old
   round was `running`, and a report from it is refused), its task is closed (`task closed`), or its
   task is done or dropped in its file (`ccp tasks sync`: `task closed`, `task dropped`).
-  `ccp runs gc [--dry-run]` applies the same rules to older records; a second run changes nothing.
+  `ccp runs gc [--dry-run]` applies the same rules to older records, an expired pending run
+  (*Binding*) included; a second run changes nothing.
   `abandoned_at` is never reverted. The board's Now panel and Seats table never list a run of a done
   or dropped task; an abandoned run shows only in the task's drill-down.
 

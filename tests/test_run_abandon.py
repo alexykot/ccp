@@ -2,14 +2,20 @@
 phase, or when its task is closed or dropped — and `ccp runs gc` applies the same rules to old records."""
 from __future__ import annotations
 
+import io
 import json
+import os
 import tempfile
+import time
 import unittest
+from contextlib import redirect_stderr
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
-from ccp import board, config, drill, runs, seats
-from ccp.queue import lib
+from ccp import board, config, drill, plane, prompt, runs, seats
+from ccp.queue import QueueError, lib
 from tests.git_helpers import git
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -153,6 +159,18 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         code, body, _, _ = self.ccp("runs", "gc")
         self.assertEqual((code, body["abandoned"]), (0, []))
 
+    def test_an_expired_round_is_abandoned_by_the_next_prompt_and_its_opener_told(self):
+        self.ccp("tasks", "claim", "0002")
+        self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        old = self.run_rec("0002-second/implement")
+        old["opened_at"] = ago(runs.PENDING_EXPIRY_S + 60)
+        runs.save(self.q, old)
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual((code, body["run_id"]), (0, "0002-second/implement-2"), out + err)
+        old = self.run_rec("0002-second/implement")
+        self.assertEqual(old["abandoned_reason"], runs.EXPIRED_REASON)
+        self.assertTrue(old["expired_told_at"])
+        self.assertEqual(len([ln for ln in err.splitlines() if "0002-second/implement," in ln]), 1)
 
     def test_the_board_lists_no_run_of_a_done_task(self):
         self.write_run("0001-first/review", agent_id="a", started_at=at(11), stopped_at=at(12))
@@ -164,6 +182,109 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         rows = [r["seat"] for r in seats.collect(cfg, self.q, {"runs": [], "seats": {}, "timeline": {}}, {})["rows"]]
         self.assertIn("verifier 0002-second/verify", rows)
         self.assertFalse([s for s in rows if "0001-first" in s])
+
+
+def ago(s: float) -> str:
+    return datetime.fromtimestamp(time.time() - s, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+class PendingExpiry(unittest.TestCase):
+    """§11.1: a pending run whose agent never started within the bound has expired."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.q = Path(tmp.name)
+        self.cfg = SimpleNamespace(project_id="demo")
+        env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def write_run(self, run_id: str, age: float, by: str | None = "runner-1", **fields) -> None:
+        task, phase, n = runs.parse_id(run_id)
+        runs.save(self.q, {"schema_version": 1, "run_id": run_id, "task_id": task, "phase": phase, "round": n,
+                           "seat": runs.SEAT[phase], "agent_type": runs.AGENT_TYPE[phase], "opened_at": ago(age),
+                           "opened_by": by, "agent_id": None, "started_at": None, "stopped_at": None,
+                           "reported_at": None, "outcome": None, **fields})
+
+    def rec(self, run_id: str) -> dict:
+        return runs.load(self.q, run_id)
+
+    def abandoned_events(self) -> list[dict]:
+        rows = [json.loads(ln) for ln in (self.q / "observability" / "events.jsonl").read_text().splitlines() if ln]
+        return [e["payload"] for e in rows if (e["type"], e["op"]) == ("run", "abandoned")]
+
+    def test_a_pending_run_past_the_bound_no_longer_blocks_its_agent_type(self):
+        old = runs.PENDING_EXPIRY_S + 60
+        self.write_run("0001-first/implement", old)
+        self.write_run("0003-third/review", old)  # another agent type's: left to its own next prompt
+        pending = runs.check_pending(self.q, self.cfg, runs.AGENT_TYPE["implement"], False, "runner-2")
+        self.assertEqual(pending, [])
+        self.assertEqual(self.rec("0001-first/implement")["abandoned_reason"], runs.EXPIRED_REASON)
+        self.assertEqual(runs.state(self.rec("0003-third/review")), "pending")
+        self.assertEqual(self.abandoned_events(), [{"run_id": "0001-first/implement", "reason": runs.EXPIRED_REASON}])
+
+    def test_a_fresh_pending_run_still_refuses(self):
+        self.write_run("0001-first/implement", runs.PENDING_EXPIRY_S - 60)
+        self.write_run("0002-second/implement", runs.PENDING_EXPIRY_S + 60, opened_at="not a time")
+        with self.assertRaises(QueueError) as e:
+            runs.check_pending(self.q, self.cfg, runs.AGENT_TYPE["implement"], False, "runner-2")
+        self.assertEqual(e.exception.code, 3)
+        self.assertEqual([runs.state(self.rec(r)) for r in ("0001-first/implement", "0002-second/implement")],
+                         ["pending", "pending"])
+        self.write_run("0001-first/implement", runs.SUPERSEDE_GRACE_S - 30)  # the grace still holds for a fresh one
+        with self.assertRaises(QueueError) as e:
+            runs.check_pending(self.q, self.cfg, runs.AGENT_TYPE["implement"], True, "runner-2")
+        self.assertEqual(e.exception.code, 3)
+
+    def test_gc_abandons_an_expired_pending_run(self):
+        old = runs.PENDING_EXPIRY_S + 60
+        self.write_run("0001-first/implement", old)
+        self.write_run("0002-second/implement", runs.PENDING_EXPIRY_S - 60)
+        self.write_run("0003-third/review", old, agent_id="a", started_at=ago(old - 5))  # running: never expires
+        self.assertEqual(runs.gc(self.cfg, dry_run=True)["abandoned"],
+                         [{"run_id": "0001-first/implement", "state": "pending", "reason": runs.EXPIRED_REASON}])
+        self.assertEqual(runs.state(self.rec("0001-first/implement")), "pending")
+        self.assertEqual(len(runs.gc(self.cfg)["abandoned"]), 1)
+        self.assertEqual(self.rec("0001-first/implement")["abandoned_reason"], runs.EXPIRED_REASON)
+        self.assertEqual([runs.state(self.rec(r)) for r in ("0002-second/implement", "0003-third/review")],
+                         ["pending", "running"])
+        self.assertEqual(runs.gc(self.cfg)["abandoned"], [])
+
+    def start(self, agent: str) -> dict:
+        return plane.agent_hook(self.cfg, "start", json.dumps({"agent_id": agent, "session_id": "s1",
+                                                               "agent_type": runs.AGENT_TYPE["implement"]}))
+
+    def test_agent_start_binds_no_expired_run(self):
+        self.write_run("0001-first/implement", runs.PENDING_EXPIRY_S + 60)  # the oldest, but expired
+        self.write_run("0002-second/implement", 30)
+        self.assertEqual(self.start("i1")["bound"], "0002-second/implement")
+        self.assertEqual(self.rec("0001-first/implement")["abandoned_reason"], runs.EXPIRED_REASON)
+        self.write_run("0003-third/implement", runs.PENDING_EXPIRY_S + 60)
+        self.assertIsNone(self.start("i2")["bound"])
+        self.assertEqual(runs.state(self.rec("0003-third/implement")), "abandoned")
+        unbound = [json.loads(ln) for ln in (self.q / "runs" / "_unbound.jsonl").read_text().splitlines()]
+        self.assertEqual([u["agent_id"] for u in unbound], ["i2"])
+
+    def told(self, slot: str) -> list[str]:
+        err = io.StringIO()
+        with redirect_stderr(err):
+            prompt.tell_expired(self.q, slot)
+        return err.getvalue().splitlines()
+
+    def test_the_opener_is_told_once_on_its_next_prompt(self):
+        old = runs.PENDING_EXPIRY_S + 60
+        self.write_run("0001-first/implement", old)
+        self.write_run("0002-second/implement", old, by="runner-2")
+        runs.check_pending(self.q, self.cfg, runs.AGENT_TYPE["implement"], False, "runner-2")
+        mine = self.told("runner-1")
+        self.assertEqual(len(mine), 1)
+        self.assertIn("0001-first/implement,", mine[0])
+        self.assertTrue(self.rec("0001-first/implement")["expired_told_at"])
+        self.assertNotIn("expired_told_at", self.rec("0002-second/implement"))
+        self.assertEqual(self.told("runner-1"), [])
+        self.assertEqual(len(self.told("runner-2")), 1)
+        self.assertEqual(self.told("runner-2"), [])
 
 
 class Drill(unittest.TestCase):

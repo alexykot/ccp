@@ -7,12 +7,15 @@ record is `runs/<task_id>/<phase>[-<n>].json` and its report `progress/<task_id>
 it to the agent that started (`ccp agent start`: the oldest pending run of that agent type); the
 SubagentStop hook stops it; the worker's `ccp report` closes it. A run that never reported is
 abandoned (§11.1): when a later round of its task and phase is opened, when its task is closed or
-dropped, or when the next run of its agent type is opened with `--supersede`. `ccp runs gc` applies
-the same rules to records written before them.
+dropped, when the next run of its agent type is opened with `--supersede`, or when its agent has not
+started within `PENDING_EXPIRY_S` of its opening (expired). `ccp runs gc` applies the same rules to
+records written before them.
 """
 from __future__ import annotations
 
 import re
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -135,9 +138,10 @@ def open_on_live_tasks(q: Path, cfg: Config) -> list[dict[str, Any]]:
     return [r for r in all_runs(q) if state(r) in OPEN and not resolution(q, durable, str(r.get("task_id") or ""))]
 
 
-def gc_plan(q: Path, cfg: Config) -> list[tuple[dict[str, Any], str]]:
+def gc_plan(q: Path, cfg: Config, now: float | None = None) -> list[tuple[dict[str, Any], str]]:
     """The open runs §11.1's rules abandon, with the reason: a later round of the same task and phase
-    (superseded by the next one), else a done or dropped task."""
+    (superseded by the next one), else a done or dropped task, else an expired pending run."""
+    now = time.time() if now is None else now
     from ccp.queue import durable_statuses  # noqa: PLC0415
     try:
         durable = durable_statuses(cfg)
@@ -156,6 +160,8 @@ def gc_plan(q: Path, cfg: Config) -> list[tuple[dict[str, Any], str]]:
             out.append((r, f"superseded by {later[0]['run_id']}"))
         elif res:
             out.append((r, CLOSED_REASON[res]))
+        elif expired(r, now):
+            out.append((r, EXPIRED_REASON))
     return out
 
 
@@ -236,21 +242,46 @@ def worker_model(cfg: Config, phase: str, task: dict[str, Any] | None = None,
 
 
 SUPERSEDE_GRACE_S = 120  # §16.4: another runner's run this fresh is about to be launched, never superseded
+PENDING_EXPIRY_S = 600  # §11.1: a pending run whose agent has not started this long after its opening has expired
+EXPIRED_REASON = f"expired: its agent never started within {PENDING_EXPIRY_S // 60} minutes"
 
 
-def check_pending(q: Path, agent_type: str, supersede: bool, by: str | None = None) -> list[dict[str, Any]]:
-    """The pending runs of this agent type; refuses while there is one, unless superseding. Even
-    superseding, another runner's (`opened_by`) run opened in the last SUPERSEDE_GRACE_S is refused
-    (exit 3): with several runners it is a launch seconds away, not a lost one (SPEC §16.4)."""
-    pending = [r for r in all_runs(q) if r.get("agent_type") == agent_type and state(r) == "pending"]
+def opened_ts(rec: dict[str, Any]) -> float | None:
+    """The run's `opened_at` as a POSIX time, or None when it does not parse."""
+    try:
+        return datetime.fromisoformat(str(rec.get("opened_at")).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def expired(rec: dict[str, Any], now: float) -> bool:
+    """§11.1: a pending run opened more than PENDING_EXPIRY_S before `now`; an `opened_at` that does
+    not parse never expires."""
+    opened = opened_ts(rec)
+    return state(rec) == "pending" and opened is not None and now - opened > PENDING_EXPIRY_S
+
+
+def check_pending(q: Path, cfg: Config, agent_type: str, supersede: bool, by: str | None = None,
+                  now: float | None = None) -> list[dict[str, Any]]:
+    """The pending runs of this agent type; refuses while there is one, unless superseding. Every
+    expired one is abandoned first and neither refuses nor is returned (§11.1). Even superseding,
+    another runner's (`opened_by`) run opened in the last SUPERSEDE_GRACE_S is refused (exit 3): with
+    several runners it is a launch seconds away, not a lost one (SPEC §16.4)."""
+    now = time.time() if now is None else now
+    pending = []
+    for r in all_runs(q):
+        if r.get("agent_type") != agent_type or state(r) != "pending":
+            continue
+        if expired(r, now):
+            abandon(q, cfg, r, EXPIRED_REASON)
+        else:
+            pending.append(r)
     if supersede and by:
-        import time  # noqa: PLC0415
-        from datetime import datetime  # noqa: PLC0415
         for r in pending:
-            try:
-                age = time.time() - datetime.fromisoformat(str(r.get("opened_at")).replace("Z", "+00:00")).timestamp()
-            except ValueError:
+            opened = opened_ts(r)
+            if opened is None:
                 continue
+            age = now - opened
             if r.get("opened_by") and r.get("opened_by") != by and age < SUPERSEDE_GRACE_S:
                 raise QueueError(f"{r['run_id']} was opened {age:.0f} s ago by {r['opened_by']}, another runner, and is "
                                  "about to be launched: wait a few seconds and run `ccp prompt` again (SPEC §16.4)", 3)
@@ -285,7 +316,7 @@ def open_run(q: Path, cfg: Config, task_id: str, phase: str, *, prompt_ref: str 
     if by is None:  # §16.4: the runner opening it (the lease holder, when the caller is not named)
         by = str(load_task_state(q, task_id).get("lease_holder") or "") or None
     check_running_rounds(q, task_id, phase, by, supersede)
-    pending = check_pending(q, agent_type, supersede, by)
+    pending = check_pending(q, cfg, agent_type, supersede, by)
     n = next_round(q, task_id, phase)
     run_id = make_id(task_id, phase, n)
     for r in pending:
@@ -311,12 +342,21 @@ def open_run(q: Path, cfg: Config, task_id: str, phase: str, *, prompt_ref: str 
 
 
 def bind(q: Path, cfg: Config, agent_type: str, agent_id: str, session_id: str | None) -> dict[str, Any] | None:
-    """SubagentStart: the oldest pending run of this agent type is this agent's. None when there is
-    no such run (an agent the toolkit did not launch); the hook records it as unbound."""
+    """SubagentStart: the oldest pending run of this agent type is this agent's; an expired one is
+    abandoned, never bound (§11.1). None when there is no such run (an agent the toolkit did not
+    launch); the hook records it as unbound."""
     agent_type = unscoped(agent_type)
     if any(r.get("agent_id") == agent_id for r in all_runs(q)):
         return None  # a resumed agent: already bound
-    pending = [r for r in all_runs(q) if r.get("agent_type") == agent_type and state(r) == "pending"]
+    now = time.time()
+    pending = []
+    for r in all_runs(q):
+        if r.get("agent_type") != agent_type or state(r) != "pending":
+            continue
+        if expired(r, now):
+            abandon(q, cfg, r, EXPIRED_REASON)
+        else:
+            pending.append(r)
     if not pending:
         return None
     rec = pending[0]
@@ -325,6 +365,21 @@ def bind(q: Path, cfg: Config, agent_type: str, agent_id: str, session_id: str |
     emit(q, cfg, rec["task_id"], "run", "bound", {"run_id": rec["run_id"], "agent_id": agent_id,
                                                   "session_id": session_id}, "system")
     return rec
+
+
+def expired_untold(q: Path, by: str | None) -> list[dict[str, Any]]:
+    """§11.1: the runs slot `by` opened that were abandoned as expired and that it has not been told of
+    (no `expired_told_at`)."""
+    if not by:
+        return []
+    return [r for r in all_runs(q) if r.get("abandoned_reason") == EXPIRED_REASON and r.get("opened_by") == by
+            and not r.get("expired_told_at")]
+
+
+def mark_told(q: Path, rec: dict[str, Any]) -> None:
+    """§11.1: the opener has been told that `rec` expired; it is not told again."""
+    rec["expired_told_at"] = iso()
+    save(q, rec)
 
 
 def stop(q: Path, cfg: Config, agent_id: str) -> dict[str, Any] | None:
