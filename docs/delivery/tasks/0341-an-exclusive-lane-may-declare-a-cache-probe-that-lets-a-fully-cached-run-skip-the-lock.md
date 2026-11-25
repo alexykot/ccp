@@ -140,4 +140,18 @@ Measured at `554fe3a`:
 
 ## Implementation notes
 
+- `ccp/suite.py`: `cache_probe_argv` (the lane's probe with the run's argv appended, none for a staged lane),
+  `run_cache_probe` (the process: run's directory, stdin from /dev/null, output discarded, its own session, killed
+  whole after `CACHE_PROBE_TIMEOUT_S`, `CCP_SUITE_LANE` set) and `CACHE_PROBE`, the `lane_skipped` value. In `run`,
+  the probe runs right after the first `take_lane` finds the lock held, before the `--wait auto` bound is resolved and
+  before the wait loop; the wait's clock (`t_wait`) starts before the first `take_lane`, so the probe's seconds count
+  against the bound and land in `wait_s` (or the busy row's `waited_s`) without a separate subtraction. A yes sets
+  `lane_skipped: "cache_probe"` and runs as the lock-failure path does (`lane_fd = -1`): no `wait_s`, no busy row.
+- The cold-gate test the green-tree skip used is now `_cold_task`, shared by both skips (unchanged behaviour: a task
+  that cannot be read keeps the lock).
+- The probe's environment, which the brief leaves open, is the run's own (the caller's, the worktree's fields and
+  `CCP_SUITE_COLD` under `--cold`), plus `CCP_SUITE_LANE`; never `CCP_SUITE_ID` or `CCP_SUITE_RESULT`.
+- `ccp/config.py`: `suite.cache_probe` defaults to `{}`; a key that is no lane name (`SUITE_LANE_RE`) is refused with
+  the other shapes.
+
 ## Verification notes
