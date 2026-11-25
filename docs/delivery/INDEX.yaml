@@ -1657,3 +1657,28 @@ tasks:
     title: ccp suite affected and suite run --affected leave out the paths plane.json suite.affected_exclude names, so a test module the product's lanes do not run is never listed, run or counted in the suite
     depends_on: []
     path: tasks/0336-suite-affected-honours-an-exclude-list-from-plane-json.md
+  - id: 0337-five-constants-become-plane-json-settings-again
+    status: pending
+    title: architect.rules_max_lines, notes_due and max_new_tasks, task_log.dry_run and docs.workers are plane.json settings again, with their constants as defaults, so a product that sets one hears no constant warning
+    depends_on: []
+    path: tasks/0337-five-constants-become-plane-json-settings-again.md
+  - id: 0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs
+    status: pending
+    title: A feature task may cite the accepted ADR decisions it builds in adr_refs in place of spec_refs, and a task citing neither is told both lists
+    depends_on: []
+    path: tasks/0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs.md
+  - id: 0339-a-suite-run-s-liveness-is-judged-by-its-process-and-a-killed-run-s-processes-are-ended
+    status: pending
+    title: A suite run is open while its recording ccp process lives, not for a fixed 30 minutes, and the plane ends a run whose worker run stopped, reported or was abandoned, so nothing it started keeps holding the lane's resources
+    depends_on: []
+    path: tasks/0339-a-suite-run-s-liveness-is-judged-by-its-process-and-a-killed-run-s-processes-are-ended.md
+  - id: 0340-a-pending-run-whose-agent-never-started-expires-and-no-longer-blocks-its-agent-type
+    status: pending
+    title: A pending run whose agent never started expires after 10 minutes, so it no longer blocks every runner's launches of its agent type; the next prompt and runs gc abandon it, and the slot that opened it is told
+    depends_on: []
+    path: tasks/0340-a-pending-run-whose-agent-never-started-expires-and-no-longer-blocks-its-agent-type.md
+  - id: 0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock
+    status: pending
+    title: An exclusive lane may declare a cache probe in plane.json suite.cache_probe, and a run the probe says the product's test cache answers whole skips the lane's lock, recorded as such
+    depends_on: []
+    path: tasks/0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock.md
