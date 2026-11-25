@@ -258,6 +258,19 @@ class Lanes(SuiteFixture, unittest.TestCase):
         _killpg(holder)
         holder.wait(timeout=30)
 
+    def test_a_cold_run_takes_the_lock_whatever_its_tree(self):
+        self.commit()
+        r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        holder = self.hold(seconds=60)
+        r = self.run_suite("--lane", "gate", "--cold", "--wait", "0", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
+        self.assertNotIn("lane_skipped", self.started_rows()[-1])
+        r = self.run_suite("--lane", "gate", "--wait", "0", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, 0, r.stderr)  # the same run, not cold, runs past the held lane
+        _killpg(holder)
+        holder.wait(timeout=30)
+
     def test_green_run_matches_lane_tree_command_and_a_clean_pass(self):
         mine = {"lane": "gate", "tree": "t1", "cmd": "python3", "argc": 2}
 

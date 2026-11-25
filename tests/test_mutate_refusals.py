@@ -59,6 +59,21 @@ class TextMutants(PlainFiles):
         self.assertIn("2 times", self.refused(mutate._once, "m", "calc.py", CALC.encode(), b"return", False))
         mutate._once("m", "calc.py", CALC.encode(), b"a + b", False)  # once: no refusal
 
+    def test_an_ambiguous_old_text_names_the_lines_it_is_on(self):
+        self.assertIn("2 times, at lines 2 and 6;", self.refused(mutate._once, "m", "calc.py", CALC.encode(),
+                                                                  b"return", False))
+        three = (CALC + "\n\ndef mul(a, b):\n    return a * b\n").encode()
+        self.assertIn("3 times, at lines 2, 6 and 10;", self.refused(mutate._once, "m", "calc.py", three, b"return",
+                                                                      False))
+        self.assertIn("2 times, at lines 1 and 5;", self.refused(mutate.parse, self.root, "calc.py:def =>fed ",
+                                                                 self.root))
+        # the lines of the text as checked: what the earlier parts leave
+        msg = self.refused(mutate.together, [mutate.parse(self.root, s, self.root, False) for s in
+                                             ("calc.py:def add(a, b):\n=>", "calc.py:return=>yield")],
+                           {"calc.py": CALC.encode()})
+        self.assertIn("leave it 2 times, at lines 1 and 5;", msg)
+        self.assertNotIn("at line", self.refused(mutate._once, "m", "calc.py", CALC.encode(), b"a / b", False))
+
     def test_a_mutant_that_is_no_file_or_leaves_the_worktree(self):
         for spec in ("no-such.patch", "../calc.py:a + b=>a - b", "missing.py:a=>b", "/etc/hosts:a=>b",
                      "calc.py=>x", "calc.py:=>x"):

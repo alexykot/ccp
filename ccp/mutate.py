@@ -91,7 +91,18 @@ def _once(label: str, rel: str, text: bytes, old: bytes, after: bool) -> None:
     n = text.count(old)
     if n != 1:
         where = f"{rel} as the earlier parts on it leave it" if after else rel
-        raise QueueError(f"{label}: the old text is in {where} {n} times; a mutant names one place", 2)
+        lines = [str(x) for x in _lines_of(text, old)]
+        at = f", at lines {', '.join(lines[:-1])} and {lines[-1]}" if len(lines) > 1 else ""
+        raise QueueError(f"{label}: the old text is in {where} {n} times{at}; a mutant names one place", 2)
+
+
+def _lines_of(text: bytes, old: bytes) -> list[int]:
+    """The 1-based line each occurrence of `old` in `text` starts on, the occurrences `bytes.count` counts."""
+    found, i = [], text.find(old)
+    while old and i >= 0:
+        found.append(text.count(b"\n", 0, i) + 1)
+        i = text.find(old, i + len(old))
+    return found
 
 
 def _without_line_break(text: bytes) -> bytes:

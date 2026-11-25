@@ -1,7 +1,7 @@
 ---
 task_id: 0347-a-cold-suite-run-takes-the-exclusive-lock-mutate-names-the-lines-of-an-ambiguous-mutant-and-spec-text-says-what-it-read
 title: A suite run given --cold takes the exclusive lane's lock whatever its tree or cache probe says, with its signed §16.6 sentence; ccp mutate's refusal of an old text found more than once names the lines it is on; verify spec-text's help, not-found line and a base with no merge base say what it read
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S15", "S16", "S20"]
@@ -139,4 +139,16 @@ Measured at `05cb00e2`:
 
 ## Implementation notes
 
+- `ccp/suite.py` `run`: `cold` (from `a.cold`) gates both §16.6 skips: `_green_from` is not called and the cache
+  probe is not run, so a `--cold` run of an exclusive lane takes the lock (or exits 75 with `--wait 0`) and its
+  `started` row has no `lane_skipped`. §16.6 carries the signed sentence.
+- `ccp/mutate.py` `_once`: a count of two or more adds `at lines A and B` (`A, B and C`), each the 1-based line an
+  occurrence's first byte is on in the text as checked (`_lines_of`: lines counted by `\n`, the non-overlapping
+  occurrences `bytes.count` counts, one entry per occurrence, so two on one line list that line twice).
+- `ccp/verify.py` `main`: with no `--head`, the not-found line reads `in the text the working tree changes since its
+  merge base with <base>`; with `--head`, as before. `ccp/cli.py`: the `--head` help as ruled.
+- Tests: the five the task names; the no-merge-base one pins behaviour that predates this task (it passes at the base).
+
 ## Verification notes
+- 2026-11-25 — verifier, PR #426 head `a483aee` (squash `f2f050b`): APPROVE. Passed: spec-01, code-01, code-02, code-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0347-a-cold-suite-run-takes-the-exclusive-lock-mutate-names-the-lines-of-an-ambiguous-mutant-and-spec-text-says-what-it-read.json.
+
