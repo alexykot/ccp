@@ -1,7 +1,7 @@
 ---
 task_id: 0339-a-suite-run-s-liveness-is-judged-by-its-process-and-a-killed-run-s-processes-are-ended
 title: A suite run is open while its recording ccp process lives, not for a fixed 30 minutes, the board reads that state, and the plane ends a run whose worker run reported or was abandoned, so nothing it started keeps holding the lane's resources
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S28"]
@@ -180,3 +180,5 @@ Measured at `554fe3a`:
     after the recording `ccp` exits, which is the task's point: nothing the run started keeps the lane.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #414 head `53b8125` (squash `c953065`): APPROVE. Passed: cmd-01, cmd-02, code-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0339-a-suite-run-s-liveness-is-judged-by-its-process-and-a-killed-run-s-processes-are-ended.json.
+
