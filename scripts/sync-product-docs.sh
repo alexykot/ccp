@@ -40,7 +40,8 @@
 #   templates/docs-project/ENGINEERING.md; it is product-owned, never a managed copy).
 # Exit 2: usage / config error (unknown project, no product_root, product_root missing).
 #
-# Defaults: --project-yaml = <the bindings directory>/<project_id>.yaml (CCP_BINDINGS_DIR, else
+# Defaults: --project-yaml = the one resolver's file for the project id (`lib.binding_for_id`: the file PROJECT_YAML
+# names when it binds that id, else <the bindings directory>/<project_id>.yaml, CCP_BINDINGS_DIR else
 # <plane>/projects); --product-root = its product_root.
 # No secrets are read or written.
 set -euo pipefail

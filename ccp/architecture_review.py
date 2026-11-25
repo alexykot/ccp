@@ -264,12 +264,31 @@ def is_commit_sha(value: Any) -> bool:
     return isinstance(value, str) and bool(COMMIT_SHA_RE.fullmatch(value))
 
 
-def validate_triage(t: Any, rid: str) -> list[str]:
+def _triage_contract(ids: refs.Ids) -> dict[str, Any]:
+    """The triage contract without the two id patterns SPEC §7.1 makes product knobs (`ids.task.width`,
+    `ids.rule.pattern`): the contract's are the defaults, and `validate_triage` checks those two values by `ids`."""
+    contract = json.loads(TRIAGE_SCHEMA.read_text())
+    props = contract["properties"]
+    props["tasks_created"]["items"].pop("pattern", None)
+    props["rule_changes"]["items"]["properties"]["rule"].pop("pattern", None)
+    return contract
+
+
+def validate_triage(t: Any, rid: str, ids: refs.Ids = refs.DEFAULT) -> list[str]:
     """A triage against its contract (`TRIAGE_SCHEMA`, by `ccp.schema`'s one checker), then what the contract
-    cannot say: the review id is this review's, a task or ruling has a commit sha, and no secret."""
+    cannot say: a task id and a rule id have the product's shapes (`ids`; the contract's patterns are the
+    defaults), the review id is this review's, a task or ruling has a commit sha, and no secret."""
     if not isinstance(t, dict):
         return ["triage is not an object"]
-    errs = schema.schema_errors(t, json.loads(TRIAGE_SCHEMA.read_text()), at="triage")
+    errs = schema.schema_errors(t, _triage_contract(ids), at="triage")
+    created = t.get("tasks_created")
+    for i, tid in enumerate(created if isinstance(created, list) else []):
+        if isinstance(tid, str) and not ids.task_id_re.match(tid):
+            errs.append(f"triage.tasks_created[{i}]: {tid!r} is not a task id (ids.task.width {ids.task_width})")
+    changes = t.get("rule_changes")
+    for i, c in enumerate(changes if isinstance(changes, list) else []):
+        if isinstance(c, dict) and isinstance(c.get("rule"), str) and not ids.is_rule_id(c["rule"]):
+            errs.append(f"triage.rule_changes[{i}].rule: {c['rule']!r} is not a rule id ({ids.rule_shape})")
     if t.get("review_id") != rid:
         errs.append(f"review_id {t.get('review_id')!r} != {rid}")
     if (t.get("tasks_created") or any((d or {}).get("disposition") in ("task", "spec") for d in t.get("dispositions") or []
@@ -386,12 +405,12 @@ def _checkout(named: str, product_dir: str | None) -> str:
 
 
 def triage(root: Path, rid: str, actor: str, kind: Kind, max_new: int, prompt_extra: str = "",
-           extra_check: Any = None, product_dir: str | None = None) -> int:
+           extra_check: Any = None, product_dir: str | None = None, ids: refs.Ids = refs.DEFAULT) -> int:
     """Hand one report of this kind to the task-log owner, or apply its triage file (§19.8).
 
     The architect (§19) passes `max_new` (its `max_new_tasks`), `prompt_extra` for §19.8's steps,
     `extra_check(triage, report) -> errors`, and `product_dir` for a queue whose binding (§8.3) names
-    no product_root."""
+    no product_root; `ids` is the product's id shapes (§7.1)."""
     if not kind.rid_re.match(rid):
         die(f"bad review id {rid!r}", 2)
     rp, tp = report_path(root, rid), triage_path(root, rid)
@@ -403,7 +422,7 @@ def triage(root: Path, rid: str, actor: str, kind: Kind, max_new: int, prompt_ex
         return out({"outcome": "already_triaged", "review_id": rid})
     # A triage file already present (async owner, earlier call, or written by hand in the session)?
     def check(t: Any) -> list[str]:
-        errs = validate_triage(t, rid)
+        errs = validate_triage(t, rid, ids)
         if not errs and extra_check is not None:
             errs = extra_check(t, read_json(rp))
         return errs

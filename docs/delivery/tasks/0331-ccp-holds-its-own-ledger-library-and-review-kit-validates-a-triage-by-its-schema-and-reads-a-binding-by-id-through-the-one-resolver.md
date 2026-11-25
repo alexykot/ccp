@@ -237,5 +237,11 @@ Measured at `1a575497`:
 - Added beyond the task's tests: `test_the_rendered_prompt_is_written_atomically` (`tests/test_prompt_end.py`),
   `test_the_failure_file_is_written_atomically` (`tests/test_estimator.py`) and
   `test_the_bindings_directory_defaults_to_projects_beside_the_plane_code` (`tests/test_binding_by_id.py`).
+- Fix round 1: the contract's two id patterns (`tasks_created[]`, `rule_changes[].rule`) are the defaults, while SPEC §7.1
+  makes the task width and the rule pattern product knobs. `validate_triage` and `triage` take the product's `Ids`
+  (`refs.DEFAULT` when none), the architect passes `refs.ids(cfg)` on both paths, and the validation runs the contract
+  with those two patterns removed, then checks the two values by `task_id_re` and `is_rule_id`; every other contract
+  error still refuses. The contract file is unchanged. `scripts/sync-product-docs.sh`'s header and
+  `scripts/observability/CLAUDE.md` now name `binding_for_id`.
 
 ## Verification notes

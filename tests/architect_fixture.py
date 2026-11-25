@@ -57,10 +57,11 @@ class Harness(unittest.TestCase):
 
     ARCHITECT: dict = {"shape_from_task": "0001"}
     TASKS = 8
+    PLANE_EXTRA: dict = {}  # more plane.json blocks, over the harness's own (a test of a product's `ids`)
     DETACHED_WAIT = 30  # seconds tearDown waits for each detached pass before it removes the queue it writes to
 
     def setUp(self):
-        self.p = Product({"architect": self.ARCHITECT})
+        self.p = Product({"architect": self.ARCHITECT, **self.PLANE_EXTRA})
         self.p.write(".claude/skills/architect/SKILL.md", "---\nname: architect\n---\n# Architect\n")
         self.p.write("docs/delivery/REVIEW-TRIAGE.md", "# triage\n")
         for i in range(1, self.TASKS + 1):

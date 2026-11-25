@@ -919,7 +919,7 @@ def cmd_apply(cfg: Config, q: Path, rid: str, actor: str) -> int:
                        "error": "commit the triage file first; --apply does not ask anyone to write it"}, 1)
     t = read_json(tp)
     report = read_json(rp)
-    errs = ar.validate_triage(t, rid) if isinstance(t, dict) else ["triage is not an object"]
+    errs = ar.validate_triage(t, rid, refs.ids(cfg)) if isinstance(t, dict) else ["triage is not an object"]
     if not errs and isinstance(report, dict):
         errs = triage_check(t, report)
     elif not errs:
@@ -941,7 +941,7 @@ def cmd_triage(cfg: Config, q: Path, rid: str, actor: str) -> int:
     report = read_json(rp) if rp.is_file() else {}
     return ar.triage(q, rid, actor, ARCH, max_new=s["max_new_tasks"],
                      prompt_extra=triage_extra(cfg, report), extra_check=triage_check,
-                     product_dir=str(cfg.root))
+                     product_dir=str(cfg.root), ids=refs.ids(cfg))
 
 
 # ---------------------------------------------------------------- status and CLI
