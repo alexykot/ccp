@@ -42,11 +42,11 @@ from typing import Any
 
 from ccp.envvars import envvar
 from ccp import estimate as est
-from ccp import adr, headless, models, spec, tasklog
+from ccp import adr, headless, models, promptaudit, spec, tasklog
 from ccp.refs import ids as _ids
 from ccp.refs import number_prefix
 from ccp.config import Config
-from ccp.queue import PLANE, append_jsonl, iso, lib, read_json, spawn_detached
+from ccp.queue import PLANE, QueueError, append_jsonl, iso, lib, read_json, spawn_detached
 
 SEAT = "estimator"
 # The plane's default, like architecture_review.HEADLESS_MODEL, from the role table (`models.ROLES`; operator,
@@ -396,12 +396,9 @@ def _ar():
 
 
 def argv_for(prompt: str, cfg: Config | None = None) -> list[str]:
-    argv = ["env"]
-    for k in headless.STRIP_KEYS:
-        argv += ["-u", k]
-    return argv + [envvar("CCP_ESTIMATOR_CLAUDE_BIN") or "claude", "-p", prompt, *models.headless_flags(SEAT, cfg), *NO_TOOLS,
-                   *ISOLATION, "--strict-mcp-config", "--no-session-persistence", "--max-budget-usd", MAX_BUDGET_USD,
-                   "--output-format", "json"]
+    return headless.claude_argv("CCP_ESTIMATOR_CLAUDE_BIN", prompt, [
+        *models.headless_flags(SEAT, cfg), *NO_TOOLS, *ISOLATION, "--strict-mcp-config", "--no-session-persistence",
+        "--max-budget-usd", MAX_BUDGET_USD, "--output-format", "json"])
 
 
 def child_env(project_id: str) -> dict[str, str]:
@@ -431,15 +428,13 @@ def call(cfg: Config, q: Path, prompt: str, run_id: str, tid: str, actor: str = 
     """One headless call: (the parsed `--output-format json` result, stderr, exit code). The tests
     replace this function; nothing else here starts a process that costs money."""
     argv = argv_for(prompt, cfg)
-    audit = subprocess.run(
-        ["bash", str(PLANE / "scripts" / "observability" / "write-prompt-audit.sh"), "--task-id", SEAT, "--phase", "estimate",
-         "--prompt-file", "-", "--argv", json.dumps(argv[:argv.index("-p") + 1] + ["<prompt>"] + argv[argv.index("-p") + 2:]),
-         "--actor", actor, "--project-id", cfg.project_id, "--worktree", str(cfg.root),
-         "--notes", f"run_id={run_id} task_id={tid}"]
-        + (["--keep-body"] if (cfg.prompts or {}).get("keep_body") else []),  # §23.8
-        input=prompt, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
-    if audit.returncode != 0:
-        raise RuntimeError(f"write-prompt-audit failed: {audit.stderr.strip()[:300]}")
+    try:
+        promptaudit.write(q, cfg, task_id=SEAT, phase="estimate", prompt=prompt,
+                          argv=argv[:argv.index("-p") + 1] + ["<prompt>"] + argv[argv.index("-p") + 2:],
+                          actor=actor, project_id=cfg.project_id, worktree=str(cfg.root),
+                          notes=f"run_id={run_id} task_id={tid}")
+    except QueueError as exc:
+        raise RuntimeError(str(exc)) from exc
     cwd = tempfile.mkdtemp(prefix="ccp-estimator-")  # no product CLAUDE.md, settings or hooks join the context
     try:
         proc = subprocess.run(argv, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True,

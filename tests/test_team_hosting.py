@@ -592,7 +592,7 @@ class TestQueueFromTheBinding(unittest.TestCase):
 
 
 class TestKeepBodyImport(unittest.TestCase):
-    """§23.8: `keep_body` reads the product's plane.json through ccp's config, which it puts on the import
+    """§23.8: `product_config` reads the product's plane.json through ccp's config, which it puts on the import
     path once, not on every audit write."""
 
     def test_repeated_calls_leave_the_import_path_as_the_first_left_it(self):
@@ -608,12 +608,17 @@ class TestKeepBodyImport(unittest.TestCase):
             spec = importlib.util.spec_from_file_location("team_keep_body", PLANE_ROOT / "scripts/observability/team.py")
             team = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(team)
-            self.assertEqual(team.keep_body(Path(q.name)), ["--keep-body"])
+            self.assertTrue(team.product_config(Path(q.name)).prompts["keep_body"])
             after_one = list(sys.path)
             for _ in range(3):
-                self.assertEqual(team.keep_body(Path(q.name)), ["--keep-body"])
+                self.assertTrue(team.product_config(Path(q.name)).prompts["keep_body"])
             self.assertEqual(sys.path, after_one)
             self.assertIn(str(PLANE_ROOT), sys.path)
+            bare = tempfile.TemporaryDirectory()
+            self.addCleanup(bare.cleanup)
+            self.assertIsNone(team.product_config(Path(bare.name)))  # no product root: no config
+            (Path(prod.root) / "docs/delivery/plane.json").write_text("{")
+            self.assertIsNone(team.product_config(Path(q.name)))  # a load that fails: no config
 
 
 class TestAgentModels(unittest.TestCase):

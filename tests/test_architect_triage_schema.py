@@ -121,6 +121,13 @@ class ReportContract(unittest.TestCase):
         errs = architecture_review.validate_report(report, self.RID, "demo")
         self.assertTrue(any("rule_changes[0]" in e and "is not a rule id" in e for e in errs), errs)
 
+    def test_a_rule_change_with_no_rule_is_reported_once(self):
+        report = self.report(rule_changes=[{"action": "add", "text": "One registry.", "check": "pass"}])
+        errs = architect.validate(report, self.RID, "demo", "pass", ["structure"], head="abc1234")
+        self.assertEqual(len([e for e in errs if "rule_changes[0]" in e]), 1, errs)
+        self.assertIn("missing rule", errs[0])
+        self.assertEqual(len(errs), 1, errs)
+
     def test_the_models_own_review_id_must_be_this_reviews(self):
         report = self.report()
         self.assertEqual(architect.validate(report, self.RID, "demo", "pass", ["structure"], head="abc1234"), [])

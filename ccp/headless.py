@@ -8,6 +8,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
+from ccp.envvars import envvar
 from ccp.queue import lib
 
 STRIP_KEYS = ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "ANTHROPIC_AUTH_TOKEN")
@@ -31,6 +32,15 @@ def headless_env(project_id: str, seat: str) -> dict[str, str]:
             if x.strip() and not x.strip().startswith("ccp.")]
     env["OTEL_RESOURCE_ATTRIBUTES"] = ",".join(keep + [f"ccp.project_id={project_id}", f"ccp.seat={seat}"])
     return env
+
+
+def claude_argv(override_var: str, prompt: str, flags: list[str]) -> list[str]:
+    """A seat's `claude -p` argv: `env` removing each of `STRIP_KEYS`, the binary named by the seat's override
+    variable (`claude` when it is unset), `-p`, the prompt and the seat's flags."""
+    argv = ["env"]
+    for k in STRIP_KEYS:
+        argv += ["-u", k]
+    return argv + [envvar(override_var) or "claude", "-p", prompt, *flags]
 
 
 def parse_claude_json(stdout: str) -> dict[str, Any]:

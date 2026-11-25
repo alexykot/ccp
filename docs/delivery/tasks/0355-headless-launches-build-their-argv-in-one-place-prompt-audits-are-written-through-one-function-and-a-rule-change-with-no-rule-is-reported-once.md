@@ -112,4 +112,10 @@ Measured at `becb6417`:
 
 ## Implementation notes
 
+- `headless.claude_argv` builds the argv for the architect (`_run_one`) and `estimator.argv_for`; both seats' override variables and fence lines are unchanged. `ccp/architect.py` lost its now-unused `envvar` import and its `PLANE`/`OBS` constants (the audit call was their only use); `ccp/prompt.py` lost its unused `subprocess` import and `OBS`; `scripts/observability/team.py` lost its unused `subprocess` and `os` imports.
+- `promptaudit.write` raises `ValueError` when given both or neither of `prompt` and `prompt_file` (the task leaves it open: the narrowest rule). A field given as None is not passed to the writer, so `ccp prompt` passes `worktree or None` and `note or None`, keeping its old skip of an empty value. The failure message is the writer's stderr only: `ccp prompt` no longer falls back to stdout, and the estimator's message is no longer cut to 300 characters.
+- `team.py` gains `write_audit(root, **kw)`, a small wrapper over `promptaudit.write` that passes `product_config(root)`, `actor=LEAD` and the project id and turns a `QueueError` into `die`, so the three calls do not each repeat the try. The task names only `product_config`; the wrapper holds no new rule.
+- `TestKeepBodyImport` also asserts `product_config` is None with no product root and with a plane.json that fails to load (the two branches the task's text names).
+- `validate_report`'s rule-change check now matches `validate_triage`'s: it runs only when `rule` is a string.
+
 ## Verification notes

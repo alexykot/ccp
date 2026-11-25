@@ -42,16 +42,12 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ccp import architecture_review as ar  # the seat's state, lock, validation, triage
-from ccp import config, headless, health, parallel, pkgdocs, refs, rules, tasklog, wt
+from ccp import config, headless, health, parallel, pkgdocs, promptaudit, refs, rules, tasklog, wt
 from ccp.adr import find_file as find_adr_file
 from ccp.architecture_review import LENSES
 from ccp.config import ARCHITECT_DEFAULTS, Config
-from ccp.envvars import envvar
 from ccp.lib import fmt_dt, lock_is_stale, parse_dt, read_json, write_atomic, write_json
-from ccp.queue import spawn_detached
-
-PLANE = Path(__file__).resolve().parent.parent
-OBS = PLANE / "scripts" / "observability"
+from ccp.queue import QueueError, spawn_detached
 
 SKILL = ar.ARCHITECT_SKILL
 MAX_FINDINGS = {"pass": 25, "shape": 10}
@@ -679,20 +675,14 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
                             info["reason"] if info["due"] else "", last.get("started_at"), own_worktree=bool(own))
         tools = ar.BASE_READ_TOOLS + [f"Bash({p}:*)" for p in s["probes"]]
         deny = [ar.DENY_TOOLS] + deny_rules(list(s["private_dirs"]), _abs_roots(cwd, pr))
-        argv = ["env"]
-        for k in headless.STRIP_KEYS:
-            argv += ["-u", k]
-        argv += [envvar("CCP_ARCHITECT_CLAUDE_BIN") or "claude", "-p", prompt, *ar.headless_flags(cfg),
-                 *ar.plugin_args(cfg.root), "--output-format", "json", "--allowedTools", ",".join(tools), "--disallowedTools", ",".join(deny)]
-        audit = subprocess.run(
-            ["bash", str(OBS / "write-prompt-audit.sh"), "--task-id", ar.AUDIT_TASK, "--phase", f"architect-{mode}",
-             "--prompt-file", "-", "--argv", json.dumps(argv), "--actor", actor, "--project-id", pid,
-             "--worktree", cwd, "--git-head", head, "--notes", f"review_id={rid}"]
-            + (["--keep-body"] if (cfg.prompts or {}).get("keep_body") else []),  # §23.8
-            input=prompt, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
-        if audit.returncode != 0:
-            raise RuntimeError(f"write-prompt-audit failed: {audit.stderr.strip()}")
-        prompt_ref = audit.stdout.strip().splitlines()[-1]
+        argv = headless.claude_argv("CCP_ARCHITECT_CLAUDE_BIN", prompt, [
+            *ar.headless_flags(cfg), *ar.plugin_args(cfg.root), "--output-format", "json", "--allowedTools", ",".join(tools),
+            "--disallowedTools", ",".join(deny)])
+        try:
+            prompt_ref = promptaudit.write(q, cfg, task_id=ar.AUDIT_TASK, phase=f"architect-{mode}", argv=argv, prompt=prompt,
+                                           actor=actor, project_id=pid, worktree=cwd, git_head=head, notes=f"review_id={rid}")
+        except QueueError as exc:
+            raise RuntimeError(str(exc)) from exc
         result["prompt_ref"] = prompt_ref
         ar.emit(q, actor, "launch", {"review_id": rid, "phase": mode, "prompt_ref": prompt_ref})
         env = headless.headless_env(pid, f"architect-{mode}")
