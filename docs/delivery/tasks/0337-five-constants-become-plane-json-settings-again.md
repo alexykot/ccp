@@ -194,4 +194,15 @@ Measured at `554fe3a`:
 
 ## Implementation notes
 
+- Registry: `dry_run`, `workers` and `rules_max_lines`, `notes_due`, `max_new_tasks` left `_CONSTANT_KEYS` (the
+  `docs` entry went whole, as `workers` was its only key) and the `docs.workers` `replace(..., shown=...)` line went;
+  the block defaults are untouched. `Outcome.shown` and `ccp/upgrade.py`'s `shown` branch stay for the binding
+  constant.
+- Schema: the five lose `deprecated` and read `Setting, default <v> (SPEC §<n>): …`, type, minimum and default kept.
+- Tests: the five left `CONSTANTS` and `WAS` and joined `KEPT`; `TheSettingsAgain` added; the `docs.workers`
+  in-words upgrade test deleted; the two `ParallelChecks` tests renamed and re-expected (no `docs.workers` and no
+  `is a constant in code` on stderr).
+- ADR-0043: the appendix's kept entries carry a short default where the kept list's style gives one (`task_log.dry_run`
+  default off, `docs.workers` as many as there are checks); D9 stays `not_built` (0191 marks it).
+
 ## Verification notes
