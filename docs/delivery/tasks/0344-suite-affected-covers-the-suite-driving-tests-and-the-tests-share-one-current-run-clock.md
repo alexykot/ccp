@@ -1,7 +1,7 @@
 ---
 task_id: 0344-suite-affected-covers-the-suite-driving-tests-and-the-tests-share-one-current-run-clock
 title: This repo's suite.affected_map names the test modules that drive ccp suite through a subprocess, so suite run --affected selects them for a change to ccp/suite.py; the tests' copies of a fixed past-day run clock become one helper anchored at the real time, and 0340's expiry patches go; E17's check reads a single-quoted f-string, and the docs sync builds no binding path of its own
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14"]
@@ -129,3 +129,5 @@ Measured at `704ca8de`:
   `lib.bindings_dir()`; a named path that is not a file names that path.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #421 head `078275a` (squash `00a712f`): APPROVE. Passed: cmd-01, code-01, rule-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0344-suite-affected-covers-the-suite-driving-tests-and-the-tests-share-one-current-run-clock.json.
+

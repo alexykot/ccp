@@ -1693,7 +1693,7 @@ tasks:
     depends_on: []
     path: tasks/0343-the-reviewer-and-verifier-definitions-leave-their-templates-instructions-to-them-and-the-lanes-line-gives-whole-commands.md
   - id: 0344-suite-affected-covers-the-suite-driving-tests-and-the-tests-share-one-current-run-clock
-    status: pending
+    status: done
     title: This repo's suite.affected_map names the test modules that drive ccp suite through a subprocess, so suite run --affected selects them for a change to ccp/suite.py; the tests' copies of a fixed past-day run clock become one helper anchored at the real time, and 0340's expiry patches go; E17's check reads a single-quoted f-string, and the docs sync builds no binding path of its own
     depends_on: []
     path: tasks/0344-suite-affected-covers-the-suite-driving-tests-and-the-tests-share-one-current-run-clock.md
