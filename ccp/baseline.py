@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Iterable
 
 from ccp.config import Config
-from ccp.envvars import envvar, for_child
+from ccp.envvars import envvar
 from ccp.rules import OUTPUT_CAP, CheckRun
 
 BASE_RUN = "CCP_BASE_RUN"  # set for the run at the base: the command writes its failures, as JSON, to this file
@@ -210,8 +210,7 @@ def run_at_base(cfg: Config, sha: str, argv: list[str]) -> tuple[list[Failure] |
         except queue.QueueError:
             return None, roots
         env = {k: v for k, v in os.environ.items() if k not in ("QUEUE_ROOT", "CCP_ROOT")}
-        env.update(for_child({BASE_RUN: str(out), "CCP_BINDINGS_DIR": str(head_bindings_dir(cfg)),
-                              "CCP_NO_BINDING_QUEUE": "1"}))
+        env.update({BASE_RUN: str(out), "CCP_BINDINGS_DIR": str(head_bindings_dir(cfg)), "CCP_NO_BINDING_QUEUE": "1"})
         r = subprocess.run([sys.executable, str(queue.CCP_BIN), "--root", str(tree), *argv], cwd=tree, env=env,
                            stdin=subprocess.DEVNULL, capture_output=True)
         return (_read(out) if r.returncode in (0, 1) else None), roots

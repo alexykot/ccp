@@ -7,8 +7,8 @@ normative, and a module that disagrees with it is the bug.
 ## Layout
 
 - **Entry and configuration:** `cli.py` (argument parsing, one function per command), `config.py`
-  (the product root and its docs/delivery/plane.json), `envvars.py` (the plane's `CCP_*` environment
-  variables, read and set in one place), `refs.py` (every id and reference pattern), `init.py`
+  (the product root and its docs/delivery/plane.json), `envvars.py` (`envvar`, which reads a `CCP_*`
+  environment variable, empty counting as unset), `refs.py` (every id and reference pattern), `init.py`
   (`ccp init`: a product adopted in one command, §4.3, §8.3).
 - **Durable formats:** `tasklog.py` (task files, §5.6, and the one reader of their signed blocks, §3.5),
   `mdsection.py` (the one fence-aware finder of a Markdown section, house rule E22), `spec.py` (a SPEC ref resolved

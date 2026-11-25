@@ -93,6 +93,19 @@ class ReportContract(unittest.TestCase):
         errs = architecture_review.validate_report(self.report([{**FINDING, "severity": "urgent"}]), self.RID, "demo")
         self.assertTrue(any("severity" in e for e in errs), errs)
 
+    def test_a_malformed_rule_change_metrics_or_shape_is_refused_once_by_the_contract(self):
+        report = {**self.report(rule_changes=[{"rule": "E9", "action": "x"}]), "mode": "shape", "lenses": ["structure"],
+                  "adr": "ADR-0001", "metrics": 3, "shape": {"hot_spots": 1}}
+        errs = architect.validate(report, self.RID, "demo", "shape", ["structure"], head="abc1234", adr="ADR-0001")
+        for naming in (("rule_changes[0]", "check"), ("rule_changes[0].action",), ("metrics",), ("shape.hot_spots",)):
+            with self.subTest(naming=naming):
+                self.assertEqual(len([e for e in errs if all(n in e for n in naming)]), 1, errs)
+        self.assertEqual(len(errs), 4, errs)
+        blank = self.report(rule_changes=[{"rule": "E9", "action": "add", "check": "   "}])
+        errs = architect.validate(blank, self.RID, "demo", "pass", ["structure"], head="abc1234")
+        self.assertEqual(len(errs), 1, errs)
+        self.assertIn("rule_changes[0].check", errs[0])
+
     def test_a_report_and_a_plane_json_in_the_products_rule_ids_pass(self):
         ids = refs.Ids(rule_pattern="HR-[0-9]+")
         report = self.report(rule_changes=[{"rule": "HR-1", "action": "add", "text": "One registry.", "check": "pass"}])

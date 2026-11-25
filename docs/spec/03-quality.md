@@ -196,8 +196,9 @@ count toward any task's timers.
    --detach` starts the pass in its own session and returns once it runs; plain `run` is
    synchronous.
 3. **Result.** The architect's final message is one JSON report. The driver refuses it unless the
-   required fields are present, the findings are within the mode's cap, every finding has evidence
-   and no `low` confidence, its category belongs to the run's lenses, a `rule-cost` finding has
+   report as written (the model's object with the fields the plane sets) holds to its contract,
+   `contracts/architect_report.schema.json`, the findings are within the mode's cap, every finding has
+   evidence and no `low` confidence, its category belongs to the run's lenses, a `rule-cost` finding has
    `needs_decision: true` and fix `decide`, every `rule_changes` entry names a rule id, an action
    and a check, and there are no secret-like strings. It then writes `reviews/<id>.json` and a
    rendered `.md`. Zero findings is `no_findings` and nothing is triaged. An invalid report is

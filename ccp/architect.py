@@ -46,6 +46,7 @@ from ccp import config, headless, health, parallel, pkgdocs, refs, rules, tasklo
 from ccp.adr import find_file as find_adr_file
 from ccp.architecture_review import LENSES
 from ccp.config import ARCHITECT_DEFAULTS, Config
+from ccp.envvars import envvar
 from ccp.lib import fmt_dt, lock_is_stale, parse_dt, read_json, write_atomic, write_json
 from ccp.queue import spawn_detached
 
@@ -55,7 +56,6 @@ OBS = PLANE / "scripts" / "observability"
 SKILL = ar.ARCHITECT_SKILL
 MAX_FINDINGS = {"pass": 25, "shape": 10}
 AWAITING = ("reported", "triaging", "triage_sent", "triage_failed")
-RULE_ACTIONS = ("add", "amend", "delete")
 RULE_DISPOSITIONS = ("applied", "rejected", "needs_operator")
 STALE_AFTER_S = 120  # a `running` pass whose lock is gone this long after its start has died
 
@@ -482,7 +482,8 @@ def as_written(report: dict[str, Any], rid: str, pid: str, head: str, base: str 
 def validate(report: Any, rid: str, pid: str, mode: str, lenses: list[str], ids: refs.Ids = refs.DEFAULT, *,
              head: str, base: str | None = None, adr: str | None = None) -> list[str]:
     """§19.7's checks: the report as written held to its contract with the lenses' categories and the product's
-    rule ids (`ar.validate_report`), and the model's own review id, mode, lenses, rule_changes, metrics and shape."""
+    rule ids (`ar.validate_report`), and the model's own review id, mode and lenses, which the report as written
+    overwrites."""
     if not isinstance(report, dict):
         return ["report is not an object"]
     cats = tuple(c for lens in lenses for c in LENSES[lens])
@@ -495,28 +496,6 @@ def validate(report: Any, rid: str, pid: str, mode: str, lenses: list[str], ids:
     got = report.get("lenses")
     if got is not None and (not isinstance(got, list) or not set(got) <= set(lenses)):
         errs.append(f"lenses {got!r} are not within {lenses}")
-    rc = report.get("rule_changes") or []
-    if not isinstance(rc, list):
-        errs.append("rule_changes is not a list")
-        rc = []
-    for i, c in enumerate(rc):
-        if not isinstance(c, dict):
-            errs.append(f"rule_changes[{i}] is not an object")
-            continue
-        if c.get("action") not in RULE_ACTIONS:
-            errs.append(f"rule_changes[{i}]: action {c.get('action')!r} is not one of {', '.join(RULE_ACTIONS)}")
-        if not str(c.get("check") or "").strip():
-            errs.append(f"rule_changes[{i}]: names no check")
-    if report.get("metrics") is not None and not isinstance(report["metrics"], dict):
-        errs.append("metrics is not an object")
-    if mode == "shape":
-        sh = report.get("shape")
-        if not isinstance(sh, dict):
-            errs.append("a shape report carries a `shape` object")
-        else:
-            for k in ("hot_spots", "preparatory_refactors", "single_sources", "task_graph"):
-                if k in sh and not isinstance(sh[k], list):
-                    errs.append(f"shape.{k} is not a list")
     return errs
 
 
@@ -703,8 +682,8 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
         argv = ["env"]
         for k in headless.STRIP_KEYS:
             argv += ["-u", k]
-        argv += [os.environ.get("DA_CLAUDE_BIN") or "claude", "-p", prompt, *ar.headless_flags(cfg), *ar.plugin_args(cfg.root),
-                 "--output-format", "json", "--allowedTools", ",".join(tools), "--disallowedTools", ",".join(deny)]
+        argv += [envvar("CCP_ARCHITECT_CLAUDE_BIN") or "claude", "-p", prompt, *ar.headless_flags(cfg),
+                 *ar.plugin_args(cfg.root), "--output-format", "json", "--allowedTools", ",".join(tools), "--disallowedTools", ",".join(deny)]
         audit = subprocess.run(
             ["bash", str(OBS / "write-prompt-audit.sh"), "--task-id", ar.AUDIT_TASK, "--phase", f"architect-{mode}",
              "--prompt-file", "-", "--argv", json.dumps(argv), "--actor", actor, "--project-id", pid,
