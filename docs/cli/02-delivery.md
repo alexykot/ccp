@@ -10,7 +10,6 @@ argument takes the full id or its number.
 |---|---|---|
 | `ccp tasks list [--status S] [--json]` | anyone | §5 (list the tasks) |
 | `ccp tasks next [--scope IDS] [--json] [--allow-overdue REASON] [--holder <slot>]` (also `--explain`) | runner | §10.3, §16.3, §23.2 (`--json` carries `passed_over`) |
-| `ccp tasks index [--stdout]` | lead | regenerates `INDEX.yaml` (§5) |
 | `ccp tasks migrate [--dry-run] [--drop-open]` | lead | §5.3 (converts an earlier plane generation's task files in place) |
 | `ccp tasks claim <id> [--holder <slot>]` | runner | §10.5, §16.3 |
 | `ccp tasks rotation-due [--holder <slot>]` | the `TeammateIdle` hook, runner, lead | §10.2 step 4, §18.2 |
@@ -49,12 +48,10 @@ argument takes the full id or its number.
 | `ccp verify spec-text <task_id> [--base <ref>] [--head <ref>]` | reviewer, verifier | §15.2, §3.5 |
 | `ccp verify later <task_id> --check <id> --pass\|--fail --evidence "…" --produced-by <seat> [--operator-step <gate id>]` | lead, runner | §15.4 |
 | `ccp verify deferred [--task <task_id>] [--json]` | lead, runner | §15.4 |
-| `ccp auth check` | runner, lead | §10.5 |
 
 ## Pull requests
 
-Each takes the PR number, never the current branch's PR; open names the pushed branch. Exit 1 on a PR-host
-error, naming it; 2 on a usage error.
+Each takes the PR number, never the current branch's PR; open names the pushed branch.
 
 | Command | Who | SPEC |
 |---|---|---|
