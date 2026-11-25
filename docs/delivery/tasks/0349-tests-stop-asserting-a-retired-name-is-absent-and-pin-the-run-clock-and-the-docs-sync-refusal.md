@@ -1,7 +1,7 @@
 ---
 task_id: 0349-tests-stop-asserting-a-retired-name-is-absent-and-pin-the-run-clock-and-the-docs-sync-refusal
 title: Tests stop asserting that a retired name is absent (0342's seven assertions, the operator rename's six, the three no-marker tests and the docs-audit command test), keeping the behaviour they also pin; the run clock's shared stamps and its start, and the docs sync's refusal of a project with no binding, are tested; tests/helpers.py's imports are in order
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S21"]
@@ -145,3 +145,5 @@ Measured at `05cb00e2`:
 - `tests/helpers.py`: `import itertools` moved before `import json`.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #427 head `24f5432` (squash `39bb3d5`): APPROVE. Passed: test-01, test-02, test-03, code-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0349-tests-stop-asserting-a-retired-name-is-absent-and-pin-the-run-clock-and-the-docs-sync-refusal.json.
+
