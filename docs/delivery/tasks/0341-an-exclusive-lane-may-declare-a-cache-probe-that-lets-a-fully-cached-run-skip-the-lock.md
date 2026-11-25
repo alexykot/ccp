@@ -32,7 +32,7 @@ green-tree skip, §16.6); the remaining case is a run the cache would answer at 
 see without being told. The lead accepted on 2026-11-24: a lane may declare a probe command that reports whether
 every module is a cache hit; when it says so the run skips the lock, recorded as the green-tree skip is.
 
-Measured at `3539c23`:
+Measured at `554fe3a`:
 
 - `"def _green_from"` in `ccp/suite.py` is the one lock-skip rule; the run then records
   `started.update(lane_skipped=GREEN_TREE, green_from=green)` and prints
@@ -75,7 +75,7 @@ Measured at `3539c23`:
 - **In:** `ccp/suite.py` (the probe and the skip), `ccp/config.py` (the default and the validation),
   `contracts/plane_config.schema.json` (`suite.cache_probe`), `tests/test_suite_cache_probe.py` (new); the SPEC,
   describing this task's own feature (§31.1, the accepted proposal; a knob with a neutral default): one passage added
-  to §16.6, and the §14.4 field clause the new skip makes false corrected. No other § sentence changes.
+  to §16.6, its `--wait 0` sentence corrected, and the §14.4 field clause the new skip makes false corrected. No other § sentence changes.
 
   CURRENT (`docs/spec/02-delivery.md` at `3539c23`), §16.6, the sentence the new passage follows, unchanged (the new sentences go right after it and retire none):
   > since the product's test cache answers most of it; a run bound to a task whose gate is cold (§15.3)
@@ -83,6 +83,14 @@ Measured at `3539c23`:
 
   PROPOSED:
   > A lane may declare a cache probe, plane.json `suite.cache_probe` (`{"<lane>": [<argv>]}`, default none). When a run of that lane finds the lock held, `ccp` runs the probe once, before any wait, in the run's directory, with the command the run would run appended as arguments (none for a lane declared with stages), for at most 60 s; its time counts against the run's wait (`--wait SECONDS` or `--wait auto`'s bound, and `wait_s`). Exit 0 says the product's test cache answers every module of the run: the run does not take the lock and is recorded `lane_skipped: "cache_probe"`. Any other exit, a timeout, or a probe that cannot start leaves the run taking the lock as before, and a run bound to a task whose gate is cold takes the lock whatever the probe says.
+  CURRENT (`docs/spec/02-delivery.md` at `3539c23`), §16.6, the sentence:
+  > Held, a run given `--wait 0`, or given no `--wait` and
+  > bound to no worker run, exits 75 at once, saying who holds it, since when, and the holder's usual
+  > duration;
+
+  PROPOSED:
+  > Held, a run given `--wait 0`, or given no `--wait` and bound to no worker run, exits 75 at once (after its cache probe, when the lane declares one), saying who holds it, since when, and the holder's usual duration;
+
   CURRENT (`docs/spec/02-delivery.md` at `3539c23`), §14.4, the clause:
   > and a run that skipped an exclusive
   > lane's lock adds `lane_skipped` and `green_from`.
@@ -127,8 +135,8 @@ Measured at `3539c23`:
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0341`.
-  expect: exit 0, both PROPOSED passages found.
-  dry run (`3539c23`, with this brief): exit 1, both passages `not found in the SPEC`.
+  expect: exit 0, all three PROPOSED passages found.
+  dry run (`554fe3a`, with this brief): exit 1, all three passages `not found in the SPEC`.
 
 ## Implementation notes
 

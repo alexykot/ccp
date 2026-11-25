@@ -35,7 +35,7 @@ proposal, and the operator ruled on 2026-11-24:
 That ruling approves this task's § text, which only describes the new default and the message (§31.1). It changes
 the two constants' values for every product.
 
-Measured at `3539c23`:
+Measured at `554fe3a`:
 
 - `"TASK_LOG_DEFAULTS"` in `ccp/config.py` holds `"required": ["task_id", "title", "status", "depends_on",
   "spec_refs", "created", "updated"]` and `"refs_any": ["spec_refs"]`; the schema's defaults are the same

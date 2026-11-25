@@ -30,7 +30,7 @@ then refused as "still pending"; the runner brief forbids superseding another ru
 since its task was neither done nor re-opened. The lead accepted the design on 2026-11-24: such a run expires after a
 bound, `ccp runs gc` abandons it, and its runner is told on its next call.
 
-Measured at `3539c23`:
+Measured at `554fe3a`:
 
 - `"def check_pending"` in `ccp/runs.py` refuses (exit 3) while any run of the agent type is `pending`, unless
   `--supersede`; even then, another slot's pending run opened in the last `SUPERSEDE_GRACE_S` (120 s) is refused.

@@ -38,7 +38,7 @@ knows). The lead accepted them, and the operator ruled on 2026-11-24:
 That ruling approves this task's § text, which only describes the five keys as settings and corrects the passages
 that called them constants (§31.1). `worktrees.dir` stays a constant: its proposal was declined.
 
-Measured at `3539c23`:
+Measured at `554fe3a`:
 
 - The five keys are constants: `python3 -c 'from ccp import config; print([k for k in ("architect.rules_max_lines", "architect.notes_due", "architect.max_new_tasks", "task_log.dry_run", "docs.workers") if config.KEY_OUTCOMES[k].kind == config.CONSTANT])'`
   printed all five. They come from `"_CONSTANT_KEYS: tuple"` in `ccp/config.py`: `"dry_run"` in the `task_log`
@@ -71,7 +71,7 @@ Measured at `3539c23`:
   is deleted: its subject, `docs.workers` named in words as a constant, is gone. `Outcome.shown` and the `shown`
   branch of `"def shown_constant"` (`ccp/upgrade.py`) stay, because a binding constant still names itself in words
   (`"runner.rotate_at_context_tokens": c.Outcome(c.CONSTANT, value=None, shown="off")` in
-  `scripts/observability/lib.py`, at `3539c23`); only the `docs.workers` `replace(...)` line goes.
+  `ccp/lib.py`, at `554fe3a`); only the `docs.workers` `replace(...)` line goes.
   `tests/test_doc_rules.py` `ParallelChecks`: `test_a_number_set_still_caps_them_with_the_constant_warning` becomes
   `test_a_number_set_caps_them_with_no_warning` (the cap holds, stderr carries no `is a constant in code`), and
   `test_an_explicit_null_is_the_constant_and_warns_that_the_key_can_go` becomes

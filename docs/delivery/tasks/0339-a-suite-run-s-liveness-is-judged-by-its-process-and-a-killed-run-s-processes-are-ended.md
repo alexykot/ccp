@@ -32,7 +32,7 @@ still going, so a worker waiting on it is told it failed and reruns it; and a te
 plane counts as killed went on holding a resource the next run needed. The lead accepted the design on 2026-11-24:
 liveness is judged from the run's process, and a run the plane counts as killed has its processes ended.
 
-Measured at `3539c23`:
+Measured at `554fe3a`:
 
 - `"KILLED_AFTER_S = 30 * 60"` in `ccp/suite.py`; `"def fold(q: Path"` marks an open row `killed` when its worker run
   has a `stopped_at`, `reported_at` or `abandoned_at` after it started, or when it is older than `KILLED_AFTER_S`.
@@ -52,7 +52,9 @@ Measured at `3539c23`:
 
 - **The row.** A recorded run's `started` row gains `pid` (the recording `ccp`'s `os.getpid()`), `host`
   (`socket.gethostname()`) and `pstart` (that process's start time as `ps -o lstart= -p <pid>` prints it, stripped;
-  left out when `ps` gives nothing): optional fields (§29.3).
+  left out when `ps` gives nothing): optional fields (§29.3). Both `ps -o lstart=` calls, the one that records
+  `pstart` and the one `_alive` compares it with, run with `TZ=UTC0 LC_ALL=C` in their environment, so the same
+  process prints the same start time whatever the caller's time zone or locale.
 - **Liveness, three-valued.** One function in `ccp/suite.py`, `_alive(row)`, returns `alive`, `dead` or `unknown`:
   - `unknown` when the row lacks `pid`, `host` or `pstart`, names another host, or `ps` cannot answer (it is
     missing, fails, or takes over 5 s) for a process that exists;
