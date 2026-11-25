@@ -17,10 +17,10 @@ concern then marks only its importers affected."""
 from __future__ import annotations
 
 import copy
+import itertools
 import json
 import os
 import tempfile
-import itertools
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING

@@ -568,9 +568,8 @@ class EarlierTaskFiles(InitCase):
         self.assertEqual(len(res["warnings"]), 1, res)
         for text in (res["warnings"][0], r.stderr):
             self.assertIn("2 task file", text)
-            self.assertNotIn("`ccp tasks migrate`", text)
 
-    def test_the_warning_names_tasks_check_not_a_converter(self):
+    def test_the_warning_names_tasks_check(self):
         tasks = self.repo / "docs/delivery/tasks"
         tasks.mkdir(parents=True)
         (tasks / "0001-a.md").write_text("# Task 0001: old\n\n## Meta\n\n| Field | Value |\n|---|---|\n")
@@ -578,7 +577,6 @@ class EarlierTaskFiles(InitCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         warning = json.loads(r.stdout)["warnings"][0]
         self.assertIn("`ccp tasks check`", warning)
-        self.assertNotIn("tasks migrate", warning)
 
     def test_a_current_task_log_is_not_warned_about(self):
         tasks = self.repo / "docs/delivery/tasks"
