@@ -1,7 +1,7 @@
 ---
 task_id: 0333-every-docs-cli-part-takes-one-table-shape-e25-reads-every-line-and-the-cli-reference-tests-run-on-their-own-docs
 title: Every docs/cli part lists its commands in one table shape, Command | Who | SPEC, with no fenced block, no exit-code prose and no command listed twice, and E25's check reads every line; the command-reference checker tests build their own docs; §24.6 and §27.1 name the knobs the code reads
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S24", "S27"]
@@ -179,3 +179,5 @@ Measured at `1a575497`:
   is back.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #412 head `d0c6a13` (squash `395fa1c`): APPROVE. Passed: doc-01, doc-02, doc-03, code-01, spec-01. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0333-every-docs-cli-part-takes-one-table-shape-e25-reads-every-line-and-the-cli-reference-tests-run-on-their-own-docs.json.
+
