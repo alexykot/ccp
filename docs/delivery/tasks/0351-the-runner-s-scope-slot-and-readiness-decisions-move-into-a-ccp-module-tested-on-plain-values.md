@@ -1,7 +1,7 @@
 ---
 task_id: 0351-the-runner-s-scope-slot-and-readiness-decisions-move-into-a-ccp-module-tested-on-plain-values
 title: The runner seat's scope, slot and readiness decisions move out of scripts/observability/team.py into ccp/runnerscope.py as functions on plain values, which team.py imports, and their branches are tested there on plain values
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E7", "E15"]
@@ -128,3 +128,5 @@ Measured at `becb6417`:
 - Cut by E15: the four end-to-end tests the task names; `RespawnScope` moved to `tests/test_runner_scope.py`.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #431 head `c73b583` (squash `b68093d`): APPROVE. Passed: code-01, code-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0351-the-runner-s-scope-slot-and-readiness-decisions-move-into-a-ccp-module-tested-on-plain-values.json.
+

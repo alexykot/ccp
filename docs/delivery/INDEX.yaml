@@ -1728,7 +1728,7 @@ tasks:
     depends_on: []
     path: tasks/0350-the-architect-stub-is-ccp-named-and-fenced-the-report-is-checked-once-by-its-contract-and-the-envvars-and-adr-docs-say-what-is-there.md
   - id: 0351-the-runner-s-scope-slot-and-readiness-decisions-move-into-a-ccp-module-tested-on-plain-values
-    status: pending
+    status: done
     title: The runner seat's scope, slot and readiness decisions move out of scripts/observability/team.py into ccp/runnerscope.py as functions on plain values, which team.py imports, and their branches are tested there on plain values
     depends_on: []
     path: tasks/0351-the-runner-s-scope-slot-and-readiness-decisions-move-into-a-ccp-module-tested-on-plain-values.md
