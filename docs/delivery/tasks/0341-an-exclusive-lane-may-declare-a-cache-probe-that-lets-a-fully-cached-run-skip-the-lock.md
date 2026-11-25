@@ -1,7 +1,7 @@
 ---
 task_id: 0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock
 title: An exclusive lane may declare a cache probe in plane.json suite.cache_probe, and a run the probe says the product's test cache answers whole skips the lane's lock, recorded as such
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S16"]
@@ -168,3 +168,5 @@ Measured at `554fe3a`:
   to the record, which the brief does not give leave for.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #417 head `9402d58` (squash `428507b`): APPROVE. Passed: cmd-01, cmd-02, code-01, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock.json.
+

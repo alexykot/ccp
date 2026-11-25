@@ -1678,7 +1678,7 @@ tasks:
     depends_on: []
     path: tasks/0340-a-pending-run-whose-agent-never-started-expires-and-no-longer-blocks-its-agent-type.md
   - id: 0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock
-    status: pending
+    status: done
     title: An exclusive lane may declare a cache probe in plane.json suite.cache_probe, and a run the probe says the product's test cache answers whole skips the lane's lock, recorded as such
     depends_on: []
     path: tasks/0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock.md
