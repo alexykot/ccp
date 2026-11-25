@@ -1038,7 +1038,7 @@
       "additionalProperties": false,
       "description": "SPEC §14.1: `ccp suite run`'s named lanes and its test-count pattern.",
       "properties": {
-        "exclusive_lanes": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"}, "default": [], "description": "SPEC §16.6: lanes that run one at a time in the queue (a run with no --lane is `full`). A run that finds one held exits 75 at once and runs nothing."},
+        "exclusive_lanes": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"}, "default": [], "description": "SPEC §16.6: lanes that run one at a time in the queue (a run with no --lane is `full`). A run that finds one held exits 75 at once and runs nothing, unless its wait (`--wait`), the green-tree skip or its cache probe (`cache_probe`) lets it run."},
         "cache_probe": {"type": "object", "default": {}, "propertyNames": {"pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"}, "additionalProperties": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1, "pattern": "\\S"}}, "description": "SPEC \u00a716.6: an exclusive lane's cache probe, a lane name to an argv. When a run of the lane finds the lock held, `ccp suite run` runs the probe once, before any wait, with the command the run would run appended (none for a staged lane) and CCP_SUITE_LANE set, for at most 60 s, its time counted against the wait; exit 0 says the product's test cache answers every module, and the run skips the lock, recorded `lane_skipped: \"cache_probe\"`. A probe for a lane that is not exclusive is never run. Default: none."},
         "lanes": {
           "type": "object",

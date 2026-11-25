@@ -13,6 +13,7 @@ from typing import Any
 from unittest import mock
 
 from ccp import config, suite
+from tests.helpers import PLANE_ROOT
 from tests.suite_fixture import CCP, PY, SuiteFixture
 
 
@@ -109,6 +110,38 @@ class CacheProbe(SuiteFixture, unittest.TestCase):
         self.assertFalse(yes)
         self.assertIsNotNone(why)
 
+    def test_the_probe_ends_with_ccp(self):
+        """A probe still running when `ccp` ends, by an exception (SIGINT), a SIGTERM or an outright kill, is
+        ended whole, its child too."""
+        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGKILL):
+            pids = self.runner / f"probe-{sig}.pid"
+            hang = [PY, "-c", "import subprocess, sys, time; p = subprocess.Popen([sys.executable, '-c', "
+                    "'import time; time.sleep(60)']); open(sys.argv[1], 'w').write(str(p.pid)); time.sleep(60)",
+                    str(pids)]
+            asker = subprocess.Popen(
+                [PY, "-c", f"import os; from ccp import suite; suite.run_cache_probe({hang!r}, 'gate', dict(os.environ))"],
+                cwd=self.runner, env={**os.environ, "PYTHONPATH": str(PLANE_ROOT)},
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            self.addCleanup(lambda a=asker: (_killpg(a), a.wait(timeout=10)))
+            for _ in range(200):
+                if pids.is_file() and pids.read_text():
+                    break
+                time.sleep(0.05)
+            else:
+                self.fail(f"the probe never started ({sig!r})")
+            os.kill(asker.pid, sig)
+            asker.wait(timeout=30)
+            pid = int(pids.read_text())
+            for _ in range(200):
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.05)
+            else:
+                os.kill(pid, signal.SIGKILL)
+                self.fail(f"the probe's child outlived ccp ({sig!r})")
+
     def test_the_probe_gets_the_runs_command_arguments(self):
         self.configure(self.probe(0))
         self.hold()
@@ -166,7 +199,10 @@ class CacheProbe(SuiteFixture, unittest.TestCase):
         self.assertLess(waited, 4.8)  # and leave none of the 2 s bound to wait after it
         _killpg(holder)
         holder.wait(timeout=30)
-        self.hold(seconds=1)  # gone before the probe answers: the run takes the lock after it
+        holder = self.hold()
+        # the probe itself ends the holder, then answers no after 3 s: the run takes the freed lock after it
+        self.configure([PY, "-c", f"import os, signal, sys, time; os.killpg({holder.pid}, signal.SIGTERM); "
+                                  "time.sleep(3); sys.exit(1)"])
         r = self.run_suite("--lane", "gate", "--wait", "30", "--", PY, "-c", "print(1)")
         self.assertEqual(r.returncode, 0, r.stderr)
         mine = self.started_rows()[-1]

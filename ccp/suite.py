@@ -238,21 +238,42 @@ def run_cache_probe(argv: list[str], lane: str, env: dict[str, str]) -> tuple[bo
     """§16.6: ask a lane's cache probe whether the product's test cache answers every module of the run: (whether it
     said so, by exit 0, and a warning when it timed out or could not start). It runs in the current directory with
     `env` and CCP_SUITE_LANE, stdin from /dev/null, its output discarded, in its own process group, killed whole
-    after CACHE_PROBE_TIMEOUT_S."""
+    after CACHE_PROBE_TIMEOUT_S, or when `ccp` itself ends first: on an exception (SIGINT), on a SIGTERM or SIGHUP
+    that would end the process at once (the default handler; main thread only), which exits through Python
+    instead, and, when `ccp` dies outright (SIGKILL, a harness killing its group), through a watchdog (WATCHDOG)
+    in the probe's group."""
     try:
         proc = subprocess.Popen(argv, env={**env, **for_child({"CCP_SUITE_LANE": lane})}, stdin=subprocess.DEVNULL,
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_group(0))
     except OSError as e:
         return False, f"lane {lane}: its cache probe could not start ({argv[0]}: {e.strerror or e}): taking the lock"
+    dog_w = _start_watchdog(proc.pid)
+    restore: dict[int, Any] = {}
+    if threading.current_thread() is threading.main_thread():
+        for s in (signal.SIGTERM, signal.SIGHUP):
+            if signal.getsignal(s) == signal.SIG_DFL:
+                restore[s] = signal.signal(s, _raise_on)
     try:
         return proc.wait(timeout=CACHE_PROBE_TIMEOUT_S) == 0, None
     except subprocess.TimeoutExpired:
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except OSError:
-            pass
-        proc.wait()
+        _end_group(proc)
         return False, f"lane {lane}: its cache probe took over {CACHE_PROBE_TIMEOUT_S} s and was ended: taking the lock"
+    except BaseException:
+        _end_group(proc)  # `ccp` is ending: the probe ends with it
+        raise
+    finally:
+        for s, h in restore.items():
+            signal.signal(s, h)
+        _release_watchdog(dog_w)
+
+
+def _end_group(proc: subprocess.Popen) -> None:
+    """Kill the process group `proc` leads, then reap it."""
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except OSError:
+        pass
+    proc.wait()
 
 
 def _append(q: Path, row: dict[str, Any]) -> None:
@@ -998,15 +1019,7 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
         print(f"ccp suite: {argv[0]}: {e.strerror or e}", file=sys.stderr)
         return (127 if isinstance(e, FileNotFoundError) else 126), time.monotonic() - t0
     current.update(proc=proc, group=own_group)
-    dog_w = None
-    if own_group:
-        try:
-            r_fd, dog_w = os.pipe()
-            subprocess.Popen([sys.executable, "-I", "-c", WATCHDOG], stdin=r_fd, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, close_fds=True, **_group(proc.pid))
-            os.close(r_fd)
-        except Exception:  # noqa: BLE001  (no watchdog: the run goes on)
-            dog_w = None
+    dog_w = _start_watchdog(proc.pid) if own_group else None
     pumps = []
     if log_fd is None:
         pumps.append(threading.Thread(target=_pump, args=(proc.stdout, 1, counters[0], tee), daemon=True))
@@ -1027,13 +1040,38 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
             t.join(max(0.0, deadline - time.monotonic()))
     finally:
         current.clear()
-        if dog_w is not None:
-            try:
-                os.write(dog_w, b"x")  # ccp ends normally: the watchdog leaves the group alone
-                os.close(dog_w)
-            except OSError:
-                pass
+        _release_watchdog(dog_w)
     return rc, time.monotonic() - t0
+
+
+def _start_watchdog(pgid: int) -> int | None:
+    """Put a watchdog (WATCHDOG) in process group `pgid`: the write end of its pipe, or None when it cannot start
+    (the command still runs, unwatched)."""
+    try:
+        r_fd, dog_w = os.pipe()
+    except OSError:
+        return None
+    try:
+        subprocess.Popen([sys.executable, "-I", "-c", WATCHDOG], stdin=r_fd, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, close_fds=True, **_group(pgid))
+    except Exception:  # noqa: BLE001  (no watchdog: the run goes on)
+        os.close(dog_w)
+        return None
+    finally:
+        os.close(r_fd)
+    return dog_w
+
+
+def _release_watchdog(dog_w: int | None) -> None:
+    """`ccp` ends normally: the watchdog leaves the group alone."""
+    if dog_w is None:
+        return
+    try:
+        os.write(dog_w, b"x")
+    except OSError:  # the watchdog is gone already (its group was ended)
+        pass
+    finally:
+        os.close(dog_w)
 
 
 def worktree_env(cfg: Config | None, command: list[str] | None, warn: _Warn) -> dict[str, str]:
