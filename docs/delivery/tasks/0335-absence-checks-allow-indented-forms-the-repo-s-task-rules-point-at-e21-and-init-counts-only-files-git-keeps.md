@@ -99,4 +99,13 @@ Measured at `1a575497`:
 
 ## Implementation notes
 
+- `ccp/init.py`: new `_task_log_files(root, tasks_dir)`. Inside a git work tree it returns what `git ls-files
+  --cached --others --exclude-standard -z -- docs/delivery/tasks` lists (recursive, so a tracked or unignored file in
+  a subdirectory also counts, as git keeps it); when git fails (not a work tree) it falls back to the top-level files
+  of the directory, exactly the old test.
+- Skill, WRITING-tasks and SPEC §4.5 edited as the brief gives them; the skill bullet re-wrapped around the added
+  sentence.
+- Tests: the named `test_a_task_log_holding_only_an_ignored_file_gets_a_gitkeep`, plus a test of the non-git fallback
+  (`test_outside_a_git_work_tree_every_file_in_the_task_log_counts`), which the brief did not name.
+
 ## Verification notes

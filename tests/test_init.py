@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -160,6 +161,15 @@ class Adopt(InitCase):
         self.assertEqual(code, 0, res)
         self.assertEqual((tasks / ".gitkeep").read_text(), "")
         self.assertIn("docs/delivery/tasks/.gitkeep", res["written"])
+
+    def test_outside_a_git_work_tree_every_file_in_the_task_log_counts(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d).resolve()
+            tasks = root / "docs/delivery/tasks"
+            tasks.mkdir(parents=True)
+            self.assertEqual(ccp_init._task_log_files(root, tasks), [])
+            (tasks / ".DS_Store").write_text("x")
+            self.assertEqual(ccp_init._task_log_files(root, tasks), [tasks / ".DS_Store"])
 
     def test_a_task_log_holding_a_file_gets_none(self):
         tasks = self.repo / "docs/delivery/tasks"
