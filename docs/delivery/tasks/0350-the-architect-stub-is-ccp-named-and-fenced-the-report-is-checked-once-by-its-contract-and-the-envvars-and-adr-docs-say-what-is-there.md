@@ -1,7 +1,7 @@
 ---
 task_id: 0350-the-architect-stub-is-ccp-named-and-fenced-the-report-is-checked-once-by-its-contract-and-the-envvars-and-adr-docs-say-what-is-there
 title: The architect's claude override is CCP_ARCHITECT_CLAUDE_BIN, fenced in the tests like the estimator's; ccp architect checks a report's shape only through its contract, as §19.7 item 3 says (§31.1); envvars.py drops for_child and says what envvar does; the architect design note and docs/adr/README.md describe what is there
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S6", "S19"]
@@ -168,3 +168,5 @@ Measured at `05cb00e2`:
 - Tests: `tests/__init__.py` fences `CCP_ARCHITECT_CLAUDE_BIN`; the stub's variables are `CCP_ARCHITECT_STUB_*`; the pinned message in `test_rule_changes_are_validated_and_disposed` is `rule_changes[0]: missing check`; the new contract test is in `tests/test_architect_triage_schema.py`.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #428 head `71c1469` (squash `18bb4d0`): APPROVE. Passed: code-01, code-02, spec-01, code-03, doc-01, doc-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0350-the-architect-stub-is-ccp-named-and-fenced-the-report-is-checked-once-by-its-contract-and-the-envvars-and-adr-docs-say-what-is-there.json.
+

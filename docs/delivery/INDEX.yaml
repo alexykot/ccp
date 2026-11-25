@@ -1723,7 +1723,7 @@ tasks:
     depends_on: []
     path: tasks/0349-tests-stop-asserting-a-retired-name-is-absent-and-pin-the-run-clock-and-the-docs-sync-refusal.md
   - id: 0350-the-architect-stub-is-ccp-named-and-fenced-the-report-is-checked-once-by-its-contract-and-the-envvars-and-adr-docs-say-what-is-there
-    status: pending
+    status: done
     title: The architect's claude override is CCP_ARCHITECT_CLAUDE_BIN, fenced in the tests like the estimator's; ccp architect checks a report's shape only through its contract, as §19.7 item 3 says (§31.1); envvars.py drops for_child and says what envvar does; the architect design note and docs/adr/README.md describe what is there
     depends_on: []
     path: tasks/0350-the-architect-stub-is-ccp-named-and-fenced-the-report-is-checked-once-by-its-contract-and-the-envvars-and-adr-docs-say-what-is-there.md
