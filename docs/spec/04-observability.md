@@ -240,7 +240,8 @@ their run record (`ccp architect`).
 `ccp usage` prints an advice line for each measure past its threshold, naming the seat, the measure and
 the setting that fixes it; `ccp health` prints the same lines (`usage_advice` in `--json`). The
 thresholds are the plane's, below. Advice only: no setting is changed.
-The advice reads every request, or those from `--since` when given, and each line names its start.
+The advice reads the requests from `--since` when given, else those of the last `usage.advice.window_hours`
+hours (every request when that is 0), and each line names its start.
 
 - **Short-lived cache writes:** a seat whose 5-minute cache writes (`cache_creation_5m_tokens`, §24.2)
   are more than half of its cache-write tokens: set
@@ -566,7 +567,7 @@ gates nothing.
   with its trigger and the rotate command, and the ledger's rotations (`runner`/`rotate` events)
   against the tasks done (distinct tasks moved to `done`); `rotation` in `--json`.
 - **Small tasks:** the share of the tasks merged in the window whose diff (lines added plus deleted,
-  summed over all of a task's merges in the window) is strictly fewer than 100
+  summed over all of a task's merges in the window) is strictly fewer than `health.small_task_lines`
   lines, with the count and the line, so the task-log owner sees follow-ups drifting into one task
   each (bundle them by area, the writing-tasks skill); `small_tasks` in `--json`.
 - **Sign-off wait:** per review point, the tasks that waited after their verified approve on an
