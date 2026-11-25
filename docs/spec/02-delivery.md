@@ -281,8 +281,9 @@ reported in.
   `run_id`, `task_id`, `phase`, `round`, `seat`, `agent_type`, `expected_model`,
   `expected_effort`, `prompt_ref`, `mode` (`resolution` on a resolution review, §13.2), `resolution` and
   `affected_checks` (a resolution review's report lines, §13.4), `opened_at`, `opened_by` (the runner slot), `agent_id`,
-  `session_id`, `worktree`, `started_at`, `stopped_at`, `reported_at`, `abandoned_at`,
-  `abandoned_reason`, `abandoned_by`, `outcome`, `suite_tests`, `suite_seconds`, `severity`
+  `session_id`, `worktree`, `started_at`, `stopped_at`, `reported_at`, `abandoned_at`, `abandoned_reason`,
+  `abandoned_by`, `expired_told_at` (when the slot that opened an expired run was told, *Binding*), `outcome`,
+  `suite_tests`, `suite_seconds`, `severity`
   (BLOCKER, MAJOR, MINOR, NIT counts), `friction_count`, `usage` (§24), `observed_models`,
   `observed_efforts`, `integration_merges` and `before_review` (a done implement, fix, merge or ruling
   round with a head), and `follow_ups` (the report's lines, each with its id and the lead's

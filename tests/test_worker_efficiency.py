@@ -64,9 +64,8 @@ class Definitions(unittest.TestCase):
         self.assertEqual((TEMPLATES / "_common.md").read_text().count("Run every test command through `ccp`"), 1)
 
     def test_the_verifier_defers_to_its_prompt_on_the_cache(self):
-        text = (AGENTS / "delivery-verifier.md").read_text()
-        self.assertIn("your prompt's test-cache rule", text)
-        self.assertNotIn("modules_cached", text)  # the template, not the definition, says what to record
+        self.assertIn("this product's rule (plane.json `verify.accept_cache`)", (TEMPLATES / "verify.md").read_text())
+        self.assertNotIn("modules_cached", (AGENTS / "delivery-verifier.md").read_text())  # the template says what to record
 
 
 def with_common(phase: str, **over) -> str:

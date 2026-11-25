@@ -61,7 +61,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
     def test_the_verifier_is_told_the_flag_that_runs_the_prs_own_hooks(self):
         _run_id, text = self.render("verify", "--pr", "7", "--head", A)
         self.assertIn("`--own-hooks`", text)
-        self.assertIn("--own-hooks", (PLANE_ROOT / "plugin/agents/delivery-verifier.md").read_text())
+        self.assertIn("add `--own-hooks`", (PLANE_ROOT / "templates/prompts/verify.md").read_text())
 
     def test_with_no_mutate_command_a_seat_breaks_code_in_a_mutation_worktree_it_removes(self):
         run_id, text = self.render("verify", "--pr", "7", "--head", A)

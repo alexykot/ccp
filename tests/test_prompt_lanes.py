@@ -42,7 +42,7 @@ class VerifyPartItem(unittest.TestCase):
         for lanes in ({"gate": GATE, "part": GATE}, {"gate": GATE}):
             p = Product({"suite": {"lanes": lanes}})
             self.addCleanup(p.cleanup)
-            part = f"`--lane {config.lane_for(p.cfg, 'part')}`"
+            part = f"--lane {config.lane_for(p.cfg, 'part')}"  # a declared argv lane backticks the whole command
             text = prompt.suite_lanes(p.cfg, "verify")
             self.assertIn(part, text, lanes)
             self.assertIn("`ccp mutate`", text.split(part, 1)[1], lanes)
