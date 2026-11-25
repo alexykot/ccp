@@ -78,6 +78,12 @@ All reshape phases have landed.
       the report's follow-ups reading moves both patterns to `ccp/mdsection.py` (E22).
     - `ccp/suite.py`'s `_alive` mixes process I/O with its judgement (0339, E15). Trigger: the next task that changes
       the liveness judgement splits it first.
+    - The cache probe (0341): after a long probe that lets the run through, the `started` row's `at` predates the real
+      start and the probe's seconds are not recorded; the probe watchdog's `except Exception` hides why joining a
+      process group in another session failed. Trigger: the next task on the probe or the `started` row; the probe's
+      seconds are a new record field, so that part is its own task.
+    - Whether `--cold` disables both exclusive-lane lock skips (§16.6; 0341): question 2 of
+      `ar-20261125T094654Z-c8a0`. Trigger: the operator's answer; the next triage tasks it.
     - `PLANE_PROJECT_YAML`, read beside `PROJECT_YAML` by the queue and project-id resolvers and named by no § (0331).
       Trigger: no binding script or product environment sets it; then a task drops it from both.
   - T102 at triage `ar-20261124T205520Z-4ce8`: init's starter `citations` rule covers `docs/*.md`, so a product

@@ -31,7 +31,7 @@ Findings F01 and F02 of architect pass `ar-20261125T094654Z-c8a0` (`docs/deliver
 and two of the 0340 follow-ups the lead passed to that pass: the runner brief's pending-run line not naming expiry,
 and §11.1's Record omitting `expired_told_at`.
 
-Measured at `704ca8de`:
+Measured at `b6c2bc17`:
 
 - **F01.** `cat plugin/agents/delivery-reviewer.md plugin/agents/delivery-verifier.md | grep -c -e 'Look for bugs' -e
   'redesign the task' -e 'spec_beyond_intent' -e 'produced_by' -e 'as_written'`: 5 lines. The copies the report
@@ -84,7 +84,7 @@ Measured at `704ca8de`:
   `tests/test_prompt_tools.py`, `tests/test_worker_efficiency.py`, `tests/test_plugin.py` only where a pinned sentence
   moves to its template. The SPEC, describing 0340's accepted feature (§31.1):
 
-  CURRENT (`docs/spec/02-delivery.md` at `704ca8de`), §11.1, the Record bullet:
+  CURRENT (`docs/spec/02-delivery.md` at `b6c2bc17`), §11.1, the Record bullet:
   > `session_id`, `worktree`, `started_at`, `stopped_at`, `reported_at`, `abandoned_at`,
   > `abandoned_reason`, `abandoned_by`, `outcome`, `suite_tests`, `suite_seconds`, `severity`
 
@@ -105,28 +105,28 @@ Measured at `704ca8de`:
   steps:
     1. Run `cat plugin/agents/delivery-reviewer.md plugin/agents/delivery-verifier.md | grep -c -e 'Look for bugs' -e 'redesign the task' -e 'spec_beyond_intent' -e 'produced_by' -e 'as_written'`.
   expect: prints `0` (grep's exit 1, no match).
-  dry run (`704ca8de`): printed `5`, exit 0.
+  dry run (`b6c2bc17`): printed `5`, exit 0.
 - id: `code-02`
   story: As a worker, my prompt gives a part lane declared as an argv as whole commands I can run.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_full_lane_prompt.DeclaredPartLane.test_a_part_lane_declared_as_an_argv_is_given_as_whole_commands tests.test_full_lane_prompt`.
   expect: exit 0.
-  dry run (`704ca8de`): exit 1 (`AttributeError: type object 'DeclaredPartLane' has no attribute 'test_a_part_lane_declared_as_an_argv_is_given_as_whole_commands'`).
+  dry run (`b6c2bc17`): exit 1 (`AttributeError: type object 'DeclaredPartLane' has no attribute 'test_a_part_lane_declared_as_an_argv_is_given_as_whole_commands'`).
 - id: `doc-01`
   story: As a runner, my brief says a pending run expires.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `grep -c 'expir' plugin/agents/delivery-runner.md`.
   expect: prints `1`.
-  dry run (`704ca8de`): printed `0`, exit 1.
+  dry run (`b6c2bc17`): printed `0`, exit 1.
 - id: `spec-01`
   story: As the lead, §11.1's Record names the field the plane writes when it tells a slot of an expired run.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0343`.
   expect: exit 0, the PROPOSED passage found.
-  dry run (`704ca8de`, with this brief): exit 1, the PROPOSED passage missing.
+  dry run (`b6c2bc17`, with this brief): exit 1, the PROPOSED passage missing.
 
 ## Implementation notes
 

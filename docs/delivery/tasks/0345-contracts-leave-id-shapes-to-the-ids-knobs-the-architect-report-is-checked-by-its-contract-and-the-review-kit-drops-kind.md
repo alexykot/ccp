@@ -9,7 +9,7 @@ rule_refs: ["E12"]
 review_refs: ["ar-20261125T094654Z-c8a0#F05", "ar-20261125T094654Z-c8a0#F10"]
 review_point: R37
 paths: ["contracts/architect_report.schema.json", "contracts/architecture_review_triage.schema.json", "contracts/plane_config.schema.json", "ccp/architecture_review.py", "ccp/architect.py", "docs/ENGINEERING.md", "tests/test_architect_triage_schema.py", "tests/test_rules.py", "tests/test_obs_ids.py"]
-clashes_with: ["0191-the-grace-release-ends", "0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock"]
+clashes_with: ["0191-the-grace-release-ends"]
 adopt: "none"
 created: 2026-11-25
 updated: 2026-11-25
@@ -35,7 +35,7 @@ The contract change only loosens: every record valid before stays valid, so no s
 contracts' descriptions name the knob that decides each id's shape, and the code checks those values by `ids`, as
 `validate_triage` does today.
 
-Measured at `704ca8de`:
+Measured at `b6c2bc17`:
 
 - **F05, patterns.** `git grep -nF -e '"pattern": "^E[0-9]+$"' -e '"pattern": "^[0-9]{4}-[a-z0-9-]+$"' -e '"pattern":
   "^[0-9]{4}(-|$)"' -- contracts`: 6 lines: `architect_report.schema.json` (a rule change's `rule`),
@@ -82,7 +82,7 @@ Measured at `704ca8de`:
   >   check: pass, plus the gate — tests.test_plane_config_defaults and tests.test_event_registry run in the gate (E1), with no architect.checks entry, so the pre-gate never renders a bare test run; the architect greps contracts/ for an `ids` default (`"pattern": "^E[0-9]+$"`)
 
 - No other test expectation changes; `tests.test_plane_config_defaults` compares keys and defaults, not patterns.
-- "No SPEC change" is measured: `git grep -n 'E\[0-9\]' -- docs/spec` at `704ca8de` names only §7.1's `ids` table
+- "No SPEC change" is measured: `git grep -n 'E\[0-9\]' -- docs/spec` at `b6c2bc17` names only §7.1's `ids` table
   (the knob's default), which stands.
 
 ## Scope
@@ -103,28 +103,28 @@ Measured at `704ca8de`:
     1. Run `git grep -nF -e '"pattern": "^E[0-9]+$"' -e '"pattern": "^[0-9]{4}-[a-z0-9-]+$"' -e '"pattern": "^[0-9]{4}(-|$)"' -- contracts`.
     2. Run `git grep -n '\.pop("pattern"' -- ccp`.
   expect: step 1 prints nothing and step 2 prints nothing (each git grep's exit 1, no match).
-  dry run (`704ca8de`): step 1 printed 6 lines, exit 0; step 2 printed 2 lines, exit 0.
+  dry run (`b6c2bc17`): step 1 printed 6 lines, exit 0; step 2 printed 2 lines, exit 0.
 - id: `code-01`
   story: As the plane, an architect report is held to its contract, and one in the product's rule ids passes.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_architect_triage_schema.ReportContract.test_a_report_the_contract_refuses_is_refused tests.test_architect_triage_schema.ReportContract.test_a_report_and_a_plane_json_in_the_products_rule_ids_pass tests.test_architect_triage_schema`.
   expect: exit 0.
-  dry run (`704ca8de`): exit 1 (`AttributeError: module 'tests.test_architect_triage_schema' has no attribute 'ReportContract'`).
+  dry run (`b6c2bc17`): exit 1 (`AttributeError: module 'tests.test_architect_triage_schema' has no attribute 'ReportContract'`).
 - id: `code-02`
   story: As a maintainer, the review kit no longer threads a one-instance Kind through its calls.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `git grep -n -e 'kind: Kind' -e 'class Kind(' -e 'ar.Kind(' -- ccp tests`.
   expect: prints nothing (git grep's exit 1, no match).
-  dry run (`704ca8de`): printed 16 lines, exit 0.
+  dry run (`b6c2bc17`): printed 16 lines, exit 0.
 - id: `rule-01`
   story: As the architect, E12 names the one schema checker and the ids knobs' patterns.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `grep -c 'ccp/schema.py' docs/ENGINEERING.md`.
   expect: prints `1`.
-  dry run (`704ca8de`): printed `0`, exit 1.
+  dry run (`b6c2bc17`): printed `0`, exit 1.
 
 ## Implementation notes
 

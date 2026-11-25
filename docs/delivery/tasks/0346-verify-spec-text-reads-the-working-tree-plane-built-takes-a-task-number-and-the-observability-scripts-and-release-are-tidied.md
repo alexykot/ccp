@@ -33,7 +33,7 @@ and three follow-ups the lead passed to that pass: `ccp plane built --task` refu
 repeated `sys.path` lines (0331), and `scripts/release.sh`'s `git pull --ff-only`, which failed once with "Cannot
 fast-forward to multiple branches" while runners fetched (git's `FETCH_HEAD` held several branches).
 
-Measured at `704ca8de`:
+Measured at `b6c2bc17`:
 
 - **F06.** `"head = head or \"HEAD\""` (`ccp/verify.py`, `"def spec_text"`) and `spec_hunks(cfg, base, head)` diff
   `base...HEAD`, so a SPEC edit not yet committed is reported missing. 0333's and 0338's implementers each spent a run
@@ -80,7 +80,7 @@ Measured at `704ca8de`:
   `scripts/observability/CLAUDE.md`; `ccp/doclang/CLAUDE.md` (the one clause); `scripts/observability/team.py`; `scripts/release.sh`;
   `tests/test_verify_spec_text.py`; `tests/test_plane_built.py`; the SPEC, signed:
 
-  CURRENT (`docs/spec/02-delivery.md` at `704ca8de`), §15.2, the signed-text bullet:
+  CURRENT (`docs/spec/02-delivery.md` at `b6c2bc17`), §15.2, the signed-text bullet:
   > (`git diff <base>...<head>`, each SPEC file read as it is at `<head>`, which defaults to `HEAD`; the base defaults to `origin/<integration branch>`,
 
   PROPOSED:
@@ -100,14 +100,14 @@ Measured at `704ca8de`:
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_verify_spec_text.SpecText.test_with_no_head_an_uncommitted_spec_edit_is_found tests.test_verify_spec_text.SpecText.test_with_head_given_an_uncommitted_spec_edit_is_not_read tests.test_verify_spec_text`.
   expect: exit 0.
-  dry run (`704ca8de`): exit 1 (`AttributeError: type object 'SpecText' has no attribute 'test_with_no_head_an_uncommitted_spec_edit_is_found'`).
+  dry run (`b6c2bc17`): exit 1 (`AttributeError: type object 'SpecText' has no attribute 'test_with_no_head_an_uncommitted_spec_edit_is_found'`).
 - id: `spec-01`
   story: As the operator, §15.2 says what I signed.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0346`.
   expect: exit 0, the PROPOSED passage found.
-  dry run (`704ca8de`, with this brief): exit 1, the PROPOSED passage missing.
+  dry run (`b6c2bc17`, with this brief): exit 1, the PROPOSED passage missing.
 - id: `doc-01`
   story: As a maintainer, the package docs leave lib.py's map and the house rules' text to their homes.
   setup: A checkout of the PR head (any seat).
@@ -115,21 +115,21 @@ Measured at `704ca8de`:
     1. Run `grep -c -e 'write_atomic' -e 'LEGACY_EVENT_TYPES' -e 'imports nothing from' scripts/observability/CLAUDE.md`.
     2. Run `grep -c 'stays language-neutral' ccp/doclang/CLAUDE.md`.
   expect: step 1 prints `0` and step 2 prints `0` (each grep's exit 1, no match).
-  dry run (`704ca8de`): step 1 printed `3`, exit 0; step 2 printed `1`, exit 0.
+  dry run (`b6c2bc17`): step 1 printed `3`, exit 0; step 2 printed `1`, exit 0.
 - id: `code-02`
   story: As a maintainer, team.py puts the plane root on sys.path once, at import.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `grep -c 'sys.path.insert' scripts/observability/team.py`.
   expect: prints `2`.
-  dry run (`704ca8de`): printed `11`.
+  dry run (`b6c2bc17`): printed `11`.
 - id: `code-03`
   story: As the plane session, I close a proposal as built with the task's number.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_plane_built.Built.test_a_bare_task_number_names_the_merged_task tests.test_plane_built`.
   expect: exit 0.
-  dry run (`704ca8de`): exit 1 (`AttributeError: type object 'Built' has no attribute 'test_a_bare_task_number_names_the_merged_task'`).
+  dry run (`b6c2bc17`): exit 1 (`AttributeError: type object 'Built' has no attribute 'test_a_bare_task_number_names_the_merged_task'`).
 - id: `code-04`
   story: As the operator, a release fast-forwards the dev checkout from a fetched ref, whatever runners fetch meanwhile.
   setup: A checkout of the PR head (any seat).
@@ -137,7 +137,7 @@ Measured at `704ca8de`:
     1. Run `grep -c 'pull -q --ff-only' scripts/release.sh`.
     2. Run `grep -c 'merge -q --ff-only' scripts/release.sh`.
   expect: step 1 prints `0` (grep's exit 1, no match); step 2 prints `1`.
-  dry run (`704ca8de`): step 1 printed `1`; step 2 printed `0`, exit 1.
+  dry run (`b6c2bc17`): step 1 printed `1`; step 2 printed `0`, exit 1.
 
 ## Implementation notes
 
