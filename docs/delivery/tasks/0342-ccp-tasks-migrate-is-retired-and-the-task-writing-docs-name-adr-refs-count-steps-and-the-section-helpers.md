@@ -174,4 +174,13 @@ Measured at `704ca8de`:
 
 ## Implementation notes
 
+- 2026-11-25: the premises re-measured at `17ac20b1` held: 36 lines in 13 files, and 0 for the F08, F11 and
+  template greps. `ccp/taskmigrate.py` and `tests/test_tasks_migrate.py` are deleted; `ccp tasks migrate` now
+  exits 2 as an unknown subcommand. `_restore` no longer reads the gone file's last text: a gone file is told its
+  restore and the `done`/`dropped` line. `load` and `check` drop `texts` (no other caller passed it). The
+  init warning's comment and the `EarlierTaskFiles` docstring cite §5.2, not the retired §5.3 paragraph.
+- `tests.test_mdsection`'s migration-table test held only the two `taskmigrate` asserts, so it is removed whole.
+  `docs/ROADMAP.md` still names `ccp tasks migrate` in the 3c95 F09 entry, as the record of the ruling; it is out
+  of this task's paths.
+
 ## Verification notes
