@@ -522,9 +522,8 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
 - a runtime key (`waiting_on`, lease fields, session ids) in frontmatter;
 - a task file gone (an id in the committed INDEX.yaml, or a file git history deleted, with no file
   now), or a gone task's number held by another file that does not say `renamed_from: <old id>`;
-  the message names the restore, `ccp tasks migrate` for an earlier generation's file and, for a
-  file git shows renamed, the `renamed_from` line to add; a task file with no frontmatter is one
-  failure naming `ccp tasks migrate`;
+  the message names the restore and, for a file git shows renamed, the `renamed_from` line to add; a task file
+  with no frontmatter is one failure;
 - with an index, an INDEX.yaml that is missing or differs from what `ccp tasks index` would write
   (`ccp tasks index` refuses, writing nothing, while a task file is gone);
 - with a review-point register, an unknown point (§22.3); with `shape_adrs`, an unshaped ADR

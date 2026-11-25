@@ -10,7 +10,6 @@ argument takes the full id or its number.
 |---|---|---|
 | `ccp tasks list [--status S] [--json]` | anyone | §5 (list the tasks) |
 | `ccp tasks next [--scope IDS] [--json] [--allow-overdue REASON] [--holder <slot>]` (also `--explain`) | runner | §10.3, §16.3, §23.2 (`--json` carries `passed_over`) |
-| `ccp tasks migrate [--dry-run] [--drop-open]` | lead | §5.3 (converts an earlier plane generation's task files in place) |
 | `ccp tasks claim <id> [--holder <slot>]` | runner | §10.5, §16.3 |
 | `ccp tasks rotation-due [--holder <slot>]` | the `TeammateIdle` hook, runner, lead | §10.2 step 4, §18.2 |
 | `ccp tasks phase <id> <phase> [--note T]` | runner | §10.1 |

@@ -9,7 +9,7 @@ import subprocess
 import sys
 import unittest
 
-from ccp import adr, estimator, mdsection, report, spec, taskmigrate, tasklog
+from ccp import adr, estimator, mdsection, report, spec, tasklog
 from tests.helpers import PLANE_ROOT, Product
 
 FENCE = "```"
@@ -83,11 +83,6 @@ class Callers(unittest.TestCase):
     def test_a_task_files_section_ends_at_a_heading_of_level_two_or_higher_outside_a_fence(self):
         text = f"## Scope\n\nin\n\n{FENCE}\n# quoted\n{FENCE}\n\n### sub\n\nkept\n\n# Top\n\nout\n"
         self.assertEqual(tasklog.section(text, tasklog.SEC_SCOPE), f"\n\nin\n\n{FENCE}\n# quoted\n{FENCE}\n\n### sub\n\nkept\n\n")
-
-    def test_a_task_migration_table_reads_past_a_fenced_heading(self):
-        text = f"## Meta\n\n| k | v |\n|---|---|\n| a | 1 |\n\n{FENCE}\n## x\n{FENCE}\n\n| b | 2 |\n\n## Refs\n\n| c | 3 |\n"
-        self.assertEqual(taskmigrate.table(text, "meta"), [("a", "1"), ("b", "2")])
-        self.assertIsNone(taskmigrate.heading(f"{FENCE}\n## Meta\n{FENCE}\n", "Meta"))
 
 
 class Show(unittest.TestCase):

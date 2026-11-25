@@ -145,6 +145,9 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   (`<module>.<class>.<test>`) to that command, so the run's exit code says it ran and passed; never a
   grep of the runner's text, nor a bare test runner's output. `ccp tasks check` warns on a step that
   runs the language's test command bare.
+- **A count step names the exit it accepts.** A test check names its test ids and never expects a count of a
+  class's or a module's tests, which a sibling test moves; `grep -c` exits 1 when it counts nothing, so an expect
+  of a zero count says `prints 0 (exit 1)`.
 - **A check of a `ccp` command runs the head's `bin/ccp`** where the head carries one (the plane's own
   repo), never `ccp` on PATH, which is the released plane. Signed SPEC text is checked with
   `bin/ccp verify spec-text <task>` (`ccp verify spec-text <task>` in a product's checkout), never by a
@@ -271,8 +274,7 @@ pending, with a warning), a dependency that doesn't exist, a cycle of `depends_o
 citing nothing, zero or more than `max_checks` checks, duplicate check ids, soft language inside `## dod_checks` ("should",
 "may", "gracefully", "robust"), a `done` task with no verification note, runtime state in frontmatter,
 a `runs_on:` line with a value other than `operator-machine` or not right after `setup:`,
-a task file that is gone (restore it; convert an earlier generation's file with
-`ccp tasks migrate`), a number held by another file without `renamed_from`, a kind's ref rules broken, and (with `shape_adrs`) a new task citing an unshaped ADR
+a task file that is gone (restore it), a number held by another file without `renamed_from`, a kind's ref rules broken, and (with `shape_adrs`) a new task citing an unshaped ADR
 without a waiver. A `review_point` not in the register (or, without one, not matching
 `ids.review_point.pattern`). A task not yet `done` or `dropped` that still holds a template
 placeholder (`NNNN-kebab-slug`, `YYYY-MM-DD`, `As a <role>`, `<preconditions`,

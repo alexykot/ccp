@@ -549,7 +549,7 @@ class GithubOrigin(InitCase):
 
 
 class EarlierTaskFiles(InitCase):
-    """§5.3: adopting a product whose task files have no frontmatter names them and `ccp tasks migrate`."""
+    """§5.2: adopting a product whose task files have no frontmatter counts them and names `ccp tasks check`."""
 
     def setUp(self):
         super().setUp()
@@ -568,7 +568,17 @@ class EarlierTaskFiles(InitCase):
         self.assertEqual(len(res["warnings"]), 1, res)
         for text in (res["warnings"][0], r.stderr):
             self.assertIn("2 task file", text)
-            self.assertIn("`ccp tasks migrate`", text)
+            self.assertNotIn("`ccp tasks migrate`", text)
+
+    def test_the_warning_names_tasks_check_not_a_converter(self):
+        tasks = self.repo / "docs/delivery/tasks"
+        tasks.mkdir(parents=True)
+        (tasks / "0001-a.md").write_text("# Task 0001: old\n\n## Meta\n\n| Field | Value |\n|---|---|\n")
+        r = self.ccp("init", "--project-id", "demo")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        warning = json.loads(r.stdout)["warnings"][0]
+        self.assertIn("`ccp tasks check`", warning)
+        self.assertNotIn("tasks migrate", warning)
 
     def test_a_current_task_log_is_not_warned_about(self):
         tasks = self.repo / "docs/delivery/tasks"

@@ -318,7 +318,7 @@ class TaskLogTest(unittest.TestCase):
         self.p.index()
         mine = [e for e in self.errs() if "0002-export-ledger" in e]
         self.assertEqual(len(mine), 1, mine)
-        self.assertIn("`ccp tasks migrate`", mine[0])
+        self.assertNotIn("`ccp tasks migrate`", mine[0])
         for args in (("list",), ("list", "--json")):
             err = io.StringIO()
             with redirect_stderr(err):
@@ -328,8 +328,9 @@ class TaskLogTest(unittest.TestCase):
             self.assertNotIn("0003-c", out)
             for token in ("docs/delivery/tasks/0002-export-ledger.md: no frontmatter, not listed",
                           "docs/delivery/tasks/0003-c.md: no task_id in its frontmatter, not listed",
-                          "`ccp tasks check`", "`ccp tasks migrate`"):
+                          "`ccp tasks check`"):
                 self.assertIn(token, err.getvalue())
+            self.assertNotIn("`ccp tasks migrate`", err.getvalue())
         self.assertEqual([r["task_id"] for r in json.loads(out)], ["0001-a"])
 
     def test_an_empty_opening_block_is_no_frontmatter_as_frontmatter_reads_it(self):
@@ -359,9 +360,35 @@ class TaskLogTest(unittest.TestCase):
         self.assertNotIn("restore it with `status: dropped`", one[0])
         self.assertNotIn("ccp tasks migrate", one[0])
         self.assertIn(f"`git checkout {sha}^ -- docs/delivery/tasks/0002-b.md`", two[0])
-        self.assertIn("`ccp tasks migrate`", two[0])
+        self.assertNotIn("`ccp tasks migrate`", two[0])
         self._git("checkout", f"{sha}^", "--", "docs/delivery/tasks/0001-a.md")
         self.assertFalse([e for e in self.errs() if e.startswith("0001-a: ")])
+
+    def test_no_message_names_a_retired_converter(self):
+        import io
+        from contextlib import redirect_stderr
+        self.p.task("0001-a", status="done")
+        self.p.write("docs/delivery/tasks/0002-b.md", self.OLD_TASK)
+        self.p.write("docs/delivery/tasks/0003-old.md", self.OLD_TASK)
+        self._git("init", "-q")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "log")
+        self._git("rm", "-q", "docs/delivery/tasks/0002-b.md")
+        self._git("commit", "-qm", "delete the file with no frontmatter")
+        self.p.index()
+        errs = self.errs()
+        gone = [e for e in errs if e.startswith("0002-b: ")]
+        bare = [e for e in errs if "0003-old" in e]
+        self.assertEqual((len(gone), len(bare)), (1, 1), errs)
+        self.assertIn("`status: dropped`", gone[0])  # told the done/dropped line, whatever its last text
+        self.assertTrue(bare[0].endswith(tasklog.NO_FRONTMATTER), bare)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            code, _ = self._cli("list")
+        self.assertEqual(code, 0)
+        self.assertIn("0003-old.md: no frontmatter", err.getvalue())
+        for text in (*errs, err.getvalue()):
+            self.assertNotIn("tasks migrate", text)
 
     def test_a_slug_renamed_in_git_is_told_to_add_renamed_from(self):
         self.p.task("0001-old-slug", status="done")

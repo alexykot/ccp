@@ -60,7 +60,7 @@ def cmd_tasks_list(cfg: config.Config, a: argparse.Namespace) -> int:
             "no task_id in its frontmatter" if not t.get("task_id") else None
         if why:
             print(f"ccp tasks list: {cfg.rel(t['_file'])}: {why}, not listed: `ccp tasks check` names what is "
-                  "wrong; `ccp tasks migrate` converts an earlier plane generation's task file", file=sys.stderr)
+                  "wrong", file=sys.stderr)
     rows = [(t.get("task_id"), t.get("status") or "?", t.get("title") or "",
              ",".join(tasklog._as_list(t.get("depends_on"))) or "-", tasklog.kind_of(t))
             for t in tasks if tasklog.has_frontmatter(t["_text"]) and t.get("task_id")
@@ -1177,23 +1177,6 @@ def cmd_agent(cfg: config.Config, a: argparse.Namespace) -> int:
     return 0  # a hook never fails the agent it watches
 
 
-def cmd_tasks_migrate(cfg: config.Config, a: argparse.Namespace) -> int:
-    """§5.3: convert an earlier plane generation's task files in place; then regenerate the index."""
-    from ccp import taskmigrate  # noqa: PLC0415
-    res = taskmigrate.migrate(cfg, a.dry_run, a.drop_open)
-    for r in res["files"]:
-        print(f"{r['path']}: " + (f"converted ({r['status']})" if r["result"] == "converted"
-                                   else f"cannot convert: {r['reason']}"))
-    converted = sum(1 for r in res["files"] if r["result"] == "converted")
-    failed = len(res["files"]) - converted
-    print(f"tasks migrate{' (dry run, nothing written)' if a.dry_run else ''}: {converted} converted, "
-          f"{res['current']} already current, {failed} cannot convert")
-    code = 1 if failed else 0
-    if converted and not a.dry_run and cfg.task_log.get("index", True):
-        code = max(code, cmd_tasks_index(cfg, argparse.Namespace(stdout=False)))
-    return code
-
-
 def _adr_index_list(actions: argparse._SubParsersAction) -> None:  # noqa: SLF001  (argparse's own type)
     """`ccp adr index|list` and their alias `ccp docs adr index|list`: each action's own flags (SPEC §6.6)."""
     actions.add_parser("index", help="regenerate the ADR index") \
@@ -1260,11 +1243,6 @@ def build_parser() -> argparse.ArgumentParser:
     p = t.add_parser("index", help="regenerate INDEX.yaml")
     p.add_argument("--stdout", action="store_true", help="print instead of writing")
     p.set_defaults(fn=cmd_tasks_index)
-    p = t.add_parser("migrate", help="convert an earlier plane generation's task files (no frontmatter) in place; "
-                                     "exit 1 when one cannot be converted (SPEC §5.3)")
-    p.add_argument("--dry-run", action="store_true", help="write nothing; print the same lines")
-    p.add_argument("--drop-open", action="store_true", help="convert an open task too, as dropped")
-    p.set_defaults(fn=cmd_tasks_migrate)
     life = _toolkit(_lifecycle)
     p = t.add_parser("prefer", help="the lead names the runner's next tasks, in order: `tasks next` returns the first "
                                     "ready one; its claim removes only that one, and a new list replaces the old. "
