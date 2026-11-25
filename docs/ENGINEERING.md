@@ -102,9 +102,10 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   are parsed by ccp/refs.py; no other module in ccp or scripts holds a regex for any of them.
   check: command — architect.checks `E23`
 - **E25** The parser is the one source of the command surface. Call syntax is written by hand in one place (docs/cli),
-  held to the parser by a test: a row gives the syntax, who calls it, at most one clause of purpose and the §, never
-  the SPEC's rules or exit codes; no module docstring in ccp/ carries a usage table.
-  check: command — architect.checks `E25` (no docs/cli command row over 300 bytes, none naming an exit code); plus the gate — tests.test_cli_reference (E1)
+  in one table shape (Command | Who | SPEC), held to the parser by a test: a row gives the syntax, who calls it, at most
+  one clause of purpose and the §; no line of docs/cli states the SPEC's rules or exit codes; no module docstring in
+  ccp/ carries a usage table.
+  check: command — architect.checks `E25` (no docs/cli line over 300 bytes, no fenced block, no exit code in any case); plus the gate — tests.test_cli_reference (E1)
 
 ## Docs
 

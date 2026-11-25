@@ -119,8 +119,9 @@ def delegates(paths: list[tuple[str, ...]]) -> bool:
     return any(not p[:1] or p[0] in DELEGATED for p in paths)
 
 
-def problems_of(docs: Path) -> list[str]:
-    root = node_of(cli.build_parser())
+def problems_of(docs: Path, parser: argparse.ArgumentParser | None = None) -> list[str]:
+    """What `docs` (a directory of `*.md` parts) and `parser` (else `ccp`'s) disagree on."""
+    root = node_of(cli.build_parser() if parser is None else parser)
     problems: list[str] = []
     named: set[tuple[str, ...]] = set()
     credited: dict[tuple[str, ...], set[str]] = {}
@@ -192,50 +193,96 @@ class CliReference(unittest.TestCase):
                  if doc.splitlines() and CALL_SYNTAX.match(doc.splitlines()[0])]
         self.assertEqual(found, [])
 
-    def copy_with(self, old: str, new: str) -> Path:
+
+def small_parser() -> argparse.ArgumentParser:
+    """A parser of a few commands, a delegated one and a global flag, for the checker's own tests."""
+    p = argparse.ArgumentParser(prog="ccp")
+    p.add_argument("--root")
+    sub = p.add_subparsers(dest="cmd")
+    tasks = sub.add_parser("tasks").add_subparsers(dest="sub")
+    nxt = tasks.add_parser("next")
+    nxt.add_argument("--json", action="store_true")
+    nxt.add_argument("--allow-overdue")
+    tasks.add_parser("index").add_argument("--stdout", action="store_true")
+    for name in ("wait", "resume"):
+        t = tasks.add_parser(name)
+        t.add_argument("id")
+        t.add_argument("--detail")
+    tasks.add_parser("sync").add_argument("--dry-run", action="store_true")
+    adr = sub.add_parser("adr").add_subparsers(dest="sub")
+    adr.add_parser("index").add_argument("--stdout", action="store_true")
+    lst = adr.add_parser("list")
+    lst.add_argument("--json", action="store_true")
+    lst.add_argument("--dir")
+    sub.add_parser("otel").add_argument("rest", nargs="*")
+    sub.add_parser("where")
+    return p
+
+
+HEAD = "| Command | Who | SPEC |\n|---|---|---|\n"
+SMALL_DOCS = {
+    "01-model.md": HEAD + "| `ccp adr index [--stdout]` | any seat | §1 |\n"
+                          "| `ccp adr list [--json] [--dir DIR]` | any seat | §1 |\n"
+                          "| `ccp where` | any seat | §1 |\n\nGlobal: `--root DIR`.\n",
+    "02-delivery.md": HEAD + "| `ccp tasks next [--json] [--allow-overdue REASON]` | runner | §2 |\n"
+                             "| `ccp tasks index [--stdout]` | lead | §2 |\n"
+                             "| `ccp tasks wait <id> [--detail …]` / `ccp tasks resume <id> [--detail …]` | runner | §2 |\n"
+                             "| `ccp tasks sync [--dry-run]` | lead | §2 |\n"
+                             "| `ccp otel serve [--port N]` | operator | §2 |\n",
+}
+
+
+class Checker(unittest.TestCase):
+    """The checker on a docs directory and parser of its own, so rewording a real row breaks none of these."""
+
+    def docs_with(self, old: str, new: str) -> Path:
+        """The small docs, in a temporary directory, with `old` (which they hold) replaced by `new`."""
+        self.assertTrue(any(old in text for text in SMALL_DOCS.values()), old)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         d = Path(tmp.name)
-        for f in DOCS.glob("*.md"):
-            text = f.read_text()
-            (d / f.name).write_text(text.replace(old, new) if old in text else text)
-        self.assertTrue(any(old in f.read_text() for f in DOCS.glob("*.md")), old)
+        for name, text in SMALL_DOCS.items():
+            (d / name).write_text(text.replace(old, new), encoding="utf-8")
         return d
 
+    def problems(self, old: str, new: str) -> list[str]:
+        return problems_of(self.docs_with(old, new), small_parser())
+
+    def test_the_small_docs_hold_the_small_parser(self):
+        self.assertEqual(self.problems("", ""), [])
+
     def test_a_flag_the_docs_leave_out_is_found(self):
-        d = self.copy_with(" [--allow-overdue REASON]", "")
-        self.assertEqual(problems_of(d), ["docs/cli gives `ccp tasks next` no `--allow-overdue`"])
+        self.assertEqual(self.problems(" [--allow-overdue REASON]", ""),
+                         ["docs/cli gives `ccp tasks next` no `--allow-overdue`"])
 
     def test_a_flag_the_parser_does_not_define_is_found(self):
-        d = self.copy_with("`ccp tasks index [--stdout]` | lead", "`ccp tasks index [--stdout] [--no-such-flag]` | lead")
-        self.assertEqual(problems_of(d), ["02-delivery.md: `--no-such-flag` is no flag of `ccp tasks index`"])
+        self.assertEqual(self.problems("`ccp tasks index [--stdout]` | lead", "`ccp tasks index [--stdout] [--no-such-flag]` | lead"),
+                         ["02-delivery.md: `--no-such-flag` is no flag of `ccp tasks index`"])
 
     def test_a_joined_row_giving_an_action_its_siblings_flags_is_found(self):
-        d = self.copy_with("`ccp adr index [--stdout]` | regenerate the ADR index (any seat) | §6.6 |\n| `ccp adr list [--json] [--dir DIR]` | every ADR's frontmatter (any seat) |",
-                           "`ccp adr index\\|list [--stdout] [--json] [--dir DIR]` | the ADR index, or every ADR's frontmatter |")
-        self.assertEqual(sorted(problems_of(d)), [
+        found = self.problems("`ccp adr index [--stdout]` | any seat | §1 |\n| `ccp adr list [--json] [--dir DIR]` | any seat |",
+                              "`ccp adr index\\|list [--stdout] [--json] [--dir DIR]` | any seat |")
+        self.assertEqual(sorted(found), [
             "01-model.md: `--dir` is no flag of `ccp adr index`",
             "01-model.md: `--json` is no flag of `ccp adr index`",
             "01-model.md: `--stdout` is no flag of `ccp adr list`",
         ])
 
     def test_a_flag_left_out_of_one_span_is_not_credited_from_its_siblings(self):
-        d = self.copy_with("`ccp tasks resume <id> [--detail …]`", "`ccp tasks resume <id>`")
-        self.assertEqual(problems_of(d), ["docs/cli gives `ccp tasks resume` no `--detail`"])
+        self.assertEqual(self.problems("`ccp tasks resume <id> [--detail …]`", "`ccp tasks resume <id>`"),
+                         ["docs/cli gives `ccp tasks resume` no `--detail`"])
 
     def test_a_row_with_a_delegated_span_is_still_checked_in_its_other_spans(self):
-        d = self.copy_with("`ccp tasks index [--stdout]` | lead",
-                           "`ccp otel serve [--port N]` / `ccp tasks index [--stdout] [--no-such-flag]` | lead")
-        self.assertEqual(problems_of(d), ["02-delivery.md: `--no-such-flag` is no flag of `ccp tasks index`"])
+        self.assertEqual(self.problems("`ccp tasks index [--stdout]` | lead",
+                                       "`ccp otel serve [--port N]` / `ccp tasks index [--stdout] [--no-such-flag]` | lead"),
+                         ["02-delivery.md: `--no-such-flag` is no flag of `ccp tasks index`"])
 
     def test_a_command_the_parser_does_not_define_is_found(self):
-        d = self.copy_with("`ccp tasks sync [--dry-run]` | lead", "`ccp tasks sync [--dry-run]` | lead\n| `ccp tasks no-such [--json]` | lead")
-        self.assertEqual(problems_of(d), ["`ccp tasks no-such`: the parser has no such command"])
+        self.assertEqual(self.problems("`ccp tasks sync [--dry-run]` | lead |", "`ccp tasks sync [--dry-run]` | lead |\n| `ccp tasks no-such [--json]` | lead |"),
+                         ["`ccp tasks no-such`: the parser has no such command"])
 
     def test_a_command_the_docs_leave_out_is_found(self):
-        d = self.copy_with("`ccp where`", "`ccp were`")
-        self.assertIn("docs/cli names no `ccp where`", problems_of(d))
-
+        self.assertIn("docs/cli names no `ccp where`", self.problems("`ccp where`", "`ccp were`"))
 
 if __name__ == "__main__":
     unittest.main()
