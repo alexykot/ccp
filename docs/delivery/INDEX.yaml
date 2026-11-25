@@ -1703,7 +1703,7 @@ tasks:
     depends_on: []
     path: tasks/0345-contracts-leave-id-shapes-to-the-ids-knobs-the-architect-report-is-checked-by-its-contract-and-the-review-kit-drops-kind.md
   - id: 0346-verify-spec-text-reads-the-working-tree-plane-built-takes-a-task-number-and-the-observability-scripts-and-release-are-tidied
-    status: pending
+    status: done
     title: ccp verify spec-text with no --head reads the working tree, so an uncommitted SPEC edit counts, with its signed §15.2 passage; ccp plane built takes a task's number; the observability doc stops inventorying ccp/lib.py and restating E7, and the doclang doc E18, and team.py puts the plane on sys.path once; release.sh fast-forwards from a fetched ref, not FETCH_HEAD
     depends_on: []
     path: tasks/0346-verify-spec-text-reads-the-working-tree-plane-built-takes-a-task-number-and-the-observability-scripts-and-release-are-tidied.md

@@ -1,7 +1,7 @@
 ---
 task_id: 0346-verify-spec-text-reads-the-working-tree-plane-built-takes-a-task-number-and-the-observability-scripts-and-release-are-tidied
 title: ccp verify spec-text with no --head reads the working tree, so an uncommitted SPEC edit counts, with its signed §15.2 passage; ccp plane built takes a task's number; the observability doc stops inventorying ccp/lib.py and restating E7, and the doclang doc E18, and team.py puts the plane on sys.path once; release.sh fast-forwards from a fetched ref, not FETCH_HEAD
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15", "S29"]
@@ -163,3 +163,5 @@ Measured at `b6c2bc17`:
   from an unmoved dev checkout.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #423 head `ff35a84` (squash `d182a24`): APPROVE. Passed: code-01, spec-01, doc-01, code-02, code-03, code-04. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0346-verify-spec-text-reads-the-working-tree-plane-built-takes-a-task-number-and-the-observability-scripts-and-release-are-tidied.json.
+
