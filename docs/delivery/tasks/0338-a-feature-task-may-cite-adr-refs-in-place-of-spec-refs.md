@@ -7,7 +7,7 @@ depends_on: []
 spec_refs: ["S5", "S21", "S29"]
 adr_refs: ["0043 D9"]
 review_point: R36
-paths: ["ccp/config.py", "ccp/tasklog.py", "contracts/plane_config.schema.json", "tests/test_kinds.py", "tests/test_plane_json_constants.py", "plugin/skills/writing-tasks/SKILL.md", "docs/spec/01-model.md", "docs/adr/0043-opinionated-defaults-short-configuration.md"]
+paths: ["ccp/config.py", "ccp/tasklog.py", "contracts/plane_config.schema.json", "tests/test_kinds.py", "tests/test_plane_json_constants.py", "tests/test_task_placeholders.py", "tests/test_task_format.py", "plugin/skills/writing-tasks/SKILL.md", "docs/spec/01-model.md", "docs/adr/0043-opinionated-defaults-short-configuration.md"]
 clashes_with: ["0191-the-grace-release-ends", "0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver", "0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps", "0337-five-constants-become-plane-json-settings-again", "0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock"]
 adopt: "none"
 created: 2026-11-25
@@ -61,8 +61,13 @@ Measured at `3539c23`:
 - **Tests.** `tests/test_kinds.py` gains class `FeatureCitesAdrRefs(unittest.TestCase)` on a product that sets no
   `task_log` block: `test_a_feature_citing_only_adr_refs_passes`, `test_a_feature_citing_only_spec_refs_passes`,
   `test_a_task_citing_neither_is_told_both_lists` and `test_a_refactor_citing_adr_refs_is_still_refused`.
-  `tests/test_plane_json_constants.py` `WAS` holds the two new values, each with a comment naming this task. No
-  other test expectation changes.
+  `tests/test_plane_json_constants.py` `WAS` holds the two new values, each with a comment naming this task.
+  `tests/test_task_placeholders.py`: `test_an_empty_spec_refs_says_to_list_the_sections_and_cite_them` (no
+  `task_log` block) and `test_with_the_architect_block_a_feature_gets_the_same_hint` (`refs_any` both lists) expect
+  the two-list hint ("or the ADR decisions it builds in `adr_refs`, and cite them");
+  `test_a_kind_with_its_own_refs_naming_spec_refs_gets_the_hint` (a feature kind whose own `refs_any` is
+  `["spec_refs"]`) keeps today's hint. `tests/test_task_format.py` `Kinds.test_a_configured_kind_sets_its_own_refs`
+  expects `kind_refs(p.cfg, "feature") == ["spec_refs", "adr_refs"]`. No other test expectation changes.
 - **Skill.** `plugin/skills/writing-tasks/SKILL.md`, the `spec_refs`, `adr_refs` frontmatter row: by default a
   feature task cites at least one of the two (`task_log.refs_any`), and neither key is required on its own; a kind
   with its own `refs_any` (a refactor) cites its own lists. The sentence that says `spec_refs` is a required key goes.
@@ -75,7 +80,8 @@ Measured at `3539c23`:
 
 - **In:** `ccp/config.py` (two defaults), `ccp/tasklog.py` (the hint), `contracts/plane_config.schema.json` (two
   defaults and descriptions), `tests/test_kinds.py` (class `FeatureCitesAdrRefs`), `tests/test_plane_json_constants.py`
-  (`WAS`), `plugin/skills/writing-tasks/SKILL.md` (one row), `docs/adr/0043-opinionated-defaults-short-configuration.md`
+  (`WAS`), `tests/test_task_placeholders.py` (two hint expectations), `tests/test_task_format.py` (one `kind_refs`
+  expectation), `plugin/skills/writing-tasks/SKILL.md` (one row), `docs/adr/0043-opinionated-defaults-short-configuration.md`
   (the note and one appendix bullet); the SPEC, describing this task's own feature (§31.1, on the operator's ruling
   of 2026-11-24): the two passages below. No other § sentence changes.
 
@@ -118,7 +124,7 @@ Measured at `3539c23`:
   story: As a plane developer, the tests hold the new default, the hint and the unchanged refactor rule.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).
   steps:
-    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_kinds.FeatureCitesAdrRefs.test_a_feature_citing_only_adr_refs_passes tests.test_kinds.FeatureCitesAdrRefs.test_a_feature_citing_only_spec_refs_passes tests.test_kinds.FeatureCitesAdrRefs.test_a_task_citing_neither_is_told_both_lists tests.test_kinds.FeatureCitesAdrRefs.test_a_refactor_citing_adr_refs_is_still_refused tests.test_plane_json_constants.TheConstants`.
+    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_kinds.FeatureCitesAdrRefs.test_a_feature_citing_only_adr_refs_passes tests.test_kinds.FeatureCitesAdrRefs.test_a_feature_citing_only_spec_refs_passes tests.test_kinds.FeatureCitesAdrRefs.test_a_task_citing_neither_is_told_both_lists tests.test_kinds.FeatureCitesAdrRefs.test_a_refactor_citing_adr_refs_is_still_refused tests.test_plane_json_constants.TheConstants tests.test_task_placeholders tests.test_task_format.Kinds`.
   expect: exit 0.
   dry run (`3539c23`): exit 1, the run FAILED (`FeatureCitesAdrRefs` does not exist yet).
 - id: `doc-01`

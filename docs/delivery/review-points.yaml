@@ -209,6 +209,6 @@ review_points:
     opened: "2026-11-25"
   - id: R36
     name: accepted plane proposals, batch 1
-    goal: "The first batch of accepted plane proposals: architect.rules_max_lines, notes_due and max_new_tasks, task_log.dry_run and docs.workers as plane.json settings again, and a feature task citing adr_refs in place of spec_refs, both on the operator's ruling of 2026-11-24 with their §31.1 passages; a suite run judged live by its recording process, with a stopped worker's live runs ended; a pending run whose agent never started expiring after 10 minutes; and an exclusive lane's cache probe letting a fully cached run skip the lock."
+    goal: "The first batch of accepted plane proposals: architect.rules_max_lines, notes_due and max_new_tasks, task_log.dry_run and docs.workers as plane.json settings again, and a feature task citing adr_refs in place of spec_refs, both on the operator's ruling of 2026-11-24 with their §31.1 passages; a suite run judged live by its recording process, read by the board, with a reported or abandoned worker's live runs ended; a pending run whose agent never started expiring after 10 minutes; and an exclusive lane's cache probe letting a fully cached run skip the lock."
     status: planned
     opened: "2026-11-25"

@@ -7,7 +7,7 @@ depends_on: []
 spec_refs: ["S4", "S8", "S19", "S20", "S21", "S29"]
 adr_refs: ["0043 D9"]
 review_point: R36
-paths: ["ccp/config.py", "contracts/plane_config.schema.json", "tests/test_plane_json_constants.py", "docs/spec/01-model.md", "docs/spec/03-quality.md", "docs/adr/0043-opinionated-defaults-short-configuration.md"]
+paths: ["ccp/config.py", "contracts/plane_config.schema.json", "tests/test_plane_json_constants.py", "tests/test_doc_rules.py", "README.md", "docs/spec/01-model.md", "docs/spec/03-quality.md", "docs/adr/0043-opinionated-defaults-short-configuration.md"]
 clashes_with: ["0191-the-grace-release-ends", "0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver", "0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps", "0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs", "0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock"]
 adopt: "plane.json task_log.dry_run true, for a product that wants a recorded dry run on each check that runs a command"
 created: 2026-11-25
@@ -67,7 +67,18 @@ Measured at `3539c23`:
   class `TheSettingsAgain(unittest.TestCase)` with `test_the_five_keys_are_settings_with_their_old_defaults` (no
   `KEY_OUTCOMES` entry, not deprecated in the schema, the block default unchanged) and
   `test_a_value_set_loads_with_no_warning_and_applies` (a plane.json setting all five loads with empty stderr and
-  empty `key_notes`, and each loaded block holds the value set). No other test expectation changes.
+  empty `key_notes`, and each loaded block holds the value set). `TheUpgradeStatus.test_a_constant_in_words_is_named_in_words`
+  is deleted: its subject, `docs.workers` named in words as a constant, is gone. `Outcome.shown` and the `shown`
+  branch of `"def shown_constant"` (`ccp/upgrade.py`) stay, because a binding constant still names itself in words
+  (`"runner.rotate_at_context_tokens": c.Outcome(c.CONSTANT, value=None, shown="off")` in
+  `scripts/observability/lib.py`, at `3539c23`); only the `docs.workers` `replace(...)` line goes.
+  `tests/test_doc_rules.py` `ParallelChecks`: `test_a_number_set_still_caps_them_with_the_constant_warning` becomes
+  `test_a_number_set_caps_them_with_no_warning` (the cap holds, stderr carries no `is a constant in code`), and
+  `test_an_explicit_null_is_the_constant_and_warns_that_the_key_can_go` becomes
+  `test_an_explicit_null_loads_with_no_warning` (every check at once, no warning). No other test expectation
+  changes.
+- **README.** The `--adopt` sentence under the rules-doc adoption (`over its 150-line limit (SPEC §20.1)`) names the
+  setting: "over its line limit, `architect.rules_max_lines` (default 150; SPEC §20.1)".
 - **ADR-0043.** Its `notes` gain one line, `2026-11-24: operator: architect.rules_max_lines, notes_due and
   max_new_tasks, task_log.dry_run and docs.workers are settings again, defaults unchanged ("Agree with all
   recommendations. Go ahead.")`. In the appendix the five move from "`plane.json`, constants" to
@@ -77,9 +88,10 @@ Measured at `3539c23`:
 ## Scope
 
 - **In:** `ccp/config.py` (the registry), `contracts/plane_config.schema.json` (five descriptions),
-  `tests/test_plane_json_constants.py`, `docs/adr/0043-opinionated-defaults-short-configuration.md` (the note and
-  the appendix); the SPEC, describing this task's own feature (§31.1, on the operator's ruling of 2026-11-24): the
-  seven passages below, which only name the keys as settings with their defaults and correct the text that called
+  `tests/test_plane_json_constants.py` (the lists, class `TheSettingsAgain`, one test deleted),
+  `tests/test_doc_rules.py` (two tests renamed and re-expected), `README.md` (one sentence),
+  `docs/adr/0043-opinionated-defaults-short-configuration.md` (the note and the appendix); the SPEC, describing this
+  task's own feature (§31.1, on the operator's ruling of 2026-11-24): the eight passages below, which only name the keys as settings with their defaults and correct the text that called
   them constants. No other § sentence changes.
 
   CURRENT (`docs/spec/03-quality.md` at `3539c23`), §19.6 trigger 3, its first sentence (the rest of the item
@@ -131,9 +143,15 @@ Measured at `3539c23`:
 
   PROPOSED:
   > | `task_log` | whether each check that runs a command must record a dry run (`task_log.dry_run`, default off) | §5.5, §21.1 |
+
+  CURRENT (`docs/spec/01-model.md` at `3539c23`), §8.1, the table row:
+  > | `package_docs`, `docs` | doc checks, run when `language` names a pack (`claude_md_dirs`, `docstring_globs`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
+
+  PROPOSED:
+  > | `package_docs`, `docs` | doc checks, run when `language` names a pack (`claude_md_dirs`, `docstring_globs`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`) and how many run at once (`docs.workers`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
 - **Out:** `worktrees.dir` and every other constant; `task_log.required` and `task_log.refs_any` (0338); marking
-  ADR-0043 D9 built (0191); any reader's behaviour; `README.md` (it already calls `task_log.dry_run` a product's
-  choice).
+  ADR-0043 D9 built (0191); any reader's behaviour; `Outcome.shown` (a binding constant uses it); the rest of
+  `README.md` (it already calls `task_log.dry_run` a product's choice).
 
 ## dod_checks
 
@@ -155,24 +173,24 @@ Measured at `3539c23`:
   story: As a plane developer, the tests hold the five keys as settings with their old defaults, applied with no warning.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).
   steps:
-    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_plane_json_constants.TheSettingsAgain.test_the_five_keys_are_settings_with_their_old_defaults tests.test_plane_json_constants.TheSettingsAgain.test_a_value_set_loads_with_no_warning_and_applies tests.test_plane_json_constants.TheConstants`.
+    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_plane_json_constants.TheSettingsAgain.test_the_five_keys_are_settings_with_their_old_defaults tests.test_plane_json_constants.TheSettingsAgain.test_a_value_set_loads_with_no_warning_and_applies tests.test_plane_json_constants.TheConstants tests.test_doc_rules.ParallelChecks.test_a_number_set_caps_them_with_no_warning tests.test_doc_rules.ParallelChecks.test_an_explicit_null_loads_with_no_warning`.
   expect: exit 0.
-  dry run (`3539c23`): exit 1, the run FAILED (`TheSettingsAgain` does not exist yet).
+  dry run (`3539c23`): exit 1, the run FAILED (`TheSettingsAgain` and the two renamed `ParallelChecks` tests do not exist yet).
 - id: `doc-01`
   story: As a product's lead reading the contract, the five keys are settings, not deprecated constants, and ADR-0043 records the ruling.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `python3 -c 'import json; s = json.load(open("contracts/plane_config.schema.json"))["properties"]; ps = [s["architect"]["properties"][k] for k in ("rules_max_lines", "notes_due", "max_new_tasks")] + [s["task_log"]["properties"]["dry_run"], s["docs"]["properties"]["workers"]]; print([p.get("deprecated", False) or p["description"].startswith("Constant") for p in ps], [p["default"] for p in ps])'`.
-    2. Run `grep -c 'a setting again, operator 2026-11-24' docs/adr/0043-opinionated-defaults-short-configuration.md`.
+    2. Run `grep -o 'a setting again, operator 2026-11-24' docs/adr/0043-opinionated-defaults-short-configuration.md | wc -l | tr -d ' '`.
   expect: step 1 prints `[False, False, False, False, False] [150, 3, 5, False, None]`; step 2 prints `5`.
-  dry run (`3539c23`): step 1 printed `[True, True, True, True, True] [150, 3, 5, False, None]`; step 2 printed `0`, exit 1.
+  dry run (`3539c23`): step 1 printed `[True, True, True, True, True] [150, 3, 5, False, None]`; step 2 printed `0`.
 - id: `spec-01`
   story: As the operator, the SPEC names the five keys as settings with their defaults.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0337`.
-  expect: exit 0, all seven PROPOSED passages found.
-  dry run (`3539c23`, with this brief): exit 1, all seven passages `not found in the SPEC`.
+  expect: exit 0, all eight PROPOSED passages found.
+  dry run (`3539c23`, with this brief): exit 1, all eight passages `not found in the SPEC`.
 
 ## Implementation notes
 
