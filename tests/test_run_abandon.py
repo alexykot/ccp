@@ -165,12 +165,17 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         old = self.run_rec("0002-second/implement")
         old["opened_at"] = ago(runs.PENDING_EXPIRY_S + 60)
         runs.save(self.q, old)
-        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
-        self.assertEqual((code, body["run_id"]), (0, "0002-second/implement-2"), out + err)
+        self.write_run("0001-first/implement", opened_at=ago(0))  # a fresh pending run still refuses this prompt
+        code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 3, out + err)
         old = self.run_rec("0002-second/implement")
         self.assertEqual(old["abandoned_reason"], runs.EXPIRED_REASON)
         self.assertTrue(old["expired_told_at"])
         self.assertEqual(len([ln for ln in err.splitlines() if "0002-second/implement," in ln]), 1)
+        self.write_run("0001-first/implement", opened_at=ago(0), agent_id="i0", started_at=ago(0))
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual((code, body["run_id"]), (0, "0002-second/implement-2"), out + err)
+        self.assertEqual([ln for ln in err.splitlines() if "0002-second/implement," in ln], [])  # told once
 
     def test_the_board_lists_no_run_of_a_done_task(self):
         self.write_run("0001-first/review", agent_id="a", started_at=at(11), stopped_at=at(12))
