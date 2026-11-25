@@ -21,6 +21,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -780,6 +781,14 @@ def opener(q: Path, tid: str, st: dict[str, Any], holder: str | None) -> str | N
     return held
 
 
+def tell_expired(q: Path, caller: str | None) -> None:
+    """§11.1: each run the caller's slot opened that expired, its agent never started, told once on stderr."""
+    for r in runs.expired_untold(q, caller):
+        print(f"ccp prompt: {r['run_id']}, which you opened at {r.get('opened_at')}, {runs.EXPIRED_REASON}; "
+              "it is abandoned (SPEC §11.1)", file=sys.stderr)
+        runs.mark_told(q, r)
+
+
 def cited_refs(cfg: Config, meta: dict[str, Any]) -> str:
     """The prompt's `refs`: what the task cites, each review finding with the record that holds its evidence
     (`<review_id>.md` in the reviews directory, §19.2), so a worker reads the finding before judging the task."""
@@ -820,7 +829,10 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     marked_evidence = marked_gate(q, tid, phase, a, meta)
     adr_gate(cfg, phase, a, meta)
     body_warn = body_gate(cfg, tid, phase, a.pr)
-    runs.check_pending(q, runs.AGENT_TYPE[phase], a.supersede, caller)
+    try:  # §11.1: an expired pending run is abandoned here, and its opener told, even when the prompt refuses
+        runs.check_pending(q, cfg, runs.AGENT_TYPE[phase], a.supersede, caller)
+    finally:
+        tell_expired(q, caller)
     runs.check_running_rounds(q, tid, phase, caller, a.supersede)
     from ccp import usage  # noqa: PLC0415
     # §25.4 the session park: no run opens at or past the 5-hour park % (exit 6, the task parked). Below the

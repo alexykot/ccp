@@ -173,6 +173,9 @@ class SubmitProvenFix(SkipFlow, ToolkitFixture, unittest.TestCase):
         patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))  # each run opens a second after the last
         patch.start()
         self.addCleanup(patch.stop)
+        patch = mock.patch("ccp.runs.PENDING_EXPIRY_S", float("inf"))  # §11.1: the clock's past day expires no run
+        patch.start()
+        self.addCleanup(patch.stop)
         t = Path(self._tmp.name)
         (t / "proof").write_text(PROOF)
         (t / "proof").chmod(0o755)

@@ -120,4 +120,20 @@ Measured at `554fe3a`:
 
 ## Implementation notes
 
+- `ccp/runs.py`: `PENDING_EXPIRY_S = 600` and `EXPIRED_REASON` (its minutes derived from the constant); `expired(rec,
+  now)` is the plain-value judgement (pending, `opened_at` parses, older than the bound), with `opened_ts` shared with
+  the supersede grace's age. One helper, `unexpired_pending`, abandons each expired pending run of an agent type and
+  returns the rest; `check_pending` (now taking `cfg`, to abandon) and `bind` both call it. `gc_plan` gives an
+  expired pending run `EXPIRED_REASON` after its two existing rules. `expired_untold(q, by)` and `mark_told` read and
+  set `expired_told_at`.
+- `ccp/prompt.py`: `tell_expired` prints the warning on stderr, once per run, and sets the marker. `build` calls it in
+  a `finally` around `check_pending`, so a prompt that abandons its own slot's expired run tells it even when it then
+  refuses on a fresh pending run.
+- Narrowest reading: an opener is told of a run abandoned as expired (by a prompt of its agent type, `ccp agent
+  start` or `ccp runs gc`). An expired run still pending, of an agent type nobody has prompted since, is not abandoned
+  by a prompt of another type, so it is told once something abandons it.
+- Tests: `PendingExpiry` (plain values on a temp queue, the five named tests) and one end-to-end wiring test in
+  `Abandon`, `test_an_expired_round_is_abandoned_by_the_next_prompt_and_its_opener_told` (the build wiring, the
+  refused prompt that still tells, and told once).
+
 ## Verification notes
