@@ -156,4 +156,19 @@ runner passed it:
 
 ## Implementation notes
 
+- Premises re-measured at `e2e48b1e`: both defaults, the schema's defaults, `SPEC_REFS_HINT` and `_spec_hint`,
+  and `kind_forbids` read as Context says.
+- Defaults: `TASK_LOG_DEFAULTS["required"]` drops `spec_refs` and `refs_any` is `["spec_refs", "adr_refs"]`; both
+  stay in `_CONSTANT_KEYS`. The schema's two defaults follow; `refs_any`'s description reads `Constant,
+  ["spec_refs", "adr_refs"]`, and `required`'s says neither list is required on its own.
+- Hint: `SPEC_ADR_REFS_HINT` beside `SPEC_REFS_HINT`; `_spec_hint` gives it when both lists are among those the
+  task must cite one of, today's hint with `spec_refs` only, nothing without `spec_refs`.
+- Tests: `FeatureCitesAdrRefs` on a product with the architect seat on and no `task_log` block. In
+  `test_a_kind_with_its_own_refs_naming_spec_refs_gets_the_hint` one assertion pins today's hint (``in
+  `spec_refs` and cite them``), as the old one also matched the two-list hint. New asserts keep E4's long-literal
+  count at its base figure (445).
+- Skill: besides the row, the checks paragraph's sentence on a task citing nothing now mirrors the §5 list item.
+- Ruling r1 (lead, 2026-11-25): `adr_refs: ["0043 D9"]` removed from the front matter and the ruling quoted in
+  Context; `ccp adr decide 43 D9 built` not run (D9 stays `not_built` until 0191).
+
 ## Verification notes
