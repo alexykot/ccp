@@ -8,7 +8,8 @@ text. A test names the worktrees directory as `config.WORKTREES_DIR`.
 The constants and builders are each named for what they make: `PLANE_ROOT` (the plane checkout, and the only name
 a test gives it), `GIT_ENV` (git's identity: a test identity, no global or system config), `LEAD_ENV` and
 `as_lead()` (the environment with the lead's `ACTOR`, for a command only the lead may run), `as_actor(value)`
-(`ACTOR` set to another value, or unset), `file_tree` and the rest.
+(`ACTOR` set to another value, or unset), `run_clock(case, *where)` (the one run clock: the stamps a test's runs
+open and report at, a minute apart from the real time unless the test names its `start`), `file_tree` and the rest.
 
 This module loads no `ccp` module on import, so the fence in `tests/__init__.py` comes first. It imports none of
 the four `*_helpers.py` modules, and a test module imports a helper from the module that holds it: an edit to one
@@ -19,7 +20,8 @@ import copy
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+import itertools
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest import mock
@@ -238,3 +240,18 @@ def tagged_task(p: Product, tid: str, status: str = "pending", rp: str | None = 
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def run_clock(case, *where: str, start: str | None = None) -> None:
+    """Patch each dotted name in `where` (default `ccp.runs.iso`) with one shared clock until `case`'s cleanup.
+
+    Each call returns the next stamp in `iso()`'s form, a minute after the last (`opened_at` has one-second
+    resolution, and the gates order runs by it). The first is `start`, else the real UTC time at this call, to the
+    minute, so a rule that compares a run's stamp with the real time (a pending run's expiry) sees a run opened now."""
+    first = (datetime.fromisoformat(start.replace("Z", "+00:00")) if start
+             else datetime.now(timezone.utc).replace(second=0, microsecond=0))
+    stamps = ((first + timedelta(minutes=i)).strftime("%Y-%m-%dT%H:%M:%SZ") for i in itertools.count())
+    for name in where or ("ccp.runs.iso",):
+        patch = mock.patch(name, side_effect=lambda: next(stamps))
+        patch.start()
+        case.addCleanup(patch.stop)

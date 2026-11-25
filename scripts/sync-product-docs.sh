@@ -108,7 +108,8 @@ if stamp:
         sys.exit(0)
 
 yml = Path(project_yaml) if project_yaml else lib.binding_for_id(project)
-if yml is None or not yml.is_file(): fail(f"no project binding {yml or lib.bindings_dir() / f'{project}.yaml'}")
+if yml is None: fail(f"no project binding for {project} in {lib.bindings_dir()}")
+if not yml.is_file(): fail(f"no project binding {yml}")
 binding = lib.read_binding(yml.read_text())
 if lib.binding_str(binding, "project_id") and lib.binding_str(binding, "project_id") != project:
     fail(f"{yml} is project_id {lib.binding_str(binding, 'project_id')}, not {project}")

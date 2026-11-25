@@ -115,4 +115,17 @@ Measured at `704ca8de`:
 
 ## Implementation notes
 
+- Re-measured at `9ba2cfc6`: `suite affected --paths ccp/suite.py` lists 19 modules (0341 added
+  `tests.test_suite_cache_probe`, selected already); `suite_fixture` is in 13 test modules; the misses are still
+  exactly the three this task maps. The F04 and E17 figures are unchanged (18 clock lines, 2 expiry patches, 1 hit).
+- `tests/helpers.py` `run_clock(case, *where, start=None)`: one generator of `iso()`-form stamps a minute apart,
+  from `start` or the real UTC minute, patched into each name in `where` (default `ccp.runs.iso`) until the case's
+  cleanup. All 18 sites call it; `review_flow.py` and `test_formal_submit.py` drop their `PENDING_EXPIRY_S` patches,
+  and the modules that no longer use `mock` drop its import.
+- No module passes `start`: the remaining `2026-10-22` literals in the 13 modules are fixture inputs
+  (`abandoned_at`) or sit in classes the clock does not feed (plain-value tests), and every module passes on the
+  default clock.
+- `scripts/sync-product-docs.sh` splits the missing-binding refusal: no binding found names the project and
+  `lib.bindings_dir()`; a named path that is not a file names that path.
+
 ## Verification notes

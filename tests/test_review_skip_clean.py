@@ -9,10 +9,9 @@ import json
 import os
 import unittest
 from pathlib import Path
-from unittest import mock
 
 from ccp import config, verify
-from tests.helpers import PLANE_ROOT
+from tests.helpers import PLANE_ROOT, run_clock
 from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, ReviewFlow, SkipFlow
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -25,10 +24,7 @@ class Rounds(ReviewFlow, ToolkitFixture):
 
     def setUp(self):
         super().setUp()
-        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
-        patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))
-        patch.start()
-        self.addCleanup(patch.stop)
+        run_clock(self)
         self.ccp("tasks", "claim", "0002")
 
     def review(self, severity: str = CLEAN, head: str = A) -> str:
@@ -201,10 +197,7 @@ class BothSkipKnobs(SkipFlow, ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
-        patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))
-        patch.start()
-        self.addCleanup(patch.stop)
+        run_clock(self)
         t = Path(self._tmp.name)
         (t / "proof").write_text(PROOF)
         (t / "proof").chmod(0o755)

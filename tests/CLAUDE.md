@@ -14,7 +14,8 @@ first. Where a check needs no repository, queue or subprocess, test a function o
 (`test_catch_up_decision.py`). Each `<name>_fixture.py` holds the fixture `test_<name>.py` and its neighbours share.
 
 - `helpers.py`: a temp product root and the small shared constants and builders. `Product`, `PLANE_ROOT` (the one
-  name for the plane checkout, so a search for the tests that read a repo file finds them all).
+  name for the plane checkout, so a search for the tests that read a repo file finds them all), `run_clock` (the one
+  run clock a test's runs open at).
 - `git_helpers.py`: the one git runner, taken from here and never from a fixture. `git`.
 - `report_helpers.py`: reports, verdicts and the marked-check text. `done_report`.
 - `ledger_helpers.py`: ledger events, suite rows and usage rows. `ledger_event`, `FoldRuns`.

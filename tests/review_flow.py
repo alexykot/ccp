@@ -13,7 +13,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from tests.helpers import PLANE_ROOT
+from tests.helpers import PLANE_ROOT, run_clock
 from tests.report_helpers import done_report
 from tests.git_helpers import git
 from tests.toolkit_fixture import ToolkitFixture
@@ -117,21 +117,13 @@ class SkipFlow(ReviewFlow):
 class PhaseFlow(ReviewFlow):
     """`ReviewFlow` with the rounds that move a task through `implemented` and `reviewed` (SPEC §10.1): a claimed
     `0002-second`, an implement round bound to a session and reported done with PR #7 at `A`, and reviews whose
-    workers are bound to sessions too. Every run opens a second after the last (`opened_at` has one-second
-    resolution); `start` patches the clock and claims the task."""
+    workers are bound to sessions too. `start` sets the run clock (`run_clock`: every run opens a minute after the
+    last, from the real time) and claims the task."""
 
     IMPLEMENTER_SESSION = "sess-implementer"
 
     def start(self) -> None:
-        from unittest import mock  # noqa: PLC0415
-        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
-        for where in ("ccp.runs.iso", "ccp.report.iso"):
-            patch = mock.patch(where, side_effect=lambda: next(clock))
-            patch.start()
-            self.addCleanup(patch.stop)
-        patch = mock.patch("ccp.runs.PENDING_EXPIRY_S", float("inf"))  # §11.1: the clock's past day expires no run
-        patch.start()
-        self.addCleanup(patch.stop)
+        run_clock(self, "ccp.runs.iso", "ccp.report.iso")
         self.ccp("tasks", "claim", "0002")
 
     def bind(self, agent_type: str, agent: str, session: str) -> None:
