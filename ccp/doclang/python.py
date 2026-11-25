@@ -75,6 +75,7 @@ SUMMARY = {
     "section_re": r"^(?:FAIL|ERROR|UNEXPECTED SUCCESS): ",
 }
 TEST_COMMAND = "python3 -m unittest"  # runs test modules, or one test, by dotted name
+MODULE_EXAMPLE = "tests.test_x"  # a test module by that name, as the Lanes line shows a worker
 # The lines that say the code did not build or import (§20.6): the source location frame a module's syntax error
 # prints (a file path and no function: every frame of a call ends `, in <function>`, so a SyntaxError the code under
 # test raises at run time, from `compile` or `eval` on a string, is not one), its `path` group the file, so the frame
@@ -193,4 +194,5 @@ PACK = Pack(
     suite_size=suite_size,
     test_command=TEST_COMMAND,
     unbuilt_re=UNBUILT_RE,
+    module_example=MODULE_EXAMPLE,
 )

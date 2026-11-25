@@ -38,6 +38,7 @@ argument takes the full id or its number.
 | `ccp prompt review <id> --mode resolution` | runner | §13.2 |
 | `ccp prompt verify <id> --waived <check_id>=<ruling id>` (repeatable) | runner | §6.7, §15.4, §15.6 |
 | `ccp prompt env <worktree>` | runner, lead | §13.3 (print the worker env of a worktree) |
+| `ccp prompt render <phase> [--on <name>]…` | maintainer, any seat | §13.2 (print a phase's prompt with placeholder values, every section off unless `--on` names it; needs no task or queue, writes nothing) |
 | `ccp report <run_id> FILE` | each worker | §13.4 (record a worker's report) |
 | `ccp agent start\|stop` | the harness's hooks | §11.1 |
 | `ccp runs gc [--dry-run]` | lead, runner | §11.1 |

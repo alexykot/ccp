@@ -92,7 +92,7 @@ class UndeclaredFullLane(ToolkitFixture, unittest.TestCase):
         self.assertNotIn(DECLARED, text)
 
 
-PART_ARGV = "suite run --lane part -- scripts/gate.sh <module> …` (module names, not test ids)"
+PART_ARGV = "suite run --lane part -- scripts/gate.sh <module> …` (test modules, not test ids)"
 PART_EMPTY = "`--lane part` with nothing after `--`"
 
 
@@ -113,6 +113,14 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
         text = Path(body["prompt_path"]).read_text()
         self.assertIn(PART_ARGV, text)
         self.assertIn("for one the Lanes line above gives", text)
+
+    def test_the_part_argv_names_the_packs_module_form(self):
+        c = config.load(self.runner)
+        python = dataclasses.replace(c, language="python")
+        for phase in ("implement", "review", "verify"):
+            self.assertIn("<module> …` (test modules, such as `tests.test_x`, not test ids)",
+                          prompt_mod.suite_lanes(python, phase), phase)
+            self.assertIn("<module> …` (test modules, not test ids)", prompt_mod.suite_lanes(c, phase), phase)  # `none`: no form
 
     def test_a_part_lane_declared_as_an_argv_is_given_as_whole_commands(self):
         """§14.7: each option is a command the worker can run as written, never `--lane` and `--affected` in one."""

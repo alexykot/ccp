@@ -513,7 +513,10 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
 `ccp prompt` needs a claimed task, checks for a pending run before writing anything, and refuses a
 template naming anything it does not set. `ccp prompt verify <id>` renders the same text on every
 run apart from the fields it fills in (such as paths, the run id and round, the head, the runner's
-note) and the end token, which differs on every run (below).
+note) and the end token, which differs on every run (below). `ccp prompt render <phase> [--on <name>]…`
+prints a phase's prompt as `ccp prompt` joins its parts, every value a `<name>` placeholder and every
+section off unless `--on` names it, so two checkouts' renders show what a template change changed; it
+needs no task, claim or queue and writes nothing.
 
 **The prompt's end.** The rendered prompt's last line is `Prompt end: <token>`, the token a short hash
 of the run id and the text above it, kept on the run (`prompt_token`); the report contract tells the

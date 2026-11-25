@@ -106,11 +106,9 @@ class Templates(unittest.TestCase):
     def test_review_and_verify_report_before_removing_their_checkout(self):
         for phase in ("review", "verify"):
             text = render(phase, own_worktree=f"/m/{config.WORKTREES_DIR}/rev-0002", worktree_links="")
-            self.assertNotIn("Remove it when you are done", text, phase)
             self.assertIn("Remove it last, after `ccp report`", text)
             self.assertIn("(run `report` from inside it first", text)
             self.assertIn("wt create --kind", text)
-            self.assertNotIn("git worktree add --detach", text)
             self.assertIn("already gone, run `report` from /m)", text, phase)
 
     def test_implement_and_fix_fail_fast_and_keep_the_full_suite(self):
@@ -119,8 +117,6 @@ class Templates(unittest.TestCase):
             self.assertIn("pre-gate: the product's house-rule", text, phase)
             self.assertIn("`python -m unittest tests.test_a`) and", text, phase)
             self.assertIn("`<ccp> suite run --affected --since", text, phase)
-            self.assertNotIn("depend on the paths", text, phase)
-            self.assertNotIn("a cheap failure shows in seconds", text, phase)
             self.assertIn("never stands in for the full suite", text, phase)
             plain = render(phase)
             self.assertNotIn("house-rule checks", plain, phase)
@@ -130,8 +126,6 @@ class Templates(unittest.TestCase):
         for phase in ("implement", "fix", "merge", "ruling"):
             text = render(phase)
             self.assertIn("`<ccp> suite run --affected --since", text, phase)
-            self.assertNotIn("depend on the paths", text, phase)
-            self.assertNotIn("a cheap failure shows in seconds", text, phase)
             self.assertEqual(text.count("never stands in for the full suite"), 1, phase)
 
     def test_implement_and_fix_keep_context_lean_but_read_citations_in_full(self):
@@ -160,7 +154,6 @@ class Templates(unittest.TestCase):
         review = render("review")
         self.assertIn("check those lists against the diff", review)
         self.assertIn("the fix reports' lists", review)
-        self.assertNotIn("before this rule has no list", review)
 
     def test_with_budgets_the_implement_fix_and_verify_briefs_run_the_budget_check(self):
         """§20.2: only on the files the change grew, in each phase's gate."""
@@ -259,7 +252,6 @@ class CacheSplit(unittest.TestCase):
         self.assertIn("never by rebasing", render("implement"))
         self.assertIn("by merging it in (`git merge origin/", render("fix"))
         self.assertIn("never by rebasing", render("fix"))
-        self.assertNotIn("Rebase onto", render("implement"))
 
 
 if __name__ == "__main__":

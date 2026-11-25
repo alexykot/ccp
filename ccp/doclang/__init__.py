@@ -58,6 +58,8 @@ class Pack:
     # reader of the modules a change touches, `suite_size` the counter of the suite's modules, `test_command`
     # the command that runs modules, or one test, by name; each None where the pack has none. `unbuilt_re`
     # (§20.6): the lines that say the code did not build or import; empty where the pack knows none.
+    # `module_example`: a test module as `test_command` takes it (the Lanes line shows it to a worker); empty
+    # where the pack gives none.
     count_re: str = ""
     summary: dict[str, Any] = field(default_factory=dict)
     test_glob: str = ""
@@ -65,6 +67,7 @@ class Pack:
     suite_size: SuiteSizer | None = None
     test_command: str | None = None
     unbuilt_re: tuple[str, ...] = ()
+    module_example: str = ""
 
 
 def _python() -> Pack:
