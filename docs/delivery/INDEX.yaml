@@ -1652,3 +1652,8 @@ tasks:
     title: The writing-tasks skill tells an absence check on a code form to allow leading whitespace; this repo's task rules point at house rules E2 and E21 instead of the test helpers; ccp init counts only the files git keeps when it decides whether the task log needs its .gitkeep
     depends_on: []
     path: tasks/0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps.md
+  - id: 0336-suite-affected-honours-an-exclude-list-from-plane-json
+    status: pending
+    title: ccp suite affected and suite run --affected leave out the paths plane.json suite.affected_exclude names, so a test module the product's lanes do not run is never listed, run or counted in the suite
+    depends_on: []
+    path: tasks/0336-suite-affected-honours-an-exclude-list-from-plane-json.md
