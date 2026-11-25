@@ -1708,7 +1708,7 @@ tasks:
     depends_on: []
     path: tasks/0346-verify-spec-text-reads-the-working-tree-plane-built-takes-a-task-number-and-the-observability-scripts-and-release-are-tidied.md
   - id: 0347-a-cold-suite-run-takes-the-exclusive-lock-mutate-names-the-lines-of-an-ambiguous-mutant-and-spec-text-says-what-it-read
-    status: pending
+    status: done
     title: A suite run given --cold takes the exclusive lane's lock whatever its tree or cache probe says, with its signed §16.6 sentence; ccp mutate's refusal of an old text found more than once names the lines it is on; verify spec-text's help, not-found line and a base with no merge base say what it read
     depends_on: []
     path: tasks/0347-a-cold-suite-run-takes-the-exclusive-lock-mutate-names-the-lines-of-an-ambiguous-mutant-and-spec-text-says-what-it-read.md
