@@ -257,7 +257,7 @@
         "properties": {
           "rule": {
             "type": "string",
-            "pattern": "^E[0-9]+$"
+            "description": "A house-rule id, in the shape the product's ids.rule.pattern gives (SPEC §7.1)"
           },
           "action": {
             "enum": [

@@ -430,9 +430,8 @@
             "string",
             "null"
           ],
-          "pattern": "^[0-9]{4}(-|$)",
           "default": null,
-          "description": "The adoption point: the seat enforces its rules (cadence, kinds, shaping) only on tasks numbered from this one on; unset, it enforces nothing"
+          "description": "The adoption point: the seat enforces its rules (cadence, kinds, shaping) only on tasks numbered from this one on; unset, it enforces nothing. A task number or id, its number as wide as ids.task.width (SPEC §7.1)"
         },
         "refactor_every": {
           "type": "integer",
@@ -486,8 +485,7 @@
             "properties": {
               "id": {
                 "type": "string",
-                "pattern": "^E[0-9]+$",
-                "description": "The house rule this enforces"
+                "description": "The house rule this enforces, its id in the shape ids.rule.pattern gives (SPEC §7.1)"
               },
               "cmd": {
                 "type": "string",
@@ -538,8 +536,7 @@
             "properties": {
               "id": {
                 "type": "string",
-                "pattern": "^E[0-9]+$",
-                "description": "The house rule this enforces"
+                "description": "The house rule this enforces, its id in the shape ids.rule.pattern gives (SPEC §7.1)"
               },
               "glob": {
                 "type": "string"
