@@ -115,15 +115,12 @@ class Liveness(SuiteFixture, unittest.TestCase):
         w = self.wait_for("st-old")
         self.assertEqual(w.returncode, 1, w.stdout + w.stderr)
         self.assertIn(f"({suite.KILLED_AGE})", w.stdout.decode())
-
-    def test_a_row_without_a_pid_is_killed_once_its_run_has_stopped(self):
-        self.implementing()
-        base = {"op": "started", "lane": "part", "cmd": "python3", "argc": 1, "output": "summary", "run_id": RUN,
-                "task_id": "0002-second", "phase": "implement"}
-        self.append({**base, "suite_id": "st-before", "at": ago(10)})
-        self.append({**base, "suite_id": "st-after", "at": ago(2)})
+        self.implementing()  # a row it cannot judge, bound to a run, is killed once that run stops after it started
+        bound = {**base, "run_id": RUN, "task_id": "0002-second", "phase": "implement"}
+        self.append({**bound, "suite_id": "st-before", "at": ago(10)})
+        self.append({**bound, "suite_id": "st-after", "at": ago(2)})
         rec = runs.load(self.q, RUN)
-        rec["stopped_at"] = ago(5)  # after st-before started, before st-after did
+        rec["stopped_at"] = ago(5)
         runs.save(self.q, rec)
         self.assertEqual([self.state(s)["state"] for s in ("st-before", "st-after")], ["killed", "open"])
         w = self.wait_for("st-before")

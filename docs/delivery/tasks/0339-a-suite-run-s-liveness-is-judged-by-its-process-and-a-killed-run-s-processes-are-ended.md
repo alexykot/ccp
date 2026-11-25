@@ -171,5 +171,12 @@ Measured at `554fe3a`:
 - `ccp/board.py` `_live` counts a suite of an open run as running when `fold` gives it `open`;
   `SUITE_LIVE_MINUTES` is gone.
 - `fold`'s output gains no field: the wait message's reason is computed from the `started` row by the same rule.
+- Fix round 1 (review MINOR 1, NIT 2), tests only:
+  - `test_a_row_without_a_pid_keeps_the_age_rule` also covers the run rule. A row with no `pid`, bound to a run
+    that stopped after the row started, is `killed`, and `suite wait` prints `KILLED_RUN`. A row that started after
+    the stop stays open. Before this, nothing covered `_killed`'s run-record load. The case sits in the existing test
+    rather than a sibling one so that code-01's count of seven `Liveness` tests still holds.
+  - `start()` has the command write its own pid. The reported and abandoned test asserts that this process is gone
+    after the recording `ccp` exits, which is the task's point: nothing the run started keeps the lane.
 
 ## Verification notes
