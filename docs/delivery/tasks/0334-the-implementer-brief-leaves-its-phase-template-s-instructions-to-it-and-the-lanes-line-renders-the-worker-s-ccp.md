@@ -34,6 +34,8 @@ this triage accepted it and this task lands it.
 
 Measured at `1a575497`:
 
+- The triage commit after `1a575497` (`docs/ENGINEERING.md`: E5, E19 and E26 rewrapped, words unchanged;
+  `docs/delivery/plane.json`: `E4`'s alias grep at `^\s*`) leaves every figure below as measured.
 - **F01.** `grep -c -e 'redesign' -e 'Before you build' -e 'narrowest' -e 'foreground' -e 'never merge' -e 'git add -A' -e 'denies you' -e 'script, helper or wrapper' -e 'Work only in' plugin/agents/delivery-implementer.md`:
   9 lines, each an instruction `templates/prompts/implement.md` or `_common.md` gives (build exactly what the task
   says; the measured premise; the narrowest reading; foreground commands; never merge; stage by path; a denied

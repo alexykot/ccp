@@ -44,8 +44,15 @@ also carries finding F07 of architect pass `ar-20261124T234643Z-3c95` (`docs/del
 
 Measured at `1a575497`:
 
+- The triage commit after `1a575497` (`docs/ENGINEERING.md`: E5, E19 and E26 rewrapped, words unchanged;
+  `docs/delivery/plane.json`: `E4`'s alias grep at `^\s*`) leaves every figure below as measured.
 - **The imports.** `git grep -nP '^\s*(sys\.path\.(insert|append)|(import|from) (lib|architecture_review|spec_maintainer|team)\b)' -- ccp | wc -l`:
-  7 lines, in `ccp/architect.py`, `ccp/health.py` and `ccp/queue.py` (three `sys.path.insert`, four imports).
+  7 lines, in `ccp/architect.py`, `ccp/health.py` and `ccp/queue.py` (three `sys.path.insert`, four imports). The two
+  modules that move add 4 more, which the same grep finds once they are under `ccp/` (`git grep -nP '…' -- scripts/observability/lib.py scripts/observability/architecture_review.py`):
+  `architecture_review.py`'s two `sys.path.insert` and its `from lib import`, and the `sys.path.insert` in lib's
+  `"def _config"`, a fallback for importing `ccp.config` from a script; 11 in all. At module level `lib.py` imports
+  only the standard library (`grep -nE '^(import|from) ' scripts/observability/lib.py`); `_config` imports
+  `ccp.config` inside the function.
   `git grep -lP 'from ccp\.queue import [^#\n]*\blib\b|\bqueue\.lib\b' -- ccp | wc -l`: 26 modules take `lib` through
   `ccp.queue`. `git grep -lP '^\s*(import (lib|architecture_review)\b|from (lib|architecture_review) import)' -- tests | wc -l`:
   9 test modules import them by bare name. `git grep -lP '^\s*(import (lib|architecture_review)\b|from (lib|architecture_review) import)' -- scripts`:
@@ -75,8 +82,9 @@ Measured at `1a575497`:
     an edit of `ccp`'s own path and stays.
   - The scripts that import lib (the seven in `scripts/observability/` and `scripts/sync-product-docs.sh`) put the
     plane root on their path and import `ccp.lib` (`from ccp.lib import …`, or `from ccp import lib`).
-    `scripts/run-checkout.sh` runs `"$RUN/ccp/lib.py"`; `ccp/lib.py` keeps importing only the standard library, so
-    it still runs as a file. The 9 test modules import `from ccp import lib` (and `architecture_review` likewise);
+    `scripts/run-checkout.sh` runs `"$RUN/ccp/lib.py"`; `ccp/lib.py` keeps importing only the standard library at
+    module level, so it still runs as a file. `"def _config"`'s `sys.path` fallback goes: inside the package
+    `from ccp import config` always resolves. The 9 test modules import `from ccp import lib` (and `architecture_review` likewise);
     the three that name the path name `ccp/lib.py`. `ccp/seats.py`'s `source` names `ccp/architecture_review.py`.
   - `ccp architect triage` holds a triage to `contracts/architecture_review_triage.schema.json` with
     `ccp/schema.py` `"def schema_errors"`; `validate_triage` keeps only what the contract cannot say (the review id
@@ -117,6 +125,11 @@ Measured at `1a575497`:
   - `docs/cli/04-observability.md`'s closing paragraph ("Scripts kept as wrappers over `ccp`: …") says the scripts
     are single writers built on `ccp/lib.py`, naming §10.6; `scripts/observability/CLAUDE.md` and `ccp/CLAUDE.md`
     name `ccp/lib.py` and `ccp/architecture_review.py` where they name the old paths.
+- **The triage fixtures.** Once the contract holds a triage, a fixture triage without `triaged_at` or `project_id`
+  is refused before the check its test exercises. `tests/test_architect.py` (the triage files written at lines 62-65,
+  254-255, 279-280, 298-299 and 336-339) and `tests/test_review_aliases_retired.py:48` gain the missing keys: their
+  inputs change, their expectations do not. `tests/board_quality_fixture.py`'s triage file is read by the board, not
+  through `ccp architect triage`, and stays.
 - No other test expectation changes.
 
 ## Scope
@@ -125,7 +138,8 @@ Measured at `1a575497`:
   (removed) → `ccp/architecture_review.py` (new); `ccp/queue.py`, `ccp/architect.py`, `ccp/health.py`, `ccp/seats.py`,
   `ccp/otel.py`, `ccp/estimator.py`, `ccp/prompt.py`, `ccp/CLAUDE.md`; `scripts/observability/` (the seven importers,
   `CLAUDE.md`), `scripts/sync-product-docs.sh`, `scripts/run-checkout.sh`; the 9 test modules and the 3 that name the
-  path (Context); `tests/test_architect_triage_schema.py` (new); `tests/test_binding_by_id.py` (new);
+  path (Context); `tests/test_architect.py` and `tests/test_review_aliases_retired.py` (the triage fixtures' keys,
+  Context); `tests/test_architect_triage_schema.py` (new); `tests/test_binding_by_id.py` (new);
   `docs/cli/04-observability.md`; `docs/ENGINEERING.md` (E7, E17, the text above); `docs/delivery/plane.json`
   (`architect.checks` `E7`, `E17`, `E27`); the SPEC, signed:
 
@@ -163,7 +177,7 @@ Measured at `1a575497`:
     2. Run `CCP_DEV=1 ./bin/ccp docs check --only E7; echo "exit $?"`.
     3. Run `test -e scripts/observability/lib.py || test -e scripts/observability/architecture_review.py; echo $?`.
   expect: step 1 prints nothing (exit 1); step 2's last line is `exit 0`; step 3 prints `1`.
-  dry run (`1a575497`): step 1 printed 7 lines; step 2 printed `ccp docs check: --only E7: ccp docs check runs no check E7 (…)`, `exit 2`; step 3 printed `0`.
+  dry run (`1a575497`): step 1 printed 7 lines (the 4 in the two modules that move are found after the move); step 2 printed `ccp docs check: --only E7: ccp docs check runs no check E7 (…)`, `exit 2`; step 3 printed `0`.
 - id: `code-02`
   story: As the lead, a triage that breaks its contract is refused naming the key, and the code's disposition lists cannot drift from the contract's enums.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).

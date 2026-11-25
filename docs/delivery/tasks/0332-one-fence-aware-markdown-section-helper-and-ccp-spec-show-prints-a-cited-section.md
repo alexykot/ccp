@@ -35,6 +35,8 @@ together.
 
 Measured at `1a575497`:
 
+- The triage commit after `1a575497` (`docs/ENGINEERING.md`: E5, E19 and E26 rewrapped, words unchanged;
+  `docs/delivery/plane.json`: `E4`'s alias grep at `^\s*`) leaves every figure below as measured.
 - **F03.** `git grep -nE 're\.search\(r?f?"\^(#\{\{?1,|\(#\+\))' -- ccp scripts ':(exclude)ccp/mdsection.py'`: 6 lines in
   5 functions: `"def _heading_block"` (`ccp/estimator.py`, 2), `"def decision_block"` (`ccp/adr.py`, its heading
   path), `"def friction"` and `"def follow_ups"` (`ccp/report.py`), `"def table"` (`ccp/taskmigrate.py`). None reads
@@ -88,9 +90,11 @@ Measured at `1a575497`:
   > - **SPEC refs:** `<prefix><n>` and ranges (`S3–S5`). The citation rule of the doc checks (§21) reads them with `ids.spec.prefix`.
 
   PROPOSED:
-  > - **SPEC refs:** `<prefix><n>` and ranges (`S3–S5`). The citation rule of the doc checks (§21) reads them with `ids.spec.prefix`. A ref names the block under the first heading outside a fenced block, across the `spec_paths` files, whose text starts with its number, with or without the prefix, up to the next heading of its level or higher: `ccp spec show <ref>…` prints each such block, and the estimator's prompt quotes it (§26.3).
-- **Out:** `ccp/docrules.py`'s heading reader; ranges in `ccp spec show`; the estimator's excerpt budgets; the other
-  worker briefs.
+  > - **SPEC refs:** `<prefix><n>` and ranges (`S3–S5`). The citation rule of the doc checks (§21) reads them with `ids.spec.prefix`. `ccp spec show <ref>` prints, and the estimator quotes (§26.3), the block under the first heading outside a fenced block across the `spec_paths` files whose text starts with the ref's number, with or without the prefix, up to the next heading of its level or higher.
+  The sentence only describes this task's command and the estimator's quote; it states no rule for citations, and
+  §21.6 (the opt-in rules, the `citations` rule among them) is unchanged.
+- **Out:** §21.6 and the `citations` rule's reading of a ref; `ccp/docrules.py`'s heading reader; ranges in
+  `ccp spec show`; the estimator's excerpt budgets; the other worker briefs.
 
 ## dod_checks
 

@@ -38,6 +38,8 @@ keeps its existing columns.
 
 Measured at `1a575497`:
 
+- The triage commit after `1a575497` (`docs/ENGINEERING.md`: E5, E19 and E26 rewrapped, words unchanged;
+  `docs/delivery/plane.json`: `E4`'s alias grep at `^\s*`) leaves every figure below as measured.
 - **F04.** `git grep -hP '^\|\s*Command\s*\|' -- docs/cli | grep -cvxF '| Command | Who | SPEC |'`: 3 headers
   (`01-model`: Command | What it does | SPEC; `03-quality`: … | Cost | SPEC; `04-observability`: Command | What it
   does), and `05-operations` has no table. `git grep -nP '^\s*(\x60{3}|~{3})' -- docs/cli | wc -l`: 8 fence lines (4
