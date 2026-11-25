@@ -1,7 +1,7 @@
 ---
 task_id: 0342-ccp-tasks-migrate-is-retired-and-the-task-writing-docs-name-adr-refs-count-steps-and-the-section-helpers
 title: ccp tasks migrate is retired with its §5.3 paragraph, tasks check's pointer to it in §21.1 and its tests; the managed task template and README name adr_refs beside spec_refs; the writing-tasks skill says a count step names the exit it accepts; ccp/CLAUDE.md maps mdsection.py and spec.py
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S21"]
@@ -184,3 +184,5 @@ Measured at `704ca8de`:
   of this task's paths.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #422 head `ae11967` (squash `8ec56e5`): APPROVE. Passed: cmd-01, code-01, spec-01, doc-01, doc-02, doc-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0342-ccp-tasks-migrate-is-retired-and-the-task-writing-docs-name-adr-refs-count-steps-and-the-section-helpers.json.
+

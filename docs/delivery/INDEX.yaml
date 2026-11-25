@@ -1683,7 +1683,7 @@ tasks:
     depends_on: []
     path: tasks/0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock.md
   - id: 0342-ccp-tasks-migrate-is-retired-and-the-task-writing-docs-name-adr-refs-count-steps-and-the-section-helpers
-    status: pending
+    status: done
     title: ccp tasks migrate is retired with its §5.3 paragraph, tasks check's pointer to it in §21.1 and its tests; the managed task template and README name adr_refs beside spec_refs; the writing-tasks skill says a count step names the exit it accepts; ccp/CLAUDE.md maps mdsection.py and spec.py
     depends_on: []
     path: tasks/0342-ccp-tasks-migrate-is-retired-and-the-task-writing-docs-name-adr-refs-count-steps-and-the-section-helpers.md
