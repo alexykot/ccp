@@ -6,7 +6,9 @@ from __future__ import annotations
 import json
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from ccp import lib
 from tests.report_helpers import implement_report, REPORT_HEAD as HEAD
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -38,6 +40,12 @@ class PromptEnd(ToolkitFixture, unittest.TestCase):
         self.assertEqual(text.count(token), 1)  # only the last line carries it, so a cut prompt lacks it
         self.assertEqual(body["prompt_token"], token)
         self.assertIn("`Prompt: <token>`", text)  # the report contract asks for it
+
+    def test_the_rendered_prompt_is_written_atomically(self):
+        with mock.patch.object(lib, "write_atomic", wraps=lib.write_atomic) as write:
+            body = self.implement()
+        self.assertIn(Path(body["prompt_path"]), [Path(c.args[0]) for c in write.call_args_list])
+        self.assertEqual(sorted(p.name for p in Path(body["prompt_path"]).parent.glob(".*.tmp")), [])
 
     def test_the_agent_call_points_at_the_file(self):
         body = self.implement()

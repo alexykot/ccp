@@ -15,7 +15,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import config, estimate, estimator, headless, models, seats
+from ccp import config, estimate, estimator, headless, lib, models, seats
 from tests.helpers import Product
 from tests.board_drill_fixture import Fixture
 from tests.estimate_fixture import EstimatePage, body, entry
@@ -211,6 +211,15 @@ class Seat(Base):
         self.assertEqual([x["outcome"] for x in estimator.calls(self.q)], ["invalid", "invalid"])
         self.assertTrue(list((self.q / "estimator").glob("*.failed.txt")))
         self.assertIsNone(estimator.running(self.q))  # the lock is released
+
+    def test_the_failure_file_is_written_atomically(self):
+        estimate.estimate_tasks(self.p.cfg, self.q, ["0005"])
+        self.answers = [result(None, text="no json here"), result(answer(reasoning=""))]
+        with mock.patch.object(lib, "write_atomic", wraps=lib.write_atomic) as write:
+            self.run_(["0005"])
+        written = [Path(c.args[0]) for c in write.call_args_list]
+        self.assertTrue([p for p in written if p.name.endswith(".failed.txt")], written)
+        self.assertEqual(list((self.q / "estimator").glob(".*.tmp")), [])
 
     def test_a_call_that_fails_outright_is_not_retried(self):
         self.answers = [({}, "claude: command not found", 127)]
