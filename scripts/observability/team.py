@@ -28,6 +28,9 @@ sys.path.insert(0, str(HERE.parents[1]))  # the plane root: `ccp` is the package
 
 from ccp.lib import (LEAD, OPEN_GATE_STATUSES, RUNNER, RUNNER_NAME, die, fmt_dt, looks_like_secret,  # noqa: E402
                  read_json, runner_worktree, utcnow, work_lock, write_json)
+from ccp import runnerscope  # noqa: E402
+from ccp.queue import QueueError  # noqa: E402
+from ccp.runnerscope import slots_of  # noqa: E402
 import spec_maintainer as sm  # noqa: E402
 
 GATE_CLASSES = ("operator", "spend", "merge", "credential", "security", "reauth", "other")
@@ -79,23 +82,28 @@ def parallel_on(root: Path) -> bool:
     return max_in_flight(root) > 1
 
 
-def slots_of(w: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """§16.4: work.json `runners`, slot -> record; {} for one runner."""
-    r = w.get("runners")
-    return {str(k): dict(v) if isinstance(v, dict) else {} for k, v in r.items()} if isinstance(r, dict) else {}
+def refusing(fn: Any, *a: Any, **kw: Any) -> Any:
+    """Call a `runnerscope` decision; its refusal (a `QueueError`) is this script's `die`, message and code as raised."""
+    try:
+        return fn(*a, **kw)
+    except QueueError as e:
+        die(str(e), e.code)
+
+
+def task_states(root: Path, ids: list[Any] | None) -> dict[str, Any]:
+    """Each task id's state file, read; an id whose file does not read is left out."""
+    states: dict[str, Any] = {}
+    for tid in [str(x) for x in ids or []]:
+        try:
+            states[tid] = read_json(root / "tasks" / f"{tid}.json")
+        except (OSError, json.JSONDecodeError):
+            continue
+    return states
 
 
 def slot_tasks(root: Path, w: dict[str, Any], slot: str) -> list[str]:
-    """The tasks in flight a slot holds (their lease_holder)."""
-    out = []
-    for tid in [str(x) for x in w.get("in_flight") or []]:
-        try:
-            st = read_json(root / "tasks" / f"{tid}.json")
-        except (OSError, json.JSONDecodeError):
-            continue
-        if isinstance(st, dict) and st.get("lease_holder") == slot and st.get("status") != "done":
-            out.append(tid)
-    return out
+    """The tasks in flight a slot holds (their lease_holder): the states read here, the decision `runnerscope`'s."""
+    return runnerscope.slot_tasks(w.get("in_flight"), task_states(root, w.get("in_flight")), slot)
 
 
 def holder_name(root: Path, task_id: str) -> str:
@@ -270,52 +278,36 @@ def refuse_without_integration_ref(root: Path, paths: list[str | None]) -> None:
 
 def readiness(root: Path, rc: dict[str, str], scope: list[str], single: bool) -> list[dict[str, Any]]:
     """SPEC §16.5, `runner spawn --dry-run`: the §10.2 readiness checks a lead runs before a spawn, those
-    a machine can answer, as {check, ok, detail}: every scope entry names a task in the product's task
-    log, `ccp tasks check` is clean, no review point the register records closed holds an undecided follow-up
-    (§22.2), and (one runner) the runner worktree is a
-    working tree or can be made (a missing `origin/<integration_branch>` has refused the spawn before
-    this). Reads only: it makes no worktree and fetches nothing."""
-    checks: list[dict[str, Any]] = []
+    a machine can answer, as {check, ok, detail} (`runnerscope.readiness_checks` decides). Reads only: it makes
+    no worktree and fetches nothing, and reads the task log, `ccp tasks check`, the closed review points and
+    (one runner) the runner worktree for it. A missing `origin/<integration_branch>` has refused the spawn
+    before this."""
     log = product_log(root, quiet=True)
-    if not log:
-        checks.append({"check": "task_log", "ok": False,
-                       "detail": "the product's task log does not read (no plane.json at the product root, or a "
-                                 "bad task file): `ccp tasks check` names it"})
-    else:
+    ids: list[str] = []
+    errs: list[str] = []
+    held: list[str] | None = None
+    if log:
         cfg, tasks, _ = log
-        from ccp import tasklog  # noqa: PLC0415
+        from ccp import followups, tasklog  # noqa: PLC0415
         ids = [str(t.get("task_id")) for t in tasks]
-        missing = [s for s in scope if not any(tasklog.in_scope(t, [s]) for t in ids)]
-        checks.append({"check": "scope_tasks_exist", "ok": not missing,
-                       "detail": f"not in the task log: {', '.join(missing)}" if missing
-                       else f"{len(scope)} scope task(s) in the task log"})
         errs = tasklog.check(cfg)
-        checks.append({"check": "tasks_check", "ok": not errs,
-                       "detail": f"`ccp tasks check`: {len(errs)} failure(s): " + "; ".join(errs[:5]) if errs
-                       else "`ccp tasks check` is clean"})
-        from ccp import followups  # noqa: PLC0415
-        from ccp.queue import QueueError  # noqa: PLC0415
         try:
             held = followups.closed_points(cfg, root)
         except QueueError as e:  # an unreadable run record: named, not ready
             held = [str(e)]
-        checks.append({"check": "closed_points", "ok": not held,
-                       "detail": f"`ccp tasks check --closed-points`: {len(held)} failure(s): " + "; ".join(held[:5])
-                       if held else "no closed review point holds an undecided follow-up"})
     prod = sm.product_root(root)
+    worktree = None
     if single and rc.get("worktree") and prod:
         from ccp import wt  # noqa: PLC0415
         main = wt.main_of(Path(prod))
         path = Path(rc["worktree"]) if Path(rc["worktree"]).is_absolute() else main / rc["worktree"]
         if (path / ".git").exists() and wt.git(path, "rev-parse", "--is-inside-work-tree").stdout.strip() == "true":
-            checks.append({"check": "runner_worktree", "ok": True, "detail": f"{path} exists"})
+            worktree = (str(path), runnerscope.WORKTREE)
         elif path.exists() and any(path.iterdir()):
-            checks.append({"check": "runner_worktree", "ok": False,
-                           "detail": f"{path} exists and is not a working tree of the product: the spawn could "
-                                     "not make it (SPEC §12.1)"})
+            worktree = (str(path), runnerscope.OCCUPIED)
         else:
-            checks.append({"check": "runner_worktree", "ok": True, "detail": f"{path} would be made by the spawn"})
-    return checks
+            worktree = (str(path), runnerscope.ABSENT)
+    return runnerscope.readiness_checks(scope, ids, errs, held, worktree)
 
 
 def dry_run_out(checks: list[dict[str, Any]], body: dict[str, Any]) -> int:
@@ -393,39 +385,10 @@ def review_point_scope(root: Path, args: argparse.Namespace, scope: list[str], r
     entries = reviewpoints.load(cfg)[0]
     for note in reviewpoints.notes(cfg, entries):
         print(f"warning: {note}", file=sys.stderr)
-    if entries is None:
-        problem = reviewpoints.problem(cfg, rp, None) if rp else None
-        return scope, ([f"{problem}: `ccp tasks close` will not stamp it into the tasks it closes. Widen the pattern "
-                        "in docs/delivery/plane.json, or name the review point to fit it"] if problem else [])
-    if args.review_point:
-        problem = reviewpoints.problem(cfg, args.review_point, entries)
-        if problem:
-            die(f"runner spawn --review-point: {problem}", 2)
-        if not args.scope:
-            scope = tagged_open(tasks, args.review_point)
-            if args.review_point == w.get("review_point"):  # §22.5: a respawn keeps the tasks the lead added
-                from ccp import tasklog  # noqa: PLC0415
-                kept = [str(s) for s in w.get("scope") or [] if s not in (w.get("review_point_refactors") or [])]
-                scope = respawn_scope(scope, kept, [str(t.get("task_id")) for t in tasks if t.get("status") == "pending"],
-                                      tasklog.in_scope)
-            if not scope:
-                die(f"no open task is tagged review_point: {args.review_point}; tag the point's tasks "
-                    f"(`ccp review-points tag {args.review_point} …`) or pass --scope (SPEC §22)", 2)
-            return scope, []
-        from ccp import tasklog  # noqa: PLC0415
-        return scope, scope_warnings(tasks, args.review_point, scope, tasklog.in_scope)
-    if rp and (problem := reviewpoints.problem(cfg, rp, entries)):
-        return scope, [f"work.json's {problem}; `ccp tasks close` will not stamp it. Respawn with --review-point "
-                       "R<n> (`ccp review-points migrate` renames it, SPEC §22.4)"]
-    return scope, []
-
-
-def respawn_scope(tagged: list[str], kept: list[str], pending: list[str], in_scope: Any) -> list[str]:
-    """§22.5: the scope of a respawn on work.json's review point: the point's open tagged tasks, then each
-    entry of work.json's scope (`kept`, its review point's refactors left to `refactor_scope`) that names a
-    still-pending task not among them, in work.json's order."""
-    return tagged + [s for s in kept if any(in_scope(p, [s]) for p in pending)
-                     and not any(in_scope(t, [s]) for t in tagged)]
+    return refusing(runnerscope.point_scope, tasks, entries, scope, args.review_point, bool(args.scope),
+                    w.get("review_point"), w.get("scope"), w.get("review_point_refactors"),
+                    reviewpoints.problem(cfg, args.review_point, entries) if args.review_point else None,
+                    reviewpoints.problem(cfg, rp, entries) if rp else None)
 
 
 def stale_lines(root: Path, scope: list[str]) -> list[str]:
@@ -437,28 +400,6 @@ def stale_lines(root: Path, scope: list[str]) -> list[str]:
     cfg, tasks, _ = log
     from ccp import tasklog  # noqa: PLC0415
     return tasklog.stale(cfg, [t for t in tasks if scope and tasklog.in_scope(str(t.get("task_id")), scope)])
-
-
-def tagged_open(tasks: list[dict[str, Any]], rp: str) -> list[str]:
-    """§22.4: the tasks attached to the point at planning time that are still open, in task order."""
-    return [str(t.get("task_id")) for t in tasks
-            if t.get("review_point") == rp and t.get("status") in ("pending", "in_progress", "blocked")]
-
-
-def scope_warnings(tasks: list[dict[str, Any]], rp: str, scope: list[str], in_scope: Any) -> list[str]:
-    """§22: a given --scope against the tasks tagged with the point. The refactors §20 puts on
-    top are not the point's own tasks, so they are not named."""
-    by_id = {str(t.get("task_id")): t for t in tasks}
-    out = []
-    untagged = [s for s in scope if (t := next((by_id[k] for k in by_id if in_scope(k, [s])), None)) is not None
-                and t.get("review_point") != rp and t.get("kind") != "refactor"]
-    if untagged:
-        out.append(f"{len(untagged)} scope task(s) are not tagged {rp}: {', '.join(untagged)}. Set "
-                   f"`review_point: {rp}` on them (`ccp review-points tag {rp} …`) if they belong to it")
-    missing = [t for t in tagged_open(tasks, rp) if not in_scope(t, scope)]
-    if missing:
-        out.append(f"{len(missing)} open task(s) tagged {rp} are not in the scope: {', '.join(missing)}")
-    return out
 
 
 def waiting_hint(root: Path, scope: list[str]) -> None:
@@ -555,17 +496,11 @@ def refactor_scope(root: Path, args: argparse.Namespace, w: dict[str, Any],
     filed mid-cycle waits for the next review point."""
     new_rp = bool(args.review_point) and args.review_point != w.get("review_point")
     log = refactor_log(root)
-    if not log:
-        added, rp_refactors = [], ([] if new_rp else list(w.get("review_point_refactors") or []))
-    elif new_rp:
-        added = [str(t["task_id"]) for t in log[2].waiting_refactors(log[0], scope, log[1])]
-        rp_refactors = added
-    else:
-        pending = {str(t.get("task_id")) for t in log[1] if t.get("status") == "pending"}
-        rp_refactors = list(w.get("review_point_refactors") or [])
-        added = [r for r in rp_refactors if r in pending and r not in scope]
-    scope = added + [t for t in scope if t not in added]
-    if not new_rp:
+    waiting = [str(t["task_id"]) for t in log[2].waiting_refactors(log[0], scope, log[1])] if log and new_rp else []
+    pending = [str(t.get("task_id")) for t in log[1] if t.get("status") == "pending"] if log else None
+    scope, added, rp_refactors = runnerscope.refactor_scope(new_rp, waiting, pending, w.get("review_point_refactors"),
+                                                            scope)
+    if log and not new_rp:
         waiting_hint(root, scope)
     return scope, added, rp_refactors
 
@@ -599,30 +534,10 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
         scope, added, rp_refactors = refactor_scope(root, args, w, scope)
         stale = stale_lines(root, scope)  # §16.5: after the refactors are added
         cap = max_in_flight(root)
-        if args.slot:
-            if args.slot not in slots:
-                die(f"--slot {args.slot}: no such slot ({', '.join(sorted(slots)) or 'none'})", 2)
-            new = [args.slot]  # a respawn: after a rotation or a lead restart
-        else:
-            want = args.count or len(slots) or 1
-            if want > cap:
-                die(f"--count {want} is above parallel.max_in_flight {cap} (SPEC §16.5)", 2)
-            new = [f"{rc['name']}-{i}" for i in range(1, want + 1) if f"{rc['name']}-{i}" not in slots]
-            if not new:
-                die(f"{want} slot(s) are recorded already; respawn one with --slot", 2)
+        new = refusing(runnerscope.new_slots, sorted(slots), rc["name"], args.slot, args.count, cap)
+        if not args.slot:
             # §16.5: a task the single runner still holds would belong to no slot and stall
-            orphans = []
-            for t in [str(x) for x in w.get("in_flight") or []]:
-                try:
-                    st = read_json(root / "tasks" / f"{t}.json") or {}
-                except (OSError, json.JSONDecodeError):
-                    st = {}
-                h = st.get("lease_holder") if isinstance(st, dict) else None
-                if h and st.get("status") != "done" and h not in slots and h not in new:
-                    orphans.append(f"{t} (held by {h})")
-            if orphans:
-                die(f"{', '.join(orphans)}: held by no runner slot. Drain or stop the single runner first "
-                    "(`team.sh runner stop --drain`), or `ccp tasks release` it (SPEC §16.5)", 2)
+            refusing(runnerscope.orphans, w.get("in_flight"), task_states(root, w.get("in_flight")), sorted(slots), new)
         base = rc.get("worktree") or ""
         refuse_without_integration_ref(root, [slots.get(slot, {}).get("worktree") or (f"{base}-{slot}" if base else None)
                                               for slot in new])

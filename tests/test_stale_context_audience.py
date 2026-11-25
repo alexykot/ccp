@@ -6,13 +6,12 @@ from __future__ import annotations
 
 import io
 import json
-import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from ccp import cli, config, tasklog
-from tests.helpers import PLANE_ROOT, REVIEW_REGISTER as REGISTER, Product, run_clock, tagged_task as _tagged
+from tests.helpers import REVIEW_REGISTER as REGISTER, Product, run_clock, tagged_task as _tagged
 from tests.report_helpers import done_report
 from tests.review_flow import A, ReviewFlow
 from tests.team_hosting_fixture import TeamCase
@@ -245,18 +244,6 @@ class Respawn(TeamCase):
         code, res, err = self.team("runner", "spawn", "--review-point", "R8")
         self.assertEqual((code, res["refactors_added"], res["scope"]),
                          (0, ["0004-tidy"], ["0004-tidy", "0001-a", "0002-b"]), err)
-
-
-class RespawnScope(unittest.TestCase):
-    """`respawn_scope` on plain values: the tagged tasks, then the kept entries naming a pending task not among them."""
-
-    def test_order_and_filters(self):
-        sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
-        import team  # noqa: PLC0415
-        got = team.respawn_scope(["0001-a"], ["0005-e", "0001", "0002-b", "0003-c"], ["0001-a", "0002-b", "0005-e"],
-                                 tasklog.in_scope)
-        self.assertEqual(got, ["0001-a", "0005-e", "0002-b"])  # 0001 is tagged already, 0003-c is not pending
-        self.assertEqual(team.respawn_scope([], ["0002-b"], ["0002-b"], tasklog.in_scope), ["0002-b"])
 
 
 if __name__ == "__main__":
