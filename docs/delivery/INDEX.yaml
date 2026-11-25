@@ -1633,7 +1633,7 @@ tasks:
     depends_on: []
     path: tasks/0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver.md
   - id: 0332-one-fence-aware-markdown-section-helper-and-ccp-spec-show-prints-a-cited-section
-    status: pending
+    status: done
     title: One fence-aware Markdown section helper finds a section under a heading for the task log, the estimator, the ADR reader, the report parser and the task converter, and E22 checks it; ccp spec show prints each cited SPEC section, which the estimator also quotes for a ref written with the prefix, and the worker prompts name it
     depends_on: []
     path: tasks/0332-one-fence-aware-markdown-section-helper-and-ccp-spec-show-prints-a-cited-section.md

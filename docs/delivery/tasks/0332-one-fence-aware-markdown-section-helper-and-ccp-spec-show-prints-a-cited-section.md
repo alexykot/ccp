@@ -1,7 +1,7 @@
 ---
 task_id: 0332-one-fence-aware-markdown-section-helper-and-ccp-spec-show-prints-a-cited-section
 title: One fence-aware Markdown section helper finds a section under a heading for the task log, the estimator, the ADR reader, the report parser and the task converter, and E22 checks it; ccp spec show prints each cited SPEC section, which the estimator also quotes for a ref written with the prefix, and the worker prompts name it
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S7", "S26"]
@@ -155,3 +155,5 @@ Measured at `1a575497`:
 - `adr.py`: `_DEC_HEAD` is built from `_DEC_HEAD_TEXT`, the heading text `decision_block` passes to `heading_block`.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #405 head `0498dd3` (squash `9081a2a`): APPROVE. Passed: cmd-01, code-01, code-02, doc-01, spec-01. Gate: `ccp suite run --lane gate (scripts/gate.sh)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0332-one-fence-aware-markdown-section-helper-and-ccp-spec-show-prints-a-cited-section.json.
+
