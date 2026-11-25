@@ -43,6 +43,8 @@ Also finding F03 of architect pass `ar-20261125T202431Z-1a86` (`docs/delivery/re
 default mode still writes copies and its `--daily-stamp` mode serves the retired watchdog seat. The script is the
 first fix-up of this kind to reach its end: every bound product is on the plugin.
 
+0191 (on hold; it removes the moved keys' fallback reads, and its `paths` hold all of `tests/`) rules on neither the sync nor `QUEUE_OWNED`; whichever lands second rebases.
+
 Measured at `becb6417`:
 
 - `wc -l scripts/sync-product-docs.sh` at `becb6417`: 317 lines. Without `--check` it writes the managed copies
@@ -70,13 +72,16 @@ Measured at `becb6417`:
   `rules_doc` notes stay. Exit 0 clean, 1 drift. Its last line on drift says to delete the listed copies and commit
   the product change. The header comment describes only this.
 - `ccp/queue.py`: `"product-docs-check.json"` leaves `QUEUE_OWNED`, so a live queue's old stamp is a §31.3 leftover
-  that `ccp plane check --archive` archives; `tests/test_plane_check.py`'s list follows.
+  that `ccp plane check --archive` archives; `tests/test_plane_check.py`'s list follows. That makes a live queue
+  holding the old stamp fail `ccp plane check` (exit 1) until it is archived, so the PR names
+  `ccp plane check --archive` as this change's fix-up, as §29.3 requires.
 - Tests: the install tests go (`tests.test_team_hosting.TestSync.test_installs_agent_and_executable_hook`, the
   install half of `test_architect_skill_replaces_the_two_old_ones` and of
   `tests.test_plugin`'s `test_a_product_on_the_plugin_gets_no_copies_and_loses_stale_ones`); a `--check` test that
   read a missing copy as drift (`tests.test_binding_reader`'s maintainer-doc and bindings-directory tests,
   `tests.test_binding_by_id.BindingById.test_sync_reads_the_binding_project_yaml_names`) uses a leftover copy
-  carrying the header instead. New tests `tests.test_team_hosting.TestSync.test_a_call_without_check_is_refused` and
+  carrying the header instead. New tests `tests.test_team_hosting.TestSync.test_a_call_without_check_is_refused` (a bare call, with no
+  `--check` and none of the removed options, so `code-02`'s grep stays clean) and
   `tests.test_team_hosting.TestSync.test_a_leftover_copy_is_reported_and_nothing_is_written`.
   `tests.test_binding_by_id.BindingById.test_sync_refuses_a_project_with_no_binding` stays as it is.
 - The two plugin skills' comments drop the sentence naming the sync; `scripts/CLAUDE.md` says the script reports a

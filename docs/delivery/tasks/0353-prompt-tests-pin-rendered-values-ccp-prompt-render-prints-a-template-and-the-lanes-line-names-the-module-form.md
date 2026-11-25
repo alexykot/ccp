@@ -35,6 +35,8 @@ that triage, none built it. F06's other half (`ccp mutate` naming a module's tes
 instruction by the value it renders, never by a sentence around it" and no test "asserts that a retired name or a
 removed sentence is absent".
 
+0191 (on hold; it removes the moved keys' fallback reads, and its `paths` hold all of `tests/`) removes the old-place fallbacks in `ccp/prompt.py`, which `render` and the Lanes line do not read; whichever lands second rebases.
+
 Measured at `becb6417`:
 
 - **Tombstones.** `git grep -nF -e 'Remove it when you are done' -e 'git worktree add --detach' -e 'depend on the paths' -e 'a cheap failure shows in seconds' -e 'before this rule has no list' -e 'Rebase onto' -e 'put the file back' -e 'plane propose`), not the PR' -e 'dependent-modules' -- tests/test_worker_efficiency.py tests/test_prompt_tools.py | wc -l`

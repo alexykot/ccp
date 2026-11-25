@@ -33,6 +33,8 @@ Whether a mutant killed only by an erroring test counts as `killed` is a §20.6 
 `docs/ROADMAP.md`; this task only shows the kind. The §20.6 text below is new rule text beyond the accepted intent,
 so the operator signs it before the claim (triage `ar-20261125T202431Z-1a86`, question 2).
 
+0191 (on hold; it removes the moved keys' fallback reads, and its `paths` hold all of `tests/`) rules on nothing in `ccp mutate` or the suite's lane tests; whichever lands second rebases.
+
 Measured at `becb6417`:
 
 - `"outcome = (\"survived\""` (`ccp/mutate.py` `run`) reads a non-zero exit as `killed` unless `_says_unbuilt`;

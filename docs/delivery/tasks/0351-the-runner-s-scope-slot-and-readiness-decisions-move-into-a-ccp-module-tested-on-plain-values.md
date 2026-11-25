@@ -33,6 +33,8 @@ the operator's answer to that triage's question 1, given on 2026-11-25 through t
 That is option (b): "The decisions move into a `ccp` module as functions on plain values (E15), which `team.py`
 imports; no new command." Triage `ar-20261125T202431Z-1a86` applied E7's ruled text to `docs/ENGINEERING.md`.
 
+0191 (on hold; it removes the moved keys' fallback reads, and its `paths` hold all of `tests/`) rules on no decision this task moves; whichever lands second rebases.
+
 Measured at `becb6417`:
 
 - `wc -l scripts/observability/team.py` at `becb6417`: 1052 lines; `grep -c 'from ccp' scripts/observability/team.py`
@@ -55,8 +57,11 @@ Measured at `becb6417`:
   - `tagged_open`, `respawn_scope` and `scope_warnings`, moved as they are (the `in_scope` parameter goes: the module
     calls `tasklog.in_scope` itself);
   - `point_scope`: `review_point_scope`'s decision, given the loaded tasks, the register's entries (or None), the
-    `--review-point` and `--scope` values and work.json's `review_point`, `scope` and `review_point_refactors`; it
-    returns the scope and the warnings;
+    `--review-point` and `--scope` values, work.json's `review_point`, `scope` and `review_point_refactors`, and the
+    two results the caller computes with `reviewpoints.problem(cfg, <point>, entries)` (`"def problem"`,
+    `ccp/reviewpoints.py`, which needs the config): one for the `--review-point` value and one for the point the
+    scope is for, each a message or None. It takes no config; it returns the scope and the warnings, and refuses
+    with the `--review-point` message as now;
   - `refactor_scope`: `refactor_scope`'s choice, given whether the point is new, the waiting refactors, the pending
     task ids, work.json's refactor list and the scope; it returns the scope, the refactors added and the point's list;
   - `slots_of` (moved), `slot_tasks` (given work.json's `in_flight`, each task's state and the slot), `new_slots`
