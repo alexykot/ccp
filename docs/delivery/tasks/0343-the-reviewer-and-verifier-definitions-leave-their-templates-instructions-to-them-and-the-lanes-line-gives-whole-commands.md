@@ -136,4 +136,28 @@ Measured at `b6c2bc17`:
 
 ## Implementation notes
 
+- **Reviewer definition.** Cut the stranger sentence (review.md line 2), the paragraph from "Look for bugs" to
+  "propose new scope" (review.md's findings, refactor, severity and "Do not redesign" lines; the house rules are
+  `_common.md`'s), "Run a check's `ccp` command by hand …" (review.md) and "Read only. Don't edit, commit, push,
+  approve or merge" (review.md's last line). Kept "The implementer fixes; the runner merges." as its own bullet: the
+  runner half is `_common.md`'s, the implementer half no template gives.
+- **Verifier definition.** Cut "Judge from that packet and the code; you have no implementer context …", the
+  paragraph from "Be adversarial" to the refactor DoD (verify.md's adversarial, proof, formal gate, `gate.runs`,
+  test-cache and refactor lines; the house rules are `_common.md`'s), the `verify record` sentences verify.md gives
+  (the command, contract, path, never by hand, verdict fields, the example, `checked_at`), the `spec_beyond_intent`,
+  rests-on (someone else's run), `produced_by`, ruling-not-evidence and `as_written` bullets (verify.md "Each check's
+  evidence follows SPEC §15.4" and its `spec_beyond_intent` paragraph), the resolution-review sentence of the
+  integration-merge bullet (verify.md's resolved-verify part), the `--own-hooks` bullet, the `{{ccp}}` bullet and
+  "Don't edit the product, commit, push or merge". The `as_written` bullet's last sentences (a lead's message
+  ruling has an id; cite it) go with the bullet the measurement names. Kept: the packet sentence, "A check you can't
+  prove is a REJECT", `record`'s refusals and `adr.strict`, the `pr-<n>` id, the integration-merge case, §13.1's four
+  rules, the base, shallow, spec-question and interrupted-command bullets.
+- **Tests.** The pins of moved sentences read verify.md: `spec_beyond_intent` (dropped from the tuple), `produced_by`,
+  the example (`a valid example is {{verification_example}}`, still no relative path), `` add `--own-hooks` ``, and the
+  test-cache rule (`` this product's rule (plane.json `verify.accept_cache`) ``); `test_workers_read_the_rules` is
+  removed as ruled.
+- **Lanes.** `suite_lanes` gives a part lane declared as an argv as `` `<ccp> suite run --lane <lane> -- <argv>
+  <module> …` (module names, not test ids) `` and `` , or `<ccp> suite run --affected` (it picks the lane itself) for
+  the modules a change touches ``; `PART_ARGV` and the `--affected` assert read the new form.
+
 ## Verification notes
