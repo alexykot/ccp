@@ -664,7 +664,8 @@ class TestArchitectInTemplates(unittest.TestCase):
         self.assertIn("{{#rules_doc}}- Read the house rules, {{rules_doc}}", common)
 
     def test_workers_read_the_rules(self):
-        for w in ("delivery-implementer", "delivery-reviewer", "delivery-verifier"):
+        # the implementer's definition leaves reading the rules to its prompt (the `_common.md` pin above)
+        for w in ("delivery-reviewer", "delivery-verifier"):
             self.assertIn("architect.rules_doc", self.brief(w), w)
 
 
