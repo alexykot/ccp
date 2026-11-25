@@ -182,8 +182,7 @@
         "dry_run": {
           "type": "boolean",
           "default": false,
-          "deprecated": true,
-          "description": "Constant, false (SPEC §29.3): SPEC §21.1: ccp tasks check refuses a task not done or dropped whose dod_check has a step that runs a backticked command (`N. Run `...``) but neither a `dry run (`<sha>`):` line nor `dry run: n/a — <reason>`. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Setting, default false (SPEC §21.1): when true, ccp tasks check refuses a task not done or dropped whose dod_check has a step that runs a backticked command (`N. Run `...``) but neither a `dry run (`<sha>`):` line nor `dry run: n/a — <reason>`."
         },
         "spec_paths": {
           "type": "array",
@@ -339,8 +338,7 @@
           "type": ["integer", "null"],
           "minimum": 1,
           "default": null,
-          "deprecated": true,
-          "description": "Constant: as many as there are checks; a number still caps them, with a warning"
+          "description": "Setting, default null (SPEC §21.5): how many docs.checks commands ccp docs check runs at once; null: every check command at once"
         },
         "starter_rules": {
           "type": ["object", "null"],
@@ -380,8 +378,7 @@
           "type": "integer",
           "minimum": 1,
           "default": 150,
-          "deprecated": true,
-          "description": "Constant, 150 (SPEC §29.3): ccp docs check fails a longer rules doc. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Setting, default 150 (SPEC §20.1): the rules doc's line cap; ccp docs check fails a longer rules doc"
         },
         "every_n_tasks": {
           "type": "integer",
@@ -400,8 +397,7 @@
           "type": "integer",
           "minimum": 1,
           "default": 3,
-          "deprecated": true,
-          "description": "Constant, 3 (SPEC §29.3): Or friction notes from this many tasks, times parallel.max_in_flight, since the last pass. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Setting, default 3 (SPEC §19.6): or friction notes from this many tasks, times parallel.max_in_flight, since the last pass"
         },
         "drift_ratio": {
           "type": "number",
@@ -465,8 +461,7 @@
           "type": "integer",
           "minimum": 0,
           "default": 5,
-          "deprecated": true,
-          "description": "Constant, 5 (SPEC §29.3): Cap on tasks one triage may create. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Setting, default 5 (SPEC §19.8): cap on tasks one triage may create"
         },
         "probes": {
           "type": "array",

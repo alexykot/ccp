@@ -107,7 +107,7 @@ log. A pass is due when **any** of these holds (the cadence's task count is a se
    is part of its review pack. `ccp architect due|run --scope` (default: the running runner's
    `work.json` scope) carries the scope.
 3. **Friction notes.** Enough distinct tasks have a worker's friction note since the last pass's
-   start: a fixed number (a constant in code) times the product's `parallel.max_in_flight` (1 when
+   start: `architect.notes_due` (default 3) times the product's `parallel.max_in_flight` (1 when
    tasks run one at a time, §16.2), as for the cadence. A task counts once however many notes its
    seats wrote. A note with no task does not count, nor does one the plane records for an override
    (`--allow-overdue`, below; `--allow-unreviewed-fix`, §15.2). Any
@@ -231,8 +231,8 @@ their INDEX entries (never editing existing ids, `depends_on` or `dod_checks`), 
 `docs/delivery/reviews/<id>.md`, record known-intentional notes in the house rules, and record
 deferrals in the project's planning document. It re-checks each finding's evidence, gives every
 finding one disposition (`task`, `spec`, `defer`, `needs_operator`, `duplicate` or `reject`),
-creates at most 5 tasks (grouping related findings; doc fixes grouped into
-one or two tasks), and commits by path with `review(<id>): triage — …`. Product decisions reach the
+creates at most `architect.max_new_tasks` tasks (default 5; grouping related findings; doc fixes
+grouped into one or two tasks), and commits by path with `review(<id>): triage — …`. Product decisions reach the
 operator only through `needs_operator`.
 
 **Architect-specific triage:**
@@ -304,8 +304,8 @@ managed copies of the two older skills and `--check` reports them as `retired`.
 ### 20.1 House rules (`rules_doc`)
 
 The house rules are the product's own engineering standards: product-owned, current-only (no
-history), and short, because every implementer reads them. They are at most 150
-lines, which `ccp docs check` enforces.
+history), and short, because every implementer reads them. They are at most
+`architect.rules_max_lines` lines (default 150), which `ccp docs check` enforces.
 
 **Sections:**
 
@@ -515,7 +515,7 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
 - a `runs_on:` line with a value other than `operator-machine`, or not right after the check's
   `setup:` line (§5.5);
 - a `done` task with no verification note (no `- ` line under `## Verification notes`);
-- in a product that still sets `task_log.dry_run: true` (§29.3), a `dod_check` of a task not `done` or `dropped` whose numbered step
+- with `task_log.dry_run` on (default off), a `dod_check` of a task not `done` or `dropped` whose numbered step
   runs a backticked command but that carries no ``dry run (`<commit>`): <what it printed>`` line, or
   `dry run: n/a — <reason>` when it cannot be run yet, each with text after it (the check is that
   the line is there, not that it is true);
@@ -654,8 +654,8 @@ root, exit 0 = pass, like `architect.checks` (§20.1) but not tied to a house ru
 reported as `docs check <id>` (a house-rule check as `check <id>`). Both kinds run in their own
 process group, killed whole on timeout, and keep the last 20,000 characters of output.
 All check commands (`docs.checks` and `architect.checks`) run at once, each under its own timeout;
-results are reported in declared order. A number in `docs.workers` still caps them, with the
-constant warning (§29.3).
+results are reported in declared order. A number in `docs.workers` caps how many run at once
+(default none: every check command at once).
 
 ### 21.6 Opt-in generic rules (`package_docs.rules`)
 

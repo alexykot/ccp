@@ -365,7 +365,7 @@ class ParallelChecks(unittest.TestCase):
         finally:
             p.cleanup()
 
-    def test_a_number_set_still_caps_them_with_the_constant_warning(self):
+    def test_a_number_set_caps_them_with_no_warning(self):
         p = Product()
         try:
             self.set_workers(p, 1)
@@ -374,15 +374,15 @@ class ParallelChecks(unittest.TestCase):
                 config._WARNED.clear()
                 cfg = config.load(p.root)
             self.assertEqual(cfg.docs["workers"], 1)
-            self.assertEqual(err.getvalue().count("docs.workers"), 1, err.getvalue())
-            self.assertIn("as many as there are checks", err.getvalue())
+            self.assertNotIn("docs.workers", err.getvalue())
+            self.assertNotIn("is a constant in code", err.getvalue())
             # one after another: a and b each wait for marks not yet made; c, last, finds all three
             self.assertEqual([e.split(":")[0] for e in rules.run_checks(cfg, self.barrier(p.root / "marks"))],
                              ["a", "b"])
         finally:
             p.cleanup()
 
-    def test_an_explicit_null_is_the_constant_and_warns_that_the_key_can_go(self):
+    def test_an_explicit_null_loads_with_no_warning(self):
         p = Product()
         try:
             self.set_workers(p, None)
@@ -391,8 +391,8 @@ class ParallelChecks(unittest.TestCase):
                 config._WARNED.clear()
                 cfg = config.load(p.root)
             self.assertIsNone(cfg.docs["workers"])
-            self.assertIn("docs.workers is a constant in code (as many as there are checks) and is set to that "
-                          "value: delete it", err.getvalue())
+            self.assertNotIn("docs.workers", err.getvalue())
+            self.assertNotIn("is a constant in code", err.getvalue())
             self.assertEqual(rules.run_checks(cfg, self.barrier(p.root / "marks")), [])
         finally:
             p.cleanup()

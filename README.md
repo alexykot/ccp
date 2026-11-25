@@ -305,7 +305,8 @@ ccp init --rules-doc docs/ENGINEERING.md           # lists each rule with no `ch
 ccp init --rules-doc docs/ENGINEERING.md --adopt   # gives each of them `check: pass`
 ```
 
-`--adopt` refuses when the new lines would put the doc over its 150-line limit (SPEC §20.1). Then set
+`--adopt` refuses when the new lines would put the doc over its line limit, `architect.rules_max_lines`
+(default 150; SPEC §20.1). Then set
 `architect.rules_doc` to the doc's path in `plane.json` (the default is `docs/ENGINEERING.md`), so `ccp docs check` checks it and the
 architect judges the `pass` rules. The report also names the plane's starter rules
 (§20.5): where one of yours matches a starter rule, its `docs` check can replace `check: pass`.
