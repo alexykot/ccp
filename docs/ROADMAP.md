@@ -63,8 +63,8 @@ All reshape phases have landed.
     calls. The language pack selecting only a changed name's importers is not taken: a test reaches a changed helper
     through another helper of the same module, so it would miss tests.
   - `ar-20261124T234643Z-3c95` F09: `ccp tasks backfill-review-points` (tasks closed before close stamped a review
-    point) has no stated end. The operator chose (a) on 2026-11-25: `ccp tasks migrate` is retired by task 0342; keep
-    `backfill-review-points`. Trigger: every bound product's `--dry-run` stamps nothing; then a task retires it.
+    point) has no stated end; its sibling `ccp tasks migrate` was retired by 0342 (`8ec56e58`). Trigger: every bound
+    product's `--dry-run` stamps nothing; then a task retires it.
   - `ar-20261125T094654Z-c8a0` F09, with 0340's follow-ups on the double-abandon race and `tell_expired`'s place: an
     expired run is found by its `abandoned_reason` text, which embeds `PENDING_EXPIRY_S`. Trigger: a task that changes
     the bound or makes it a knob records the expiry as its own field and matches on that (§11.1 then states the rule
@@ -82,10 +82,15 @@ All reshape phases have landed.
       start and the probe's seconds are not recorded; the probe watchdog's `except Exception` hides why joining a
       process group in another session failed. Trigger: the next task on the probe or the `started` row; the probe's
       seconds are a new record field, so that part is its own task.
-    - Whether `--cold` disables both exclusive-lane lock skips (§16.6; 0341): question 2 of
-      `ar-20261125T094654Z-c8a0`. Trigger: the operator's answer; the next triage tasks it.
     - `PLANE_PROJECT_YAML`, read beside `PROJECT_YAML` by the queue and project-id resolvers and named by no § (0331).
       Trigger: no binding script or product environment sets it; then a task drops it from both.
+  - `ar-20261125T184522Z-c248` F01 (`scripts/observability/team.py` holds the runner's scope, respawn, refactor-scope,
+    slot and readiness decisions, against E7) and F02 (§29.3's fix-up commands have no stated end, so
+    `ccp adr migrate --markers` and `ccp review-points migrate` stay): questions 1 and 2 of that triage. Trigger: the
+    operator's answers; the next triage tasks them, with the E7 and E9 rule changes they carry.
+  - `ar-20261125T184522Z-c248` F11, its second half: a mutant anchored to a line (`<file>:<line>:<old>=><new>`)
+    changes §20.6's signed mutant grammar. Trigger: a friction note on placing a mutant after 0347's refusal names
+    the lines; then a signed task adds the form.
   - T102 at triage `ar-20261124T205520Z-4ce8`: init's starter `citations` rule covers `docs/*.md`, so a product
     doc that names its own stages `S1`, `S2` reads as SPEC citations. A product fixes it with
     `package_docs.rules.citations.ignore` (§21.6). Trigger: a second product hits it; then the starter globs leave
