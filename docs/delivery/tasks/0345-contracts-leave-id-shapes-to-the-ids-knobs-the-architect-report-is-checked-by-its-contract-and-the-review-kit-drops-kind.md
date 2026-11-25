@@ -1,7 +1,7 @@
 ---
 task_id: 0345-contracts-leave-id-shapes-to-the-ids-knobs-the-architect-report-is-checked-by-its-contract-and-the-review-kit-drops-kind
 title: The architect report, triage and plane_config contracts hold no task-id or rule-id pattern the ids knobs make the product's, and no code edits a contract before using it; the architect report is checked through ccp/schema.py, not by a hand list of its keys; the review kit drops its one-instance Kind
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S7", "S19"]
@@ -132,3 +132,5 @@ Measured at `b6c2bc17`:
   rewrapped at about 120 characters.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #420 head `dbef6f8` (squash `d65fd30`): APPROVE. Passed: data-01, code-01, code-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0345-contracts-leave-id-shapes-to-the-ids-knobs-the-architect-report-is-checked-by-its-contract-and-the-review-kit-drops-kind.json.
+
