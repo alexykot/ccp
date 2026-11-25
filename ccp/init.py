@@ -272,7 +272,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
          gate: str | None, force: bool, starter_rules: bool = True, language: str | None = None,
          telemetry: str | None = None) -> dict[str, Any]:
     """Adopt the product at `root`; returns what was written, merged and kept. Raises QueueError
-    (nothing written) on a refusal. It warns of task files with no frontmatter (`ccp tasks migrate`). Besides
+    (nothing written) on a refusal. It warns of task files with no frontmatter (`ccp tasks check`). Besides
     §4.5's, it refuses a blank `--gate` or one `shlex` cannot split, a `--language` that names no pack and is
     not `none`, a product root or queue path holding `#` (the binding reader cuts a value at ` #` as a
     comment), and, inside a sandbox, `--telemetry on` (§29.3)."""
@@ -428,10 +428,10 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
         out.setdefault("warnings", []).append(usage.unread_warning())
     out["telemetry"] = {"tag": tag, **machine_telemetry(cfg, telemetry)}
     old_files = [f for f in sorted(cfg.tasks_dir.glob("*.md")) if not tasklog.has_frontmatter(f.read_text())]
-    if old_files:  # §5.3: an earlier plane generation's task log
+    if old_files:  # §5.2: files not in the canonical task format
         out.setdefault("warnings", []).append(
-            f"{len(old_files)} task file(s) in {cfg.rel(cfg.tasks_dir)} have no frontmatter (an earlier plane "
-            "generation's?): convert them with `ccp tasks migrate`")
+            f"{len(old_files)} task file(s) in {cfg.rel(cfg.tasks_dir)} have no frontmatter: `ccp tasks check` names "
+            "each (SPEC §5.2)")
     index = f"{cfg.task_log['dir']}/INDEX.yaml"
     if cfg.task_log.get("index", True) and (force or not (root / index).exists()):
         tasklog.write_index(cfg)

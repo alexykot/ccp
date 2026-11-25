@@ -46,7 +46,7 @@ docs/delivery/
 - The runner and the verifier append implementation and verification notes.
 - `ccp tasks close` writes `status: done`. A task file carries `pending`, `done` or `dropped` only.
 
-Each task has `depends_on` in its frontmatter (never only inside a check), `spec_refs` cited in its
+Each task has `depends_on` in its frontmatter (never only inside a check), `spec_refs` or `adr_refs` cited in its
 text, and `dod_checks` the verifier can walk (setup, steps, expect).
 
 ## Task file names

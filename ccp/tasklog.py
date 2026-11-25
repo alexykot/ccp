@@ -10,7 +10,7 @@ runs before any task's own `dod_checks`.
 A task file is never deleted and carries no runtime state: `check()` refuses runtime keys in
 frontmatter, a task file that git or the committed INDEX knew and that is gone, and a number
 reused by another task (a renamed task says `renamed_from: <old id>`), each naming its fix; a task
-file with no frontmatter is one failure that names `ccp tasks migrate` (`ccp/taskmigrate.py`).
+file with no frontmatter is one failure.
 `warnings()` is what `check` reports without failing (§21.1); each warning is stated with its rule's §.
 `signed_blocks()` is the one reader of the passages a task carries for the operator's sign-off (§3.5, §15.2):
 `ccp verify spec-text` searches for them, and `check` warns on a `PROPOSED:` it carries none from.
@@ -140,8 +140,7 @@ CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)[^\n]+?(?<!`)\1(?!`)")
 MEASURED_AT_RE = re.compile(r"\bMeasured at `([0-9a-f]{7,40})`", re.I)
 STALE_NAMED = 3
 # §21.1: a task file with no frontmatter, as `check` and `ccp tasks list` name it.
-NO_FRONTMATTER = ("no frontmatter: an earlier plane generation's task file? convert it with "
-                  "`ccp tasks migrate`")
+NO_FRONTMATTER = "no frontmatter: not a task file in the canonical format (SPEC §5.2)"
 # §5.2: what an empty ref list that includes spec_refs is told to do.
 SPEC_REFS_HINT = " — list the SPEC sections this task answers to in `spec_refs` and cite them in its text (§5.2)"
 # §5: where adr_refs is a list the task may cite too, the hint names both lists.
@@ -212,9 +211,8 @@ def frontmatter(text: str) -> dict[str, Any]:
 
 
 def has_frontmatter(text: str) -> bool:
-    """The file opens with a `---` block that closes, as `frontmatter` reads it: the current format's
-    frontmatter (§5.2). A task file without one is an earlier plane generation's, which `ccp tasks
-    migrate` converts (§5.3)."""
+    """The file opens with a `---` block that closes, as `frontmatter` reads it: the canonical format's
+    frontmatter (§5.2)."""
     return text.startswith("---\n") and text.find("\n---\n", 4) != -1
 
 
@@ -374,12 +372,11 @@ def with_dry_runs(text: str, sha: str, records: dict[str, str]) -> str:
     return text
 
 
-def load(cfg: Config, texts: dict[Path, str] | None = None) -> list[dict[str, Any]]:
-    """Every task, in filesystem (number) order; the run order is `ranked`'s. `texts` stands in for the
-    text of the files it names (`ccp tasks migrate` checks a file before writing it)."""
+def load(cfg: Config) -> list[dict[str, Any]]:
+    """Every task, in filesystem (number) order; the run order is `ranked`'s."""
     out = []
     for f in sorted(cfg.tasks_dir.glob("*.md")):
-        text = texts[f] if texts and f in texts else f.read_text()
+        text = f.read_text()
         meta = frontmatter(text)
         if meta.get("status") in LEGACY_STATUSES:   # §5: read as its canonical state everywhere
             meta["_legacy_status"] = meta["status"]
@@ -1090,9 +1087,8 @@ def missing_task_files(cfg: Config) -> list[str]:
     number. A deleted path that is not a task file name (`NNNN-kebab-slug.md`) is not a task.
 
     The message names the fix (§21.1): the restore command (`git checkout <sha>^ -- <path>` for a file a
-    commit deleted, `git checkout HEAD -- <path>` for one deleted since HEAD), then `ccp tasks migrate`
-    when the file's last committed text has no frontmatter (an earlier plane generation's). A file git
-    shows renamed to the file now holding its number is told only to add `renamed_from`."""
+    commit deleted, `git checkout HEAD -- <path>` for one deleted since HEAD), then the `done`/`dropped`
+    line. A file git shows renamed to the file now holding its number is told only to add `renamed_from`."""
     ids = refs.ids(cfg)
     holders: dict[str, tuple[str, list[str]]] = {}
     for f in cfg.tasks_dir.glob("*.md"):
@@ -1140,16 +1136,13 @@ def _restore(cfg: Config, tid: str, deletion: tuple[str, str] | None) -> str:
     """What a gone task file's message tells the reader to do: the restore command, then what the
     restored file needs (§21.1)."""
     path = f"{cfg.rel(cfg.tasks_dir)}/{tid}.md"
-    at_head = _git(cfg, "show", f"HEAD:./{path}")
-    if at_head is not None:
-        cmd, last = f"git checkout HEAD -- {path}", at_head
+    if _git(cfg, "show", f"HEAD:./{path}") is not None:
+        cmd = f"git checkout HEAD -- {path}"
     elif deletion is not None:
-        cmd, last = f"git checkout {deletion[0]}^ -- {deletion[1]}", _git(cfg, "show", f"{deletion[0]}^:{deletion[1]}")
+        cmd = f"git checkout {deletion[0]}^ -- {deletion[1]}"
     else:
-        cmd, last = None, None
+        cmd = None
     head = f"restore it with `{cmd}`." if cmd else "restore it."
-    if last is not None and not has_frontmatter(last):
-        return f"{head} It is an earlier plane generation's task file: convert it with `ccp tasks migrate`."
     return f"{head} A done task stays `done`; only a task no longer wanted is `status: dropped`, with a note naming what replaced it."
 
 
@@ -1266,9 +1259,7 @@ def requires_report(tasks: list[dict[str, Any]], index: DecisionIndex, strict: b
 
 def _requires_lines(cfg: Config, tasks: list[dict[str, Any]], strict: bool) -> list[str]:
     """`requires_report` on the checkout's ADRs when `adr.strict` is `strict`: `check` takes the strict
-    lines, `warnings` the others. Nothing without the `adr` block. `check`'s `texts` stand in for task files
-    only (its one caller, `ccp tasks migrate`, rewrites task files and no ADR), so the ADRs are read from the
-    checkout."""
+    lines, `warnings` the others. Nothing without the `adr` block."""
     from ccp import adr  # noqa: PLC0415  (adr reads the task log)
 
     index = adr.decision_index(cfg)
@@ -1277,15 +1268,15 @@ def _requires_lines(cfg: Config, tasks: list[dict[str, Any]], strict: bool) -> l
     return requires_report(tasks, index, strict)
 
 
-def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
-    """Everything the structure promises, enforced. Returns the failures. `texts`: as `load`'s."""
+def check(cfg: Config) -> list[str]:
+    """Everything the structure promises, enforced. Returns the failures."""
     tl = cfg.task_log
     soft_re = re.compile(r"\b(" + "|".join(re.escape(w) for w in tl["soft_words"]) + r")\b", re.I) \
         if tl["soft_words"] else None
     errs: list[str] = []
     if not cfg.tasks_dir.is_dir():
         return [f"{cfg.rel(cfg.tasks_dir)}: missing — the task log lives here"]
-    tasks = load(cfg, texts)
+    tasks = load(cfg)
     shaped = shaped_adrs(cfg) if config.architect_on(cfg) and cfg.architect["shape_adrs"] else set()
     register, reg_errs = reviewpoints.load(cfg)  # §22: the review-point register, when the product keeps one
     errs += reg_errs

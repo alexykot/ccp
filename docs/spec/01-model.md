@@ -533,13 +533,6 @@ runtime wait (`waiting_on`, an open question or gate), or a planning decision, r
 superseding or dropping the task. A file written before this rule may still say `in_progress` or
 `blocked`: it reads as `pending`, and `ccp tasks check` warns.
 
-A task file from an earlier plane generation (no frontmatter: a Meta and a Refs table) is converted
-in place by `ccp tasks migrate [--dry-run] [--drop-open]`: its frontmatter from those tables and the
-title from the committed `INDEX.yaml`, its old text kept under `Context (not checked)`, a done or
-dropped record marked converted and not re-verified. An open task is converted only with
-`--drop-open`, as `dropped`; a file it cannot convert is named with the reason and left as it is
-(exit 1).
-
 ### 5.4 Kinds
 
 Two kinds, read with the architect seat on, for tasks from its adoption point (§19.11). Each names

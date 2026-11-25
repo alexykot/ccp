@@ -5,6 +5,7 @@ status: pending          # pending | done | dropped (in-flight states live in th
 kind: feature            # feature | refactor (plane SPEC §20; a refactor changes no behaviour)
 depends_on: []           # ["0001-first-task", ...] — never bury a dependency in a check
 spec_refs: []            # ["docs/SPEC.md#flows"] — the sections this task must satisfy
+adr_refs: []             # ["0031 D2"] — the ADR decisions it builds; a feature cites spec_refs or adr_refs (plane SPEC §5.4)
 # A refactor cites house rules or review findings instead of spec_refs/adr_refs:
 # rule_refs: ["E3"]   review_refs: ["ar-20261014T120000Z-ab12#F03"]   (one per line)
 # A new task citing an ADR the architect has not shaped (architect.shape_adrs), only with a reason:
