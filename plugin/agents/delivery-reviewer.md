@@ -21,11 +21,6 @@ report path.
   runner: `ccp suite run --run <run_id> --lane <lane> -- <command>` with the lane your prompt names,
   or `ccp mutate --run <run_id> --test <id> …` from your own checkout or a mutation copy where the
   product declares `mutate.command` or its language pack has a per-test runner (SPEC §14.1, §20.6).
-  Where the product declares no `mutate.command` and its language pack no per-test runner, break
-  code by hand only in a mutation worktree at the head you judge
-  (`ccp wt create --kind mut --task <id> --sha <head>`), run the test there on the part lane as
-  above, and remove it with `ccp wt remove <name>`; never a hand edit and restore in your own
-  checkout.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the PR's merge base before calling a citation wrong. To read or run code there, use
   `ccp wt create --kind base --task <task_id> --sha <PR head> -- <command>`, which takes the merge
