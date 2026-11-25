@@ -153,5 +153,18 @@ Measured at `554fe3a`:
   `CCP_SUITE_COLD` under `--cold`), plus `CCP_SUITE_LANE`; never `CCP_SUITE_ID` or `CCP_SUITE_RESULT`.
 - `ccp/config.py`: `suite.cache_probe` defaults to `{}`; a key that is no lane name (`SUITE_LANE_RE`) is refused with
   the other shapes.
+- Fix round 1 (review MINOR 1): a probe no longer outlives `ccp`. It runs in its own process group in `ccp`'s
+  session (`_group(0)`, not a new session, so a watchdog can join the group), with the watchdog (`WATCHDOG`) the run's
+  own command gets: when `ccp` dies (SIGTERM, SIGKILL, a harness killing its group) the watchdog ends the probe's
+  group. An exception out of the wait (SIGINT) kills the group before it propagates. The watchdog's start and release
+  are now `_start_watchdog` and `_release_watchdog`, shared with `_run_stage` (unchanged behaviour there, except
+  that a watchdog that fails to start no longer leaks its pipe). A SIGTERM/SIGHUP handler for the probe's duration
+  was tried and dropped: the watchdog already covers those signals, so a mutant removing it survived.
+- Fix round 1 (review MINOR 2): `test_the_probes_time_counts_against_the_wait` no longer races a 1 s holder: the
+  probe itself ends the holder, then answers no after 3 s, so the freed lock is taken after the probe whatever the
+  machine's load.
+- Fix round 1 (review NIT 4): the schema's `exclusive_lanes` description names the wait, the green-tree skip and the
+  cache probe as the ways a run of a held lane still runs. NIT 3 (resetting `at` after a long probe) is left: it adds
+  to the record, which the brief does not give leave for.
 
 ## Verification notes
