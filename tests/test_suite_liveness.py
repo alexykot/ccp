@@ -28,9 +28,10 @@ def ago(minutes: float) -> str:
 class Liveness(SuiteFixture, unittest.TestCase):
     def start(self, run: str | None = None) -> tuple[subprocess.Popen, dict]:
         """A real `ccp suite run` of a command that sleeps, once its command is running: its process and its
-        `started` row."""
+        `started` row; the command's own process id is left in `self.child`."""
         mark = Path(self._tmp.name) / f"ready-{time.monotonic_ns()}"
-        child = f"import time; open({str(mark)!r}, 'w').close(); time.sleep(60)"
+        child = (f"import os, time; t = {str(mark)!r}; open(t + '.tmp', 'w').write(str(os.getpid())); "
+                 f"os.replace(t + '.tmp', t); time.sleep(60)")
         env = dict(os.environ)
         env.pop("CCP_SUITE_ID", None)
         p = subprocess.Popen([CCP, "suite", "run", *(["--run", run] if run else []), "--", PY, "-c", child],
@@ -41,6 +42,7 @@ class Liveness(SuiteFixture, unittest.TestCase):
         while time.time() < deadline and not mark.exists():
             time.sleep(0.05)
         self.assertTrue(mark.exists(), "the run's command started")
+        self.child = int(mark.read_text())
         row = [r for r in self.rows() if r["op"] == "started"][-1]
         self.assertEqual(row["pid"], p.pid)
         return p, row
@@ -63,6 +65,17 @@ class Liveness(SuiteFixture, unittest.TestCase):
         (self.q / "runs").mkdir(parents=True, exist_ok=True)
         with (self.q / "runs" / "_suites.jsonl").open("a") as fh:
             fh.write(json.dumps(row) + "\n")
+
+    def assert_gone(self, pid: int) -> None:
+        """The process `pid` has ended (given a moment for its parent to reap it)."""
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.05)
+        self.fail(f"process {pid} still exists")
 
     def wait_for(self, sid: str) -> subprocess.CompletedProcess[bytes]:
         return ccp_proc(self.runner, "suite", "wait", sid, "--timeout", "0")
@@ -102,6 +115,22 @@ class Liveness(SuiteFixture, unittest.TestCase):
         w = self.wait_for("st-old")
         self.assertEqual(w.returncode, 1, w.stdout + w.stderr)
         self.assertIn(f"({suite.KILLED_AGE})", w.stdout.decode())
+
+    def test_a_row_without_a_pid_is_killed_once_its_run_has_stopped(self):
+        self.implementing()
+        base = {"op": "started", "lane": "part", "cmd": "python3", "argc": 1, "output": "summary", "run_id": RUN,
+                "task_id": "0002-second", "phase": "implement"}
+        self.append({**base, "suite_id": "st-before", "at": ago(10)})
+        self.append({**base, "suite_id": "st-after", "at": ago(2)})
+        rec = runs.load(self.q, RUN)
+        rec["stopped_at"] = ago(5)  # after st-before started, before st-after did
+        runs.save(self.q, rec)
+        self.assertEqual([self.state(s)["state"] for s in ("st-before", "st-after")], ["killed", "open"])
+        w = self.wait_for("st-before")
+        self.assertEqual(w.returncode, 1, w.stdout + w.stderr)
+        self.assertIn(f"({suite.KILLED_RUN})", w.stdout.decode())
+        w = self.wait_for("st-after")
+        self.assertEqual(w.returncode, 3, w.stdout + w.stderr)  # still running
 
     def test_a_reused_pid_is_not_the_run(self):
         self.implementing()
@@ -148,6 +177,7 @@ class Liveness(SuiteFixture, unittest.TestCase):
         p, row = self.start(run=RUN)
         runs.abandon(self.q, cfg, runs.load(self.q, RUN), "superseded in a test")
         p.wait(timeout=30)
+        self.assert_gone(self.child)  # the command it started was ended with it
         ended = [r for r in self.rows() if r["op"] == "ended" and r["suite_id"] == row["suite_id"]]
         self.assertEqual([r["interrupted"] for r in ended], ["SIGTERM"])
         self.assertEqual(self.state(row["suite_id"])["state"], "interrupted")
@@ -159,6 +189,7 @@ class Liveness(SuiteFixture, unittest.TestCase):
         code, _, out, err = self.report(rid, done_report("implement", "PR: #7", "Head: " + "a" * 40))
         self.assertEqual(code, 0, out + err)
         p.wait(timeout=30)
+        self.assert_gone(self.child)
         ended = [r for r in self.rows() if r["op"] == "ended" and r["suite_id"] == row["suite_id"]]
         self.assertEqual([r["interrupted"] for r in ended], ["SIGTERM"])
         self.assertEqual(self.state(row["suite_id"])["state"], "interrupted")
