@@ -158,4 +158,18 @@ Measured at `554fe3a`:
 
 ## Implementation notes
 
+- `ccp/suite.py`: `_identity()` adds `pid`, `host` and `pstart` to the `started` row, inside the recording try so
+  a failure never blocks the run. `_ps(pid, field)` is the one `ps -o <field>= -p <pid>` call (TZ=UTC0 LC_ALL=C,
+  5 s timeout, `PS` and `PS_TIMEOUT_S` module constants the tests patch). `_alive(row)` gives `alive`, `dead` or
+  `unknown` as ruled; when ps cannot answer it checks once more whether the process exists, so a process gone
+  while ps ran is `dead`, not `unknown`. `_why_killed` is the one rule `fold` and `ccp suite wait` share; it
+  returns the reason (`KILLED_GONE`, `KILLED_RUN`, `KILLED_AGE`), which the wait message prints. `_killed` now
+  takes the `started` row and returns that reason. `end_bound_runs(q, run_id)` signals each open, alive row bound
+  to the run and returns the suite ids signalled.
+- `ccp/report.py` calls `end_bound_runs` where it sets `reported_at` (a first report, not a correction);
+  `ccp/runs.py` `abandon` calls it after the record and event. Both ignore its errors. `stop` does not call it.
+- `ccp/board.py` `_live` counts a suite of an open run as running when `fold` gives it `open`;
+  `SUITE_LIVE_MINUTES` is gone.
+- `fold`'s output gains no field: the wait message's reason is computed from the `started` row by the same rule.
+
 ## Verification notes
