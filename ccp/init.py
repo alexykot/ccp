@@ -105,6 +105,17 @@ def _paragraph_break(text: str) -> str:
     return "\n" if text.endswith("\n") else "\n\n"
 
 
+def _task_log_files(root: Path, tasks_dir: Path) -> list[Path]:
+    """The files in the task log a clone of the product would have (§4.5). Inside a git work tree, those
+    `git ls-files --cached --others --exclude-standard` lists (a tracked file, or an untracked one no ignore
+    rule drops); outside one, every file."""
+    r = subprocess.run(["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z",
+                        "--", str(tasks_dir.relative_to(root))], capture_output=True, text=True)
+    if r.returncode != 0:
+        return [p for p in tasks_dir.iterdir() if p.is_file()]
+    return [root / rel for rel in r.stdout.split("\0") if rel]
+
+
 def origin_url(root: Path) -> str | None:
     """The product's `origin` URL, None when it has none."""
     r = subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"], capture_output=True, text=True)
@@ -368,7 +379,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
         config.CONFIG_REL + (f" ({', '.join(unapplied)} not applied)" if unapplied and keep_plane_json else ""))
     tasks_dir = root / "docs" / "delivery" / "tasks"
     tasks_dir.mkdir(parents=True, exist_ok=True)
-    if not any(p.is_file() for p in tasks_dir.iterdir()):  # §4.5: git keeps no empty directory
+    if not _task_log_files(root, tasks_dir):  # §4.5: git keeps no empty directory
         (tasks_dir / ".gitkeep").write_text("")
         out["written"].append("docs/delivery/tasks/.gitkeep")
 
