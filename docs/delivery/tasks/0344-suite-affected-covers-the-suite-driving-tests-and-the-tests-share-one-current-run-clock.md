@@ -45,6 +45,8 @@ Measured at `704ca8de`:
   `test_review_skip_clean` ×2, `test_review_skip_provers`, `test_stale_context_audience`, `test_verify_record_head`)
   and one in `tests/review_flow.py` (the report counted 14 modules). Each builds
   `iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))`, one minute a call.
+  `git grep -n '{10 + i // 60' -- tests`: the same 18 lines, the old clock's shape, which the check greps (the
+  ruled `run_clock(self, "ccp.runs.iso", …)` calls still name `ccp.runs.iso`).
   `git grep -n 'PENDING_EXPIRY_S", float' -- tests`: `tests/review_flow.py` and `tests/test_formal_submit.py`, 0340's
   patches ("the clock's past day expires no run").
 - **E17.** plane.json `architect.checks` `E17` greps `bindings_dir() / f"{` with `-F`, so a single-quoted f-string
@@ -60,7 +62,8 @@ Measured at `704ca8de`:
   fixture imports would select nearly every module for any change to `ccp` (`tests/toolkit_fixture.py` imports
   `ccp.cli`), and §14.7 states the pack's rule.
 - **F04.** `tests/helpers.py` gains `run_clock(case, *where, start=None)`: it patches each dotted name in `where`
-  (default `("ccp.runs.iso",)`) with one shared generator of stamps in the `iso()` form, one minute apart, the first
+  (default `("ccp.runs.iso",)`) with one shared generator of stamps in the `iso()` form (built from a `datetime`, not the old `{10 + i // 60`
+  f-string), one minute apart, the first
   at `start` or, by default, the real UTC time at the call, to the minute, and stops the patches at the case's
   cleanup. Each of the 18 sites calls it (`review_flow.py` and `test_report_correction.py` with `"ccp.runs.iso",
   "ccp.report.iso"`). A module whose assertions name a stamp of the old day passes `start="2026-10-22T10:00:00Z"`,
@@ -96,10 +99,10 @@ Measured at `704ca8de`:
   story: As a test writer, one current run clock serves every test, and no test patches the expiry bound to survive it.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).
   steps:
-    1. Run `git grep -n -e 'ccp.runs.iso' -e 'PENDING_EXPIRY_S", float' -- 'tests/test_*.py' tests/review_flow.py`.
+    1. Run `git grep -n -e '{10 + i // 60' -e 'PENDING_EXPIRY_S", float' -- tests`.
     2. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest tests.test_run_clock.RunClock.test_a_run_opened_on_the_default_clock_has_not_expired tests.test_formal_submit tests.test_review_gate`.
   expect: step 1 prints nothing (git grep's exit 1, no match); step 2 exits 0.
-  dry run (`704ca8de`): step 1 printed 20 lines (18 clock sites, 2 expiry patches), exit 0; step 2 exit 1 (`ModuleNotFoundError: No module named 'tests.test_run_clock'`).
+  dry run (`704ca8de`): step 1 printed 20 lines (18 copies of the old clock, 2 expiry patches), exit 0; step 2 exit 1 (`ModuleNotFoundError: No module named 'tests.test_run_clock'`).
 
 - id: `rule-01`
   story: As the architect, E17's check finds a binding path built outside ccp/lib.py whatever its f-string quotes, and none is left.

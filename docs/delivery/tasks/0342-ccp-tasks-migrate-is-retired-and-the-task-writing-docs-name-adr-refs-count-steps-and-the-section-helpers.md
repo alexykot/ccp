@@ -130,9 +130,10 @@ Measured at `704ca8de`:
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp tasks migrate --dry-run`.
-    2. Run `git grep -n -e 'tasks migrate' -e 'taskmigrate' -- ccp tests docs/spec docs/cli plugin templates`.
-  expect: step 1 exits 2 (an unknown subcommand); step 2 prints nothing (git grep's exit 1, no match).
-  dry run (`704ca8de`): step 1 exit 0, `0 converted, 341 already current, 0 cannot convert`; step 2 printed 36 lines, exit 0.
+    2. Run `git grep -n -e 'tasks migrate' -e 'taskmigrate' -- ccp docs/spec docs/cli plugin templates`.
+    3. Run `git ls-files tests/test_tasks_migrate.py`.
+  expect: step 1 exits 2 (an unknown subcommand); step 2 prints nothing (git grep's exit 1, no match); step 3 prints nothing (exit 0). `tests/` is left out of step 2: the ruled tests name `tasks migrate` in asserts that it is absent.
+  dry run (`704ca8de`): step 1 exit 0, `0 converted, 341 already current, 0 cannot convert`; step 2 printed 20 lines, exit 0; step 3 printed `tests/test_tasks_migrate.py`.
 - id: `code-01`
   story: As a task writer, a task file with no frontmatter is still one failure, and no message points at a converter.
   setup: A checkout of the PR head, in your own worktree, with your open run (a delivery-verifier seat).

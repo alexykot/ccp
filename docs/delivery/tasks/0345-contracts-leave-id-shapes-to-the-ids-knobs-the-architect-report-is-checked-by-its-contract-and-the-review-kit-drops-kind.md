@@ -1,6 +1,6 @@
 ---
 task_id: 0345-contracts-leave-id-shapes-to-the-ids-knobs-the-architect-report-is-checked-by-its-contract-and-the-review-kit-drops-kind
-title: The architect report, triage and plane_config contracts hold no task-id or rule-id pattern the ids knobs make the product's, and no code edits a contract before using it; the architect report is checked through ccp/schema.py, not by a hand list of its keys; the review kit drops its one-instance Kind; E12 says so
+title: The architect report, triage and plane_config contracts hold no task-id or rule-id pattern the ids knobs make the product's, and no code edits a contract before using it; the architect report is checked through ccp/schema.py, not by a hand list of its keys; the review kit drops its one-instance Kind
 status: pending
 kind: feature
 depends_on: []
@@ -8,7 +8,7 @@ spec_refs: ["S7", "S19"]
 rule_refs: ["E12"]
 review_refs: ["ar-20261125T094654Z-c8a0#F05", "ar-20261125T094654Z-c8a0#F10"]
 review_point: R37
-paths: ["contracts/architect_report.schema.json", "contracts/architecture_review_triage.schema.json", "contracts/plane_config.schema.json", "ccp/architecture_review.py", "ccp/architect.py", "docs/ENGINEERING.md", "tests/test_architect_triage_schema.py", "tests/test_rules.py", "tests/test_obs_ids.py"]
+paths: ["contracts/architect_report.schema.json", "contracts/architecture_review_triage.schema.json", "contracts/plane_config.schema.json", "ccp/architecture_review.py", "ccp/architect.py", "tests/test_architect_triage_schema.py", "tests/test_rules.py", "tests/test_obs_ids.py"]
 clashes_with: ["0191-the-grace-release-ends"]
 adopt: "none"
 created: 2026-11-25
@@ -28,7 +28,7 @@ one-instance `Kind` through every call.
 ## Context (not checked)
 
 Findings F05 and F10 of architect pass `ar-20261125T094654Z-c8a0` (`docs/delivery/reviews/ar-20261125T094654Z-c8a0.md`),
-and that pass's amendment of house rule E12, accepted with a narrower clause (below). F05 also answers the 0331
+and house rule E12 as that pass's triage amended it (`docs/ENGINEERING.md`). F05 also answers the 0331
 follow-up the lead passed to that pass (contract id patterns not tied to the §7.1 `ids` knobs).
 
 The contract change only loosens: every record valid before stays valid, so no stored record needs rewriting. The
@@ -49,7 +49,6 @@ Measured at `b6c2bc17`:
   class, `ARCH` in `ccp/architect.py`). Tests reading the instance: `tests/test_rules.py`
   (`architect.ARCH.categories`), `tests/test_obs_ids.py` (`architect.ARCH.rid_re`). Only `ccp/architect.py` calls the
   kit's functions (`git grep -n 'ar\.\(validate_report\|lock_take\|triage\)(' -- ccp tests`).
-- **E12.** `grep -c 'ccp/schema.py' docs/ENGINEERING.md`: 0. The doc is at 150 lines, its cap.
 
 **Ruled.**
 
@@ -71,16 +70,8 @@ Measured at `b6c2bc17`:
   imports `LENSES` from the kit, so `architect.LENSES` still reads. The 14 functions lose their `kind` parameter.
   `tests/test_rules.py` reads `ar.CATEGORIES`, `tests/test_obs_ids.py` reads `ar.RID_RE`. The triage contract's `da`
   review-id prefix stays (E9: old records stay readable).
-- **E12.** Its text becomes (6 lines, wrapped as the doc wraps), and its check one line, so the doc stays at 150:
-
-  > - **E12** One source per enumerated concept: a list of values (round phases, event types and ops, plane.json's blocks,
-  >   their keys and defaults, the roles and their default models) is defined once in code. Other code derives from it. A
-  >   contract holds no pattern a plane.json knob makes the product's (the `ids` shapes); code checks a record against its
-  >   contract through ccp/schema.py. One test compares every plane.json block's keys and defaults with
-  >   contracts/plane_config.schema.json, one compares the ledger's event types, ops and required payloads with
-  >   contracts/observability_event.schema.json, and one compares the agent definitions' models with the role table.
-  >   check: pass, plus the gate — tests.test_plane_config_defaults and tests.test_event_registry run in the gate (E1), with no architect.checks entry, so the pre-gate never renders a bare test run; the architect greps contracts/ for an `ids` default (`"pattern": "^E[0-9]+$"`)
-
+- **E12.** Its text, naming the ids knobs' patterns and the one schema checker, was applied by the triage PR; this
+  task builds what it says and leaves `docs/ENGINEERING.md` alone.
 - No other test expectation changes; `tests.test_plane_config_defaults` compares keys and defaults, not patterns.
 - "No SPEC change" is measured: `git grep -n 'E\[0-9\]' -- docs/spec` at `b6c2bc17` names only §7.1's `ids` table
   (the knob's default), which stands.
@@ -89,9 +80,9 @@ Measured at `b6c2bc17`:
 
 - **In:** `contracts/architect_report.schema.json`; `contracts/architecture_review_triage.schema.json`;
   `contracts/plane_config.schema.json` (the three `pattern` members, their descriptions); `ccp/architecture_review.py`;
-  `ccp/architect.py`; `docs/ENGINEERING.md` (E12 only); `tests/test_architect_triage_schema.py`; `tests/test_rules.py`;
+  `ccp/architect.py`; `tests/test_architect_triage_schema.py`; `tests/test_rules.py`;
   `tests/test_obs_ids.py`.
-- **Out:** `ccp/config.py` (it checks `architect.checks` ids by `ids.is_rule_id` already); the finding-id and review-id
+- **Out:** `docs/ENGINEERING.md` (E12's text landed with the triage); `ccp/config.py` (it checks `architect.checks` ids by `ids.is_rule_id` already); the finding-id and review-id
   patterns; the other contracts; the SPEC.
 
 ## dod_checks
@@ -118,14 +109,6 @@ Measured at `b6c2bc17`:
     1. Run `git grep -n -e 'kind: Kind' -e 'class Kind(' -e 'ar.Kind(' -- ccp tests`.
   expect: prints nothing (git grep's exit 1, no match).
   dry run (`b6c2bc17`): printed 16 lines, exit 0.
-- id: `rule-01`
-  story: As the architect, E12 names the one schema checker and the ids knobs' patterns.
-  setup: A checkout of the PR head (any seat).
-  steps:
-    1. Run `grep -c 'ccp/schema.py' docs/ENGINEERING.md`.
-  expect: prints `1`.
-  dry run (`b6c2bc17`): printed `0`, exit 1.
-
 ## Implementation notes
 
 ## Verification notes

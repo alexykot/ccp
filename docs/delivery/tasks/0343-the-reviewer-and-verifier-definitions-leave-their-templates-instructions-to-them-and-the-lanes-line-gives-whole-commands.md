@@ -8,7 +8,7 @@ spec_refs: ["S11", "S13"]
 rule_refs: ["E13"]
 review_refs: ["ar-20261125T094654Z-c8a0#F01", "ar-20261125T094654Z-c8a0#F02"]
 review_point: R37
-paths: ["plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "plugin/agents/delivery-runner.md", "ccp/prompt.py", "docs/spec/02-delivery.md", "tests/test_full_lane_prompt.py", "tests/test_sign_off_beyond_intent.py", "tests/test_verify_producer.py", "tests/test_verify.py", "tests/test_prompt_tools.py", "tests/test_worker_efficiency.py", "tests/test_plugin.py"]
+paths: ["plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "plugin/agents/delivery-runner.md", "ccp/prompt.py", "docs/spec/02-delivery.md", "tests/test_full_lane_prompt.py", "tests/test_sign_off_beyond_intent.py", "tests/test_verify_producer.py", "tests/test_verify.py", "tests/test_prompt_tools.py", "tests/test_worker_efficiency.py", "tests/test_plugin.py", "tests/test_team_hosting.py", "tests/test_prompt_lanes.py"]
 clashes_with: ["0191-the-grace-release-ends", "0344-suite-affected-covers-the-suite-driving-tests-and-the-tests-share-one-current-run-clock"]
 adopt: "none"
 created: 2026-11-25
@@ -62,19 +62,25 @@ Measured at `b6c2bc17`:
   only the definition holds. A test that pins a cut sentence's token in a definition pins it in the template instead
   (E13: "a test pins an instruction where it is"); `tests/test_sign_off_beyond_intent.py` drops the definition from
   its tuple, `tests/test_verify_producer.py` reads `produced_by` from `templates/prompts/verify.md` (the runner brief
-  half stays). The templates' text does not change for F01.
+  half stays), and `tests.test_team_hosting.TestArchitectInTemplates.test_workers_read_the_rules`, which pins
+  `architect.rules_doc` in both definitions, is removed: `_common.md` gives the house rules to every worker, pinned by
+  the `"{{#rules_doc}}- Read the house rules"` assert in the test before it. The templates' text does not change for
+  F01.
 - **F02.** For a part lane declared as an argv, `suite_lanes` renders the lane as
   `` `<ccp> suite run --lane <lane> -- <argv> <module> …` (module names, not test ids) `` and its alternative as
   `` , or `<ccp> suite run --affected` (it picks the lane itself) for the modules a change touches ``, `<ccp>` being
   `ccp_command(cfg)` as now. Every other lane form is unchanged. New test
   `tests.test_full_lane_prompt.DeclaredPartLane.test_a_part_lane_declared_as_an_argv_is_given_as_whole_commands`: for
   every phase, the Lanes text holds `suite run --lane part -- scripts/gate.sh <module> …` and `(it picks the lane
-  itself)`, and no `` `--lane part` with ``. The tests reading the old form (`PART_ARGV`) read the new one.
+  itself)`, and no `` `--lane part` with ``. The tests reading the old form (`PART_ARGV`) read the new one, and
+  `tests.test_prompt_lanes.VerifyPartItem.test_the_verify_prompts_part_item_names_ccp_mutate` looks for
+  `--lane <part lane>` with no backticks round it (the new form backticks the whole command), still followed by
+  `` `ccp mutate` ``.
 - **Runner brief.** In `plugin/agents/delivery-runner.md`, "`ccp prompt` refuses while a run of the same agent type is
   still pending (opened, its agent not started); `--supersede` abandons it when that launch never happened (SPEC
   §11.1, §16.4)." becomes "`ccp prompt` refuses while a run of the same agent type is still pending, until it binds
   or expires (SPEC §11.1); `--supersede` abandons it when that launch never happened (SPEC §11.1, §16.4)."
-- No other test expectation changes.
+- No other test expectation changes than those named here.
 
 ## Scope
 
@@ -82,7 +88,7 @@ Measured at `b6c2bc17`:
   (the pending-run sentence); `ccp/prompt.py` (`suite_lanes`); `tests/test_full_lane_prompt.py`;
   `tests/test_sign_off_beyond_intent.py`; `tests/test_verify_producer.py`; and `tests/test_verify.py`,
   `tests/test_prompt_tools.py`, `tests/test_worker_efficiency.py`, `tests/test_plugin.py` only where a pinned sentence
-  moves to its template. The SPEC, describing 0340's accepted feature (§31.1):
+  moves to its template; `tests/test_team_hosting.py` and `tests/test_prompt_lanes.py` as ruled. The SPEC, describing 0340's accepted feature (§31.1):
 
   CURRENT (`docs/spec/02-delivery.md` at `b6c2bc17`), §11.1, the Record bullet:
   > `session_id`, `worktree`, `started_at`, `stopped_at`, `reported_at`, `abandoned_at`,

@@ -7,7 +7,7 @@ depends_on: []
 spec_refs: ["S15", "S29"]
 review_refs: ["ar-20261125T094654Z-c8a0#F06", "ar-20261125T094654Z-c8a0#F07"]
 review_point: R37
-paths: ["ccp/verify.py", "ccp/upgrade.py", "docs/spec/02-delivery.md", "scripts/observability/CLAUDE.md", "ccp/doclang/CLAUDE.md", "scripts/observability/team.py", "scripts/release.sh", "tests/test_verify_spec_text.py", "tests/test_plane_built.py"]
+paths: ["ccp/verify.py", "ccp/upgrade.py", "ccp/plane.py", "docs/spec/02-delivery.md", "scripts/observability/CLAUDE.md", "ccp/doclang/CLAUDE.md", "scripts/observability/team.py", "scripts/release.sh", "tests/test_verify_spec_text.py", "tests/test_plane_built.py"]
 clashes_with: ["0191-the-grace-release-ends"]
 sign_off: brief
 adopt: "none"
@@ -55,7 +55,10 @@ Measured at `b6c2bc17`:
 
 - **F06.** With no `--head`, `spec_text` diffs from the merge base of the base and `HEAD` to the working tree, reading
   each SPEC file (and a passage's named file) as it is on disk; with `--head`, as now. `named_hunks` follows the same
-  rule. The body's `head` is `"working tree"` when none is given. A file git does not track is not read. New tests
+  rule. The body's `head` is `"working tree"` when none is given, so
+  `tests.test_verify_spec_text.SpecText.test_head_checks_a_past_commit_s_spec_change`'s no-`--head` case expects
+  `(1, "working tree")` in place of `(1, "HEAD")` (its exit stays 1: the working tree holds the edited passage). A
+  file git does not track is not read. New tests
   `tests.test_verify_spec_text.SpecText.test_with_no_head_an_uncommitted_spec_edit_is_found` and
   `tests.test_verify_spec_text.SpecText.test_with_head_given_an_uncommitted_spec_edit_is_not_read`.
 - **F07.** `scripts/observability/CLAUDE.md`'s first paragraph, up to "is `ccp/architecture_review.py`.", becomes: "The
@@ -66,8 +69,10 @@ Measured at `b6c2bc17`:
   stays language-neutral (E18)" becomes "house rule E18".
 - **team.py.** Keep the two module-level inserts; remove the nine in functions (and their `if … not in sys.path`
   guards). `tests.test_team_hosting` and `tests.test_parallel_by_default`, which load the file by path, still pass.
-- **plane built.** `merged_task` takes the full id or its number: a value of `ids.task.width` digits matches the done
-  task whose id starts with it and a hyphen. `built` records and prints the full id as `built_task`. New test
+- **plane built.** `merged_task` takes the full id or its number, matching through `ids.same_task` (`ccp/refs.py`).
+  `plane.built` (`ccp/plane.py`) records, emits and returns the merged task's full `task_id` as `built_task`, never
+  `--task` as typed (now `a.task` verbatim), so `upgrade.py`'s `_proposals_by_task` map, keyed by the full id, finds
+  it. New test
   `tests.test_plane_built.Built.test_a_bare_task_number_names_the_merged_task`.
 - **release.sh.** `git -C "$MAIN" pull -q --ff-only` becomes `git -C "$MAIN" fetch -q origin && git -C "$MAIN" merge
   -q --ff-only "origin/$(git -C "$MAIN" symbolic-ref --short HEAD)"`; its comment's "the pull below" becomes "the
@@ -76,7 +81,7 @@ Measured at `b6c2bc17`:
 
 ## Scope
 
-- **In:** `ccp/verify.py` (`spec_text`, `spec_hunks`, `named_hunks`); `ccp/upgrade.py` (`merged_task`);
+- **In:** `ccp/verify.py` (`spec_text`, `spec_hunks`, `named_hunks`); `ccp/upgrade.py` (`merged_task`); `ccp/plane.py` (`built`);
   `scripts/observability/CLAUDE.md`; `ccp/doclang/CLAUDE.md` (the one clause); `scripts/observability/team.py`; `scripts/release.sh`;
   `tests/test_verify_spec_text.py`; `tests/test_plane_built.py`; the SPEC, signed:
 
@@ -132,7 +137,8 @@ Measured at `b6c2bc17`:
   dry run (`b6c2bc17`): exit 1 (`AttributeError: type object 'Built' has no attribute 'test_a_bare_task_number_names_the_merged_task'`).
 - id: `code-04`
   story: As the operator, a release fast-forwards the dev checkout from a fetched ref, whatever runners fetch meanwhile.
-  setup: A checkout of the PR head (any seat).
+  setup: A checkout of the PR head (any seat). The check reads the script only: no test drives `scripts/release.sh`,
+  which moves the operator's real checkouts.
   steps:
     1. Run `grep -c 'pull -q --ff-only' scripts/release.sh`.
     2. Run `grep -c 'merge -q --ff-only' scripts/release.sh`.

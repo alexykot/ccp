@@ -1699,7 +1699,7 @@ tasks:
     path: tasks/0344-suite-affected-covers-the-suite-driving-tests-and-the-tests-share-one-current-run-clock.md
   - id: 0345-contracts-leave-id-shapes-to-the-ids-knobs-the-architect-report-is-checked-by-its-contract-and-the-review-kit-drops-kind
     status: pending
-    title: The architect report, triage and plane_config contracts hold no task-id or rule-id pattern the ids knobs make the product's, and no code edits a contract before using it; the architect report is checked through ccp/schema.py, not by a hand list of its keys; the review kit drops its one-instance Kind; E12 says so
+    title: The architect report, triage and plane_config contracts hold no task-id or rule-id pattern the ids knobs make the product's, and no code edits a contract before using it; the architect report is checked through ccp/schema.py, not by a hand list of its keys; the review kit drops its one-instance Kind
     depends_on: []
     path: tasks/0345-contracts-leave-id-shapes-to-the-ids-knobs-the-architect-report-is-checked-by-its-contract-and-the-review-kit-drops-kind.md
   - id: 0346-verify-spec-text-reads-the-working-tree-plane-built-takes-a-task-number-and-the-observability-scripts-and-release-are-tidied
