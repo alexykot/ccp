@@ -64,14 +64,12 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertIn("add `--own-hooks`", (PLANE_ROOT / "templates/prompts/verify.md").read_text())
 
     def test_with_no_mutate_command_a_seat_breaks_code_in_a_mutation_worktree_it_removes(self):
-        run_id, text = self.render("verify", "--pr", "7", "--head", A)
+        _run_id, text = self.render("verify", "--pr", "7", "--head", A)
         fallbacks = FALLBACK.findall(text)
         self.assertTrue(fallbacks)
         for f in fallbacks:
             self.assertIn("--kind mut --task 0002-second --sha ", f)
             self.assertIn("wt remove <name>", f)
-        self.assertIn(f"--kind mut --task 0002-second --sha {A}`", text)
-        self.assertIn(f"suite run --run {run_id}` with `--lane part`", text)
         _impl_run, text_impl = self.render("implement", "--base", "abc1234")  # every seat, through the common rules
         fallbacks = FALLBACK.findall(text_impl)
         self.assertTrue(fallbacks)
@@ -80,10 +78,12 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
                 self.assertIn(named, f)
         self.assertNotIn("put the file back", text)
         self.assertNotIn("put the file back", (PLANE_ROOT / "templates/prompts/verify.md").read_text())
-        for a in ("implementer", "reviewer", "verifier"):
-            brief = (PLANE_ROOT / f"plugin/agents/delivery-{a}.md").read_text()
-            for named in ("ccp wt create --kind mut", "ccp wt remove <name>"):
-                self.assertIn(named, brief, (a, named))
+
+    def test_the_verify_prompt_asks_for_the_ran_false_reliance_and_the_ruling_id(self):
+        _run_id, text = self.render("verify", "--pr", "7", "--head", A)
+        self.assertIn("whether your verdict relies on a check you record `ran: false`", text)
+        self.assertIn("A ruling the lead gave the runner by message has an id", text)
+        self.assertIn("cite that id in the check's `ruling`", text)
 
     def test_the_change_rounds_name_mutate_and_suite_run_affected(self):
         for phase, args in CHANGE_ROUNDS:

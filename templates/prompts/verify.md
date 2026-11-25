@@ -22,8 +22,7 @@ Any other result you did not run is still not a pass.
 End your report's `Suite:` line with the same counts (`Suite: from <suite_id>`, or `Suite: <n> tests, <s> s, ran <r>, cached <c>`).{{/accept_cache}}
 Be adversarial:
 - a test that could pass vacuously is mutation-tested: break the code it guards and the test must fail.
-  Run it from your own worktree, the checkout of the head you judge, with `QUEUE_ROOT={{queue_root}} {{ccp}} mutate --run {{run_id}} --test <test id> --revert <path>[:<lines>]`: it puts back the merge base's version of the changes those lines touch (the hunks `git diff -U0` shows), runs the test, records the mutant killed only when the test fails, and restores the file.
-  Where the product declares no `mutate.command` and its language pack no per-test runner, make a mutation worktree at the head you judge with `QUEUE_ROOT={{queue_root}} {{ccp}} wt create --kind mut --task {{task_id}} --sha {{head}}`, break the code there by hand, run the test there through `QUEUE_ROOT={{queue_root}} {{ccp}} suite run --run {{run_id}}` with `--lane {{part_lane}}` and `-- <command>`, and remove it with `QUEUE_ROOT={{queue_root}} {{ccp}} wt remove <name>` (the name `wt create` prints); never a hand edit and restore in your own worktree;
+  Run it from your own worktree, the checkout of the head you judge, with `QUEUE_ROOT={{queue_root}} {{ccp}} mutate --run {{run_id}} --test <test id> --revert <path>[:<lines>]`: it puts back the merge base's version of the changes those lines touch (the hunks `git diff -U0` shows), runs the test, records the mutant killed only when the test fails, and restores the file;
 - an absence check ("nothing names X") is proved on a known positive first;
 - look for changed assertions, scope creep, and fixtures that write what the real path does not.
 REJECT only on a BLOCKER or MAJOR finding.
@@ -64,6 +63,8 @@ A passage beyond intent is not a reason to reject: an approve that lists one hol
 This task declares `sign_off: brief`: run `QUEUE_ROOT={{queue_root}} {{ccp}} verify spec-text {{task_id}} --base origin/{{integration}}` in your checkout of the head (SPEC §15.2) and report its result in your verdict's `findings`: its exit code and each signed passage it names as not found in the SPEC lines the PR adds.{{/brief_sign_off}}
 
 Each check's evidence follows SPEC §15.4: the seat that produced it (`produced_by`), what a check you did not run (`ran: false`, `pass: null`) may rest on (`rests_on`), and a check that cannot hold as written (`as_written: false`, with `held_instead` and `ruling`).
+Say in `findings` whether your verdict relies on a check you record `ran: false`.
+A ruling the lead gave the runner by message has an id when the runner passes it to you: cite that id in the check's `ruling`.
 `{{ccp}} verify record` refuses what breaks it, naming the rule, and the example above shows a record.
 Record a check that is not as written so, not only as a caveat in `findings`: `ccp tasks close` lists it for the lead.
 Without a ruling that lets it hold in another form, judge it as any check you cannot prove.
