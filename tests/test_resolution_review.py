@@ -438,7 +438,7 @@ class Resolution(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.assertIs(health.ROUND_KINDS, runs.PHASES)
         sub = next(a for a in cli.build_parser()._actions if getattr(a, "choices", None) and "prompt" in a.choices)
         action = next(a for a in sub.choices["prompt"]._actions if a.dest == "phase")
-        self.assertEqual(tuple(action.choices), (*runs.PHASES, "env"))
+        self.assertEqual(tuple(action.choices), (*runs.PHASES, "env", "render"))
         out = subprocess.run(["git", "grep", "-n", "-e", '"implement", "fix", "merge", "ruling", "review", "verify"',
                               "-e", '"implement", "review", "fix", "merge", "ruling", "verify"', "--", "ccp"],
                              cwd=PLANE_ROOT, capture_output=True, text=True).stdout.splitlines()
