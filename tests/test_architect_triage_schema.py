@@ -101,6 +101,18 @@ class ReportContract(unittest.TestCase):
                       "architect": {"checks": [{"id": "HR-1", "cmd": "true"}]}}
         self.assertEqual(schema_errors(plane_json, contract("plane_config.schema.json")), [])
 
+    def test_a_rule_id_outside_the_products_pattern_is_refused(self):
+        report = self.report(rule_changes=[{"rule": "HR-1", "action": "add", "text": "One registry.", "check": "pass"}])
+        errs = architecture_review.validate_report(report, self.RID, "demo")
+        self.assertTrue(any("rule_changes[0]" in e and "is not a rule id" in e for e in errs), errs)
+
+    def test_the_models_own_review_id_must_be_this_reviews(self):
+        report = self.report()
+        self.assertEqual(architect.validate(report, self.RID, "demo", "pass", ["structure"], head="abc1234"), [])
+        report["review_id"] = "ar-20261101T100000Z-ffff"
+        errs = architect.validate(report, self.RID, "demo", "pass", ["structure"], head="abc1234")
+        self.assertTrue(any("review_id" in e for e in errs), errs)
+
 
 class TriageByAProductsRuleIds(Harness):
     """`ccp architect triage` hands the product's ids to the validation, through both the file-present and `--apply` paths."""
