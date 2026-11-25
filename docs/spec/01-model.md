@@ -732,7 +732,9 @@ An ADR prefix that would read a decision ref as an ADR (`D`, `D-`) is refused.
   prefix) or names its file; `Dn` (or `Dna`) after the number cites a decision, and any other
   trailing text is a section anchor (`0028 Acceptance tests arms-12`).
 - **SPEC refs:** `<prefix><n>` and ranges (`S3–S5`). The citation rule of the doc checks (§21) reads
-  them with `ids.spec.prefix`.
+  them with `ids.spec.prefix`. `ccp spec show <ref>` prints, and the estimator quotes (§26.3), the block
+  under the first heading outside a fenced block across the `spec_paths` files whose text starts with
+  the ref's number, with or without the prefix, up to the next heading of its level or higher.
 - **House-rule and review-point ids** match their pattern in full. A review point's first run of
   digits orders the points. Without a register, a task's review point is held to `ids.review_point.pattern` (§22).
 

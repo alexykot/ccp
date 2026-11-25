@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING, Any, Iterator
 
 import functools
 
-from ccp import config, doclang, graph, refs, reviewpoints
+from ccp import config, doclang, graph, mdsection, refs, reviewpoints
 from ccp.config import WHOLE_SUITE_ROLES, Config, lane_for, lane_stages
 
 if TYPE_CHECKING:
@@ -133,15 +133,8 @@ PREFIX_OPTION_ARGS = {"env": ("-u", "-C", "-P", "--unset", "--chdir"), "time": (
 # not filled in. A placeholder inside a code span or a fenced block is quoted, not left, so it is not read.
 PLACEHOLDERS = ("NNNN-kebab-slug", "YYYY-MM-DD", "As a <role>", "<preconditions",
                 "<concrete, observable result>", "One line, imperative")
-# A fence closes on a line of only its own character, at least as many as opened it; a code span
-# stays on one line, so one stray backtick cannot quote the lines after it. A tilde fence's info string
-# may hold any text, a backtick fence's no backtick: a line that starts with a three-backtick code span
-# is prose, no opener.
-FENCE_RE = re.compile(r"^[ \t]*(?P<f>(?P<c>[`~])(?P=c){2,})(?:(?<=~)[^\n]*|[^`\n]*)\n.*?^[ \t]*(?P=f)(?P=c)*[ \t]*$",
-                      re.M | re.S)
+# A code span stays on one line, so one stray backtick cannot quote the lines after it (fenced blocks: mdsection).
 CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)[^\n]+?(?<!`)\1(?!`)")
-# A task file's section heading; one inside a fenced block is quoted text, not read (`unfence`).
-HEADING_RE = re.compile(r"^## ", re.M)
 # §21.1: the commit a task's Context was measured at, its first ``Measured at `<sha>` ``; a stale-Context
 # warning names this many of the commits since, then counts the rest.
 MEASURED_AT_RE = re.compile(r"\bMeasured at `([0-9a-f]{7,40})`", re.I)
@@ -228,36 +221,18 @@ def canonical_status(status: Any) -> Any:
     return LEGACY_STATUSES.get(str(status), status) if isinstance(status, str) else status
 
 
-def unfence(text: str) -> str:
-    """`text` with each fenced block blanked (`_blank`): the same length and line breaks, so an offset in it is one
-    in `text`. A `## ` line inside a fence is quoted text, no heading: headings are found here."""
-    return FENCE_RE.sub(_blank, text)
-
-
-def section_end(unfenced: str, at: int) -> int:
-    """Where the section whose body starts at offset `at` ends: the next `## ` heading outside a fence, else the
-    text's end. `unfenced` is the text as `unfence` gives it."""
-    nxt = HEADING_RE.search(unfenced, at)
-    return nxt.start() if nxt else len(unfenced)
-
-
 def section_span(text: str, name: str) -> tuple[int, int, int] | None:
     """Where the section `## <name>` (or an older name for that section) lies in `text`: the offsets of its
     heading line's start, its body's start (right after the heading's name and trailing blanks, before any `\r`)
-    and its body's end (the next `## ` heading, else the text's end); None when the heading is absent. Only a
-    heading outside a fenced block counts (`unfence`), as the section's own or as its end, and a heading line may
-    end in a carriage return. The one finder of a task file's sections (house rule E22)."""
+    and its body's end (the next heading of level 2 or higher, else the text's end); None when the heading is
+    absent. Only a heading outside a fenced block counts (`mdsection.heading_span`), as the section's own or as its
+    end, and a heading line may end in a carriage return. The one finder of a task file's sections (house rule E22)."""
     names = [name, *SECTION_ALIASES.get(name, ())]
     names += [k for k, olds in SECTION_ALIASES.items() if name in olds]
-    unfenced = unfence(text)
-    m = None
     for n in names:
-        m = re.search(rf"^## {re.escape(n)}[ \t]*(?=\r?$)", unfenced, re.M)
-        if m:
-            break
-    if not m:
-        return None
-    return m.start(), m.end(), section_end(unfenced, m.end())
+        if span := mdsection.heading_span(text, rf"{re.escape(n)}[ \t]*(?=\r?$)", level=2):
+            return span
+    return None
 
 
 def section(text: str, name: str) -> str | None:
@@ -848,11 +823,6 @@ def _check_refactor_gate(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
     return errs
 
 
-def _blank(m: re.Match[str]) -> str:
-    """The matched text as spaces, its line breaks kept, so line numbers still count."""
-    return re.sub(r"[^\n]", " ", m.group(0))
-
-
 def _check_placeholders(t: dict[str, Any], rel: str) -> list[str]:
     """§5: a task not yet done or dropped that still holds a template placeholder is a copy not
     filled in. Names each placeholder and its line; quoted ones (code spans, fenced blocks) pass."""
@@ -940,22 +910,22 @@ _RULE_CHANGES_RE = re.compile(r"^## Rule changes\b[^\n]*$", re.M)
 
 
 def _unquoted(text: str) -> str:
-    """`text` with its fenced blocks and code spans blanked (`_blank`): the same length and line breaks, so a
-    `PROPOSED:` marker is read where it is not quoted."""
-    return CODE_SPAN_RE.sub(_blank, unfence(text))
+    """`text` with its fenced blocks and code spans blanked (`mdsection.blank`): the same length and line breaks, so
+    a `PROPOSED:` marker is read where it is not quoted."""
+    return CODE_SPAN_RE.sub(mdsection.blank, mdsection.unfence(text))
 
 
 def _signed_sections(text: str) -> list[tuple[int, str]]:
     """§15.2: the sections of a task file that carry signed passages, in file order, each as (its offset in
     `text`, its body from just after the heading): the Scope (`section_span`) and every `## ` section
-    whose heading begins `Rule changes`. Headings are read outside fenced blocks (`unfence`); the bodies are
+    whose heading begins `Rule changes`. Headings are read outside fenced blocks (`mdsection`); the bodies are
     the text as written."""
     out = []
     if (span := section_span(text, SEC_SCOPE)) is not None:
         out.append((span[1], text[span[1]:span[2]]))
-    unfenced = unfence(text)
+    unfenced = mdsection.unfence(text)
     for m in _RULE_CHANGES_RE.finditer(unfenced):
-        out.append((m.end(), text[m.end(): section_end(unfenced, m.end())]))
+        out.append((m.end(), text[m.end(): mdsection.section_end(unfenced, m.end(), 2)]))
     return sorted(out)
 
 

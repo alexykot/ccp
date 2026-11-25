@@ -1636,6 +1636,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("where", help="this product's project id, binding, queue root and plane checkout (SPEC §9.2)") \
         .set_defaults(fn=cmd_where)
+    p = sub.add_parser("spec", help="the product's SPEC (SPEC §7.2)").add_subparsers(dest="cmd", required=True)
+    p = p.add_parser("show", help="print each cited SPEC section, in the order given (SPEC §7.2)")
+    p.add_argument("refs", nargs="+", metavar="REF", help="a SPEC ref: its number, with or without the prefix or §")
+    p.set_defaults(fn=cmd_spec_show)
     p = sub.add_parser("orientation", help="print the orientation the plugin's SessionStart hook gives a session in this "
                                        "product, for a session that started before the product was adopted (SPEC §9.3)")
     p.add_argument("--tail", action="store_true", help="print only the text the hook appends after the orientation: "
@@ -2044,6 +2048,12 @@ def cmd_where(cfg: config.Config, _a: argparse.Namespace) -> int:
                       "queue_root": str(Path(q).expanduser().resolve()) if q else None,
                       "plane": str(PLANE), "ccp": str(CCP_BIN), "idle_limit": idle}))
     return 0
+
+
+def cmd_spec_show(cfg: config.Config, a: argparse.Namespace) -> int:
+    """SPEC §7.2: each ref's section, as the estimator quotes it (`ccp/spec.py`)."""
+    from ccp import spec  # noqa: PLC0415
+    return spec.show(cfg, a.refs)
 
 
 def _orientation_tail(cfg: config.Config) -> int:

@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from ccp import graph, refs, reviewpoints
+from ccp import graph, mdsection, refs, reviewpoints
 from ccp.config import ADR_DEFAULTS, Config
 
 FILE_RE = refs.DEFAULT.adr_file_re  # the default; a product may set ids.adr (refs.py)
@@ -287,7 +287,9 @@ def canonical_heading_counts(body: str) -> dict[str, int]:
 # note, and `{end}` is what follows them: `_MARK_END`, how a mark ends, to find a decision (`_dec_find`), or the
 # rest of the line split up, to match its parts (`_MARK_PARTS`).
 _DEC_ID = r"\d+[a-z]?"
-_DEC_HEAD = r"^(#+)[ \t]+D({id})\b"
+# A decision heading's text after its `#` run (`decision_block` finds it through `mdsection.heading_block`).
+_DEC_HEAD_TEXT = r"D({id})\b"
+_DEC_HEAD = r"^(#+)[ \t]+" + _DEC_HEAD_TEXT
 # The bracketed note after a decision's id, in both a mark and a heading (`_HEAD_PARTS`); `{note}` opens its group.
 _NOTE = r"(?:[ \t]*\(({note}[^)\n]{{0,40}})\))?"
 _DEC_MARK = r"^(?:[-*][ \t]+)?({b1}\*\*)?D({id})" + _NOTE + "{end}"
@@ -1275,14 +1277,13 @@ def find_file(cfg: Config, n: int) -> Path | None:
 
 
 def decision_block(text: str, dec: str) -> str | None:
-    """The text of decision `dec` (`1`, `2a`), in whichever style the ADR writes it: under a heading,
-    up to the next heading of its level or higher; otherwise up to the next decision or heading."""
+    """The text of decision `dec` (`1`, `2a`), in whichever style the ADR writes it: under a heading outside a
+    fenced block, up to the next such heading of its level or higher (`mdsection.heading_block`); otherwise up to
+    the next decision or heading."""
     ident = re.escape(dec)
-    m = re.search(_dec_find(_DEC_HEAD, ident), text, re.M)
-    if m:
-        level = len(m.group(1))
-        nxt = re.search(rf"^#{{1,{level}}}[ \t]", text[m.end():], re.M)
-        return text[m.start():m.end() + nxt.start() if nxt else len(text)]
+    block = mdsection.heading_block(text, _dec_find(_DEC_HEAD_TEXT, ident))
+    if block is not None:
+        return block
     m = re.search(_dec_find(_DEC_MARK, ident), text, re.M)
     if not m:
         return None
