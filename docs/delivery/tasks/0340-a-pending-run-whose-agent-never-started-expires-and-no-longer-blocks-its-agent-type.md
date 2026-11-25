@@ -1,7 +1,7 @@
 ---
 task_id: 0340-a-pending-run-whose-agent-never-started-expires-and-no-longer-blocks-its-agent-type
 title: A pending run whose agent never started expires after 10 minutes, so it no longer blocks every runner's launches of its agent type; the next prompt and runs gc abandon it, and the slot that opened it is told
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S11", "S16"]
@@ -137,3 +137,5 @@ Measured at `554fe3a`:
   refused prompt that still tells, and told once).
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #416 head `d57cc34` (squash `1abbb84`): APPROVE. Passed: cmd-01, cmd-02, code-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0340-a-pending-run-whose-agent-never-started-expires-and-no-longer-blocks-its-agent-type.json.
+
