@@ -1668,7 +1668,7 @@ tasks:
     depends_on: []
     path: tasks/0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs.md
   - id: 0339-a-suite-run-s-liveness-is-judged-by-its-process-and-a-killed-run-s-processes-are-ended
-    status: pending
+    status: done
     title: A suite run is open while its recording ccp process lives, not for a fixed 30 minutes, the board reads that state, and the plane ends a run whose worker run reported or was abandoned, so nothing it started keeps holding the lane's resources
     depends_on: []
     path: tasks/0339-a-suite-run-s-liveness-is-judged-by-its-process-and-a-killed-run-s-processes-are-ended.md

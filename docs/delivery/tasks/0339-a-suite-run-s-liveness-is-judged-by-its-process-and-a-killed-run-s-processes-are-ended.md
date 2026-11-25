@@ -1,7 +1,7 @@
 ---
 task_id: 0339-a-suite-run-s-liveness-is-judged-by-its-process-and-a-killed-run-s-processes-are-ended
 title: A suite run is open while its recording ccp process lives, not for a fixed 30 minutes, the board reads that state, and the plane ends a run whose worker run reported or was abandoned, so nothing it started keeps holding the lane's resources
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S28"]
@@ -158,4 +158,27 @@ Measured at `554fe3a`:
 
 ## Implementation notes
 
+- `ccp/suite.py`: `_identity()` adds `pid`, `host` and `pstart` to the `started` row, inside the recording try so
+  a failure never blocks the run. `_ps(pid, field)` is the one `ps -o <field>= -p <pid>` call (TZ=UTC0 LC_ALL=C,
+  5 s timeout, `PS` and `PS_TIMEOUT_S` module constants the tests patch). `_alive(row)` gives `alive`, `dead` or
+  `unknown` as ruled; when ps cannot answer it checks once more whether the process exists, so a process gone
+  while ps ran is `dead`, not `unknown`. `_why_killed` is the one rule `fold` and `ccp suite wait` share; it
+  returns the reason (`KILLED_GONE`, `KILLED_RUN`, `KILLED_AGE`), which the wait message prints. `_killed` now
+  takes the `started` row and returns that reason. `end_bound_runs(q, run_id)` signals each open, alive row bound
+  to the run and returns the suite ids signalled.
+- `ccp/report.py` calls `end_bound_runs` where it sets `reported_at` (a first report, not a correction);
+  `ccp/runs.py` `abandon` calls it after the record and event. Both ignore its errors. `stop` does not call it.
+- `ccp/board.py` `_live` counts a suite of an open run as running when `fold` gives it `open`;
+  `SUITE_LIVE_MINUTES` is gone.
+- `fold`'s output gains no field: the wait message's reason is computed from the `started` row by the same rule.
+- Fix round 1 (review MINOR 1, NIT 2), tests only:
+  - `test_a_row_without_a_pid_keeps_the_age_rule` also covers the run rule. A row with no `pid`, bound to a run
+    that stopped after the row started, is `killed`, and `suite wait` prints `KILLED_RUN`. A row that started after
+    the stop stays open. Before this, nothing covered `_killed`'s run-record load. The case sits in the existing test
+    rather than a sibling one so that code-01's count of seven `Liveness` tests still holds.
+  - `start()` has the command write its own pid. The reported and abandoned test asserts that this process is gone
+    after the recording `ccp` exits, which is the task's point: nothing the run started keeps the lane.
+
 ## Verification notes
+- 2026-11-25 — verifier, PR #414 head `53b8125` (squash `c953065`): APPROVE. Passed: cmd-01, cmd-02, code-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0339-a-suite-run-s-liveness-is-judged-by-its-process-and-a-killed-run-s-processes-are-ended.json.
+
