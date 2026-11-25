@@ -79,6 +79,12 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("put the file back", text)
         self.assertNotIn("put the file back", (PLANE_ROOT / "templates/prompts/verify.md").read_text())
 
+    def test_the_verify_prompt_asks_for_the_ran_false_reliance_and_the_ruling_id(self):
+        _run_id, text = self.render("verify", "--pr", "7", "--head", A)
+        self.assertIn("whether your verdict relies on a check you record `ran: false`", text)
+        self.assertIn("A ruling the lead gave the runner by message has an id", text)
+        self.assertIn("cite that id in the check's `ruling`", text)
+
     def test_the_change_rounds_name_mutate_and_suite_run_affected(self):
         for phase, args in CHANGE_ROUNDS:
             run_id, text = self.render(phase, *args)
