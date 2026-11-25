@@ -25,11 +25,10 @@ SCHEMA = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_tex
 # Every key that became a constant, by block: the keys a product would not change.
 CONSTANTS = {
     "task_log": ("dir", "required", "refs_any", "sections", "kinds", "reviews_dir", "max_checks", "soft_words",
-                 "index", "dry_run"),
+                 "index"),
     "package_docs": ("doc_name", "size_ratio", "banned_headings", "path_ref_suffixes", "no_delivery_ids"),
-    "docs": ("workers",),
-    "architect": ("rules_max_lines", "max_days", "notes_due", "drift_ratio", "grace_tasks", "triage_grace_tasks",
-                  "refactor_in_scope", "call_timeout_minutes", "max_new_tasks"),
+    "architect": ("max_days", "drift_ratio", "grace_tasks", "triage_grace_tasks", "refactor_in_scope",
+                  "call_timeout_minutes"),
     "prompts": ("keep_body", "audit_keep_days"),
     "worktrees": ("dir",),
     "env": ("timeout_seconds",),
@@ -60,14 +59,12 @@ WAS = {
                                                    "forbid": ["spec_refs", "adr_refs"]}},
     "task_log.reviews_dir": "reviews", "task_log.max_checks": 6,
     "task_log.soft_words": ["should", "may", "might", "as appropriate", "gracefully", "robust", "robustly"],
-    "task_log.index": True, "task_log.dry_run": False,
+    "task_log.index": True,
     "package_docs.doc_name": ".claude.md", "package_docs.size_ratio": 0.5,
     "package_docs.banned_headings": ["future", "planned", "next steps", "roadmap", "todo"],
     "package_docs.path_ref_suffixes": [".py", ".sql", ".json", ".md", ".sh"], "package_docs.no_delivery_ids": True,
-    "docs.workers": None,  # was 1: ADR-0043 D9 names this constant, as many workers as there are checks
-    "architect.rules_max_lines": 150, "architect.max_days": 14, "architect.notes_due": 3,
-    "architect.drift_ratio": 1.5, "architect.grace_tasks": 1, "architect.triage_grace_tasks": 2,
-    "architect.refactor_in_scope": "deps", "architect.call_timeout_minutes": 45, "architect.max_new_tasks": 5,
+    "architect.max_days": 14, "architect.drift_ratio": 1.5, "architect.grace_tasks": 1,
+    "architect.triage_grace_tasks": 2, "architect.refactor_in_scope": "deps", "architect.call_timeout_minutes": 45,
     "prompts.keep_body": False, "prompts.audit_keep_days": None,
     "worktrees.dir": ".plane-runtime",  # was null: ADR-0043 D9 names this default, and init wrote it
     "env.timeout_seconds": 600, "auth_check.timeout_seconds": 60, "board.refresh_minutes": 5,
@@ -90,7 +87,8 @@ WAS = {
     "telemetry.design_seat": None,  # the lead's expected model is `models.lead` now (`config.design_seat`)
 }
 KEPT = (("adr", "strict"), ("verify", "skip_review_after_clean"), ("estimate", "auto"), ("architect", "shape_adrs"),
-        ("prompts", "fragment"), ("suite", "lanes"))
+        ("prompts", "fragment"), ("suite", "lanes"), ("architect", "rules_max_lines"), ("architect", "notes_due"),
+        ("architect", "max_new_tasks"), ("task_log", "dry_run"), ("docs", "workers"))
 
 
 def load(plane: dict[str, Any], files: dict[str, str] | None = None) -> tuple[config.Config, str]:
@@ -187,6 +185,41 @@ class TheConstants(unittest.TestCase):
         self.assertIn("max_days", str(cm.exception))
 
 
+class TheSettingsAgain(unittest.TestCase):
+    """The five keys a product sets as ordinary settings again (operator, 2026-11-24): each keeps the default it had
+    as a constant, and a value set applies with no warning."""
+
+    # each key's default, as it had it while a constant (WAS at the merge base)
+    DEFAULTS = {"architect.rules_max_lines": 150, "architect.notes_due": 3, "architect.max_new_tasks": 5,
+                "task_log.dry_run": False, "docs.workers": None}
+    SET = {"architect.rules_max_lines": 200, "architect.notes_due": 2, "architect.max_new_tasks": 3,
+           "task_log.dry_run": True, "docs.workers": 2}
+
+    def test_the_five_keys_are_settings_with_their_old_defaults(self):
+        for key, was in self.DEFAULTS.items():
+            block, name = key.split(".")
+            with self.subTest(key=key):
+                self.assertNotIn(key, config.KEY_OUTCOMES)
+                prop = schema_prop(key)
+                self.assertIsNot(prop.get("deprecated"), True)
+                self.assertFalse(prop["description"].startswith("Constant"), prop["description"])
+                self.assertEqual(config.BLOCK_DEFAULTS[block][name], was)
+                self.assertEqual(prop["default"], was)
+
+    def test_a_value_set_loads_with_no_warning_and_applies(self):
+        plane: dict[str, Any] = {}
+        for key, value in self.SET.items():
+            block, name = key.split(".")
+            plane.setdefault(block, {})[name] = value
+        cfg, err = load(plane)
+        self.assertEqual((err, cfg.key_notes), ("", ()))
+        self.assertEqual(config.key_outcomes_set(plane), [])
+        for key, value in self.SET.items():
+            block, name = key.split(".")
+            with self.subTest(key=key):
+                self.assertEqual(getattr(cfg, block)[name], value)
+
+
 class TheUpgradeStatus(UpgradeFixture, unittest.TestCase):
     def test_a_constant_set_to_another_value_is_listed_and_one_set_to_the_constant_is_not(self):
         self.product_json(language="none", gate={"shell_limit_seconds": 99}, architect={"max_days": 14},
@@ -200,16 +233,6 @@ class TheUpgradeStatus(UpgradeFixture, unittest.TestCase):
                          (600, 99))
         self.assertEqual(listed["gate.shell_limit_seconds"]["outcome"], "constant")
         self.assertIn("delete `gate.shell_limit_seconds`", step["change"])
-
-
-    def test_a_constant_in_words_is_named_in_words(self):
-        self.product_json(language="none", docs={"workers": 2})
-        code, body, err = self.ccp("upgrade", "status")
-        self.assertEqual(code, 0, err)
-        step = next(s for s in body["steps"] if s["task"] == "plane.json keys")
-        self.assertIn(f"delete `docs.workers`: it is a constant, {config.KEY_OUTCOMES['docs.workers'].shown}, and "
-                      "yours is 2;", step["change"])
-        self.assertNotIn("constant, None", step["change"])
 
 
 class TheNewDefaults(unittest.TestCase):

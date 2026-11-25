@@ -418,13 +418,11 @@ KEY_OUTCOMES: dict[str, Outcome] = {
 # dict holds (the readers still read it from the loaded block), and a value set other than it applies, with a warning.
 _CONSTANT_KEYS: tuple[tuple[str, dict[str, Any], tuple[str, ...]], ...] = (
     ("task_log", TASK_LOG_DEFAULTS, ("dir", "required", "refs_any", "sections", "kinds", "reviews_dir", "max_checks",
-                                     "soft_words", "index", "dry_run")),
+                                     "soft_words", "index")),
     ("package_docs", PACKAGE_DOCS_DEFAULTS, ("doc_name", "size_ratio", "banned_headings", "path_ref_suffixes",
                                              "no_delivery_ids")),
-    ("docs", DOCS_DEFAULTS, ("workers",)),
-    ("architect", ARCHITECT_DEFAULTS, ("rules_max_lines", "max_days", "notes_due", "drift_ratio", "grace_tasks",
-                                       "triage_grace_tasks", "refactor_in_scope", "call_timeout_minutes",
-                                       "max_new_tasks")),
+    ("architect", ARCHITECT_DEFAULTS, ("max_days", "drift_ratio", "grace_tasks", "triage_grace_tasks",
+                                       "refactor_in_scope", "call_timeout_minutes")),
     ("prompts", PROMPTS_DEFAULTS, ("keep_body", "audit_keep_days")),
     ("worktrees", WORKTREES_DEFAULTS, ("dir",)),
     ("env", ENV_DEFAULTS, ("timeout_seconds",)),
@@ -448,8 +446,6 @@ KEY_OUTCOMES.update({f"{block}.{key}": Outcome(CONSTANT, value=copy.deepcopy(def
 # `ccp init` wrote `worktrees.dir` until it became a constant (ADR-0043 D9): a plane.json that still sets the constant's
 # own value loads with no warning, and only a different value warns.
 KEY_OUTCOMES["worktrees.dir"] = replace(KEY_OUTCOMES["worktrees.dir"], quiet_equal=True)
-# `docs.workers`' constant is null, which runs every check command at once (§21.5): its warnings say so in words.
-KEY_OUTCOMES["docs.workers"] = replace(KEY_OUTCOMES["docs.workers"], shown="as many as there are checks")
 UNSET: Any = object()  # `constant_override`: the key is not set
 
 
