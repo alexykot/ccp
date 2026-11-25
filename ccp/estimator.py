@@ -42,7 +42,7 @@ from typing import Any
 
 from ccp.envvars import envvar
 from ccp import estimate as est
-from ccp import adr, config, headless, models, tasklog
+from ccp import adr, headless, models, spec, tasklog
 from ccp.refs import ids as _ids
 from ccp.refs import number_prefix
 from ccp.config import Config
@@ -106,16 +106,6 @@ def _clip(text: str, n: int) -> str:
     return text if len(text) <= n else text[:n].rstrip() + f"\n[... cut at {n} characters]"
 
 
-def _heading_block(text: str, pattern: str) -> str | None:
-    """The block under the first heading matching `pattern`, up to the next heading of its level or higher."""
-    m = re.search(rf"^(#+)[ \t]+{pattern}.*$", text, re.M)
-    if not m:
-        return None
-    level = len(m.group(1))
-    nxt = re.search(rf"^#{{1,{level}}}[ \t]", text[m.end():], re.M)
-    return text[m.start():m.end() + nxt.start() if nxt else len(text)]
-
-
 def adr_excerpts(cfg: Config, refs: list[str]) -> str:
     """Each cited ADR decision (`0035 D1`: its `D1` block), or the ADR's head and its decision titles
     (`0039`), each at most B_ADR characters and all of them at most B_ADRS."""
@@ -151,33 +141,13 @@ def adr_excerpts(cfg: Config, refs: list[str]) -> str:
     return "\n\n".join(out) or "None cited."
 
 
-def _spec_files(cfg: Config) -> list[Path]:
-    """The product's SPEC files, in `spec_paths` order (§3.5; globs relative to the root, a directory read as its
-    `*.md`, §26.3)."""
-    out: list[Path] = []
-    for pat in (f"{p}*.md" if p.endswith("/") else p for p in config.spec_paths(cfg)):
-        hits = sorted(cfg.root.glob(pat)) if any(ch in pat for ch in "*?[") else [cfg.root / pat]
-        out += [p for p in hits if p.is_file() and p not in out]
-    return out
-
-
 def spec_excerpts(cfg: Config, refs: list[str]) -> str:
-    """Each cited SPEC section (`S52`: the heading that starts with it), at most B_SPEC characters
-    each and B_SPECS in all."""
+    """Each cited SPEC section, as `ccp spec show` prints it (`spec.resolve`: `S52` or `52`, the heading that starts
+    with its number), at most B_SPEC characters each and B_SPECS in all."""
     out, used = [], 0
-    files = _spec_files(cfg)
-    texts = []
-    for f in files:
-        try:
-            texts.append((f, f.read_text(errors="replace")))
-        except OSError:
-            continue
+    texts, prefix = spec.texts(cfg), _ids(cfg).spec_prefix
     for ref in dict.fromkeys(str(r).strip() for r in refs if str(r).strip()):
-        block = None
-        for f, text in texts:
-            block = _heading_block(text, re.escape(ref) + r"\b")
-            if block:
-                break
+        block = spec.resolve(texts, ref, prefix)
         piece = f"### {ref}\n{_clip(block, B_SPEC)}" if block else f"### {ref}: no SPEC heading found"
         if used + len(piece) > B_SPECS:
             out.append(f"[further SPEC excerpts left out: the excerpts are capped at {B_SPECS} characters]")

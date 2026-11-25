@@ -34,7 +34,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import refs, tasklog
+from ccp import mdsection, refs, tasklog
 from ccp.config import Config
 from ccp.config import spec_paths as spec_paths_of
 
@@ -56,20 +56,24 @@ def _cell(v: str) -> str:
     return v.strip().strip("`*_").strip()
 
 
+def _head_text(name: str) -> str:
+    """A `## <name>` heading's text (any case), with or without a note after a space."""
+    return rf"(?i:{re.escape(name)})(?:[ \t][^\n]*)?$"
+
+
 def heading(text: str, name: str) -> re.Match[str] | None:
-    """The first `## <name>` heading line (any case), with or without a note after a space."""
-    return re.search(rf"^##[ \t]+{re.escape(name)}(?:[ \t][^\n]*)?$", text, re.M | re.I)
+    """The first `## <name>` heading line outside a fenced block (`_head_text`)."""
+    return re.search(rf"^##[ \t]+{_head_text(name)}", mdsection.unfence(text), re.M)
 
 
 def table(text: str, name: str, raw: bool = False) -> list[tuple[str, str]] | None:
-    """The `(key, value)` rows of the two-column table under `## <name>` (`heading`), its header and
+    """The `(key, value)` rows of the two-column table under `## <name>` (`_head_text`), its header and
     separator rows left out; None when there is no such heading or it holds no row. Each key is lowercased
     without its backticks or emphasis; each value too, or with `raw` only trimmed."""
-    m = heading(text, name)
-    if not m:
+    span = mdsection.heading_span(text, _head_text(name), level=2)
+    if not span:
         return None
-    nxt = re.search(r"^#{1,2}[ \t]", text[m.end():], re.M)
-    body = text[m.end(): m.end() + nxt.start()] if nxt else text[m.end():]
+    body = text[span[1]:span[2]]
     rows = []
     for line in body.splitlines():
         line = line.strip()

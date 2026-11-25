@@ -23,6 +23,7 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 | `ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]` | fire a test notice, in a sandbox (plane developers) | §3.6, §29.3 |
 | `ccp notify pending` | the notices fired and not yet sent (the lead) | §3.6 |
 | `ccp notify upgrade [--since COMMIT]` | record this product's `upgrade` notice (`scripts/run-checkout.sh update`) | §3.6, §29.3 |
+| `ccp spec show <ref> [<ref> …]` | print each cited SPEC section, in the order given (any seat) | §7.2 |
 | `ccp where` | the binding this directory resolves to (any seat) | §8.3, §9.2 |
 | `ccp orientation` | print the orientation a session gets (any session that started before adoption) | §9.3 |
 | `ccp orientation --tail` | print the text the SessionStart hook appends to the orientation (the hook) | §9.3 |

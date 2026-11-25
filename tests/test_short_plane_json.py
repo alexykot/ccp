@@ -12,7 +12,7 @@ from contextlib import redirect_stderr
 from typing import Any
 from unittest import mock
 
-from ccp import config, estimator, tasklog
+from ccp import config, spec, tasklog
 from tests.helpers import PLANE_ROOT, Product
 from tests.upgrade_fixture import UpgradeFixture
 
@@ -104,7 +104,7 @@ class MergedSpecPaths(unittest.TestCase):
         self.addCleanup(p.cleanup)
         for rel in ("design/a.md", "design/b.txt", "RULES.md", "docs/SPEC.md"):
             p.write(rel, "# x\n")
-        got = [f.relative_to(p.root).as_posix() for f in estimator._spec_files(p.cfg)]  # noqa: SLF001
+        got = [f.relative_to(p.root).as_posix() for f in spec.files(p.cfg)]
         self.assertEqual(got, ["design/a.md", "RULES.md"])
 
 

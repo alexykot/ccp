@@ -42,7 +42,7 @@
       },
       {
         "id": "E22",
-        "cmd": "! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py' && ! git grep -nE 'search\\(rf\"\\^## |tasklog\\._section' -- ccp scripts ':(exclude)ccp/tasklog.py'"
+        "cmd": "! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py' && ! git grep -nE 'search\\(rf\"\\^## |tasklog\\._section' -- ccp scripts ':(exclude)ccp/tasklog.py' && ! git grep -nE 're\\.search\\(r?f?\"\\^(#\\{\\{?1,|\\(#\\+\\))' -- ccp scripts ':(exclude)ccp/mdsection.py'"
       },
       {
         "id": "E23",
