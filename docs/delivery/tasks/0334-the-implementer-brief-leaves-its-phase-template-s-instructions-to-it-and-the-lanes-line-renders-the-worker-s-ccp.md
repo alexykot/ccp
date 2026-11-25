@@ -141,5 +141,6 @@ Measured at `1a575497`:
 - `suite_lanes` renders both part-lane clauses with `ccp_command(cfg)`. `test_a_declared_part_argv_takes_the_module_names_after_it` pinned the literal `ccp suite run --affected` in the declared-argv clause; it now builds the same text from `ccp_command(c)` (same expectation, rendered as the prompt renders it).
 - `PREMISE_DOCS` pins the writing-tasks skill by `premise that sets scope`, not the bare `sets scope` the task names: the skill carries `sets scope` twice in one bullet ("A premise that sets scope ...", "A premise sets scope when ..."), so the bare token cannot be asserted once. The longer phrase holds once and still contains it. Narrowest reading; flagged for the lead.
 - E13 is the task's text verbatim.
+- Fix round 1: the questions bullet in `delivery-implementer.md` regains its third sentence, "Don't guess intent." (the review's MINOR-1; the task keeps the bullet's first three sentences and no template or `_common.md` line carries it). Left for the lead: the review's two follow-ups (a pin for the interrupted-command rule in the definitions; the task text's `sets scope` token).
 
 ## Verification notes

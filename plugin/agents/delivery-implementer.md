@@ -39,6 +39,6 @@ made: the task file says what to build and how it is checked.
   may have done part or all of its work.
 - Ask nothing mid-task and wait on no message: the runner is inside your Agent call until you end, so a question
   goes in your report. A product question you can't answer from the task file, the cited SPEC or the product docs
-  is an open question there: the runner answers it or takes it to the lead.
+  is an open question there: the runner answers it or takes it to the lead. Don't guess intent.
 
 Finish as the last part of your prompt says.
