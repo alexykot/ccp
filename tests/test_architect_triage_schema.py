@@ -1,12 +1,14 @@
-"""SPEC §19.8: `ccp architect triage` holds a triage to its contract (`contracts/architecture_review_triage.schema.json`)
-through the plane's one schema checker, and the code's disposition lists are the contract's enums."""
+"""SPEC §19.7, §19.8: `ccp architect` holds a report and a triage to their contracts (`contracts/architect_report.schema.json`,
+`contracts/architecture_review_triage.schema.json`) through the plane's one schema checker, and the code's disposition
+lists are the contract's enums."""
 from __future__ import annotations
 
 import json
 import unittest
 
 from ccp import architect, architecture_review, refs
-from tests.architect_fixture import Harness
+from ccp.schema import schema_errors
+from tests.architect_fixture import FINDING, Harness
 from tests.helpers import PLANE_ROOT
 
 CONTRACTS = PLANE_ROOT / "contracts"
@@ -74,6 +76,44 @@ class TriageIdShapes(unittest.TestCase):
         errs = self.errs(triage)
         self.assertTrue(any("rule_changes[0].disposition" in e for e in errs), errs)
         self.assertTrue(any("tasks_created[1]" in e and "is not string" in e for e in errs), errs)
+
+
+class ReportContract(unittest.TestCase):
+    """A report is held to its contract, and a product's own rule ids (SPEC §7.1) pass it and plane.json's."""
+
+    RID = "ar-20261101T100000Z-abcd"
+
+    def report(self, findings=(FINDING,), rule_changes=()):
+        return {"schema_version": 1, "review_id": self.RID, "project_id": "demo", "head": "abc1234", "base": None,
+                "summary": "A look.", "findings": list(findings), "mode": "pass", "lenses": ["structure"],
+                "rule_changes": list(rule_changes)}
+
+    def test_a_report_the_contract_refuses_is_refused(self):
+        self.assertEqual(architecture_review.validate_report(self.report(), self.RID, "demo"), [])
+        errs = architecture_review.validate_report(self.report([{**FINDING, "severity": "urgent"}]), self.RID, "demo")
+        self.assertTrue(any("severity" in e for e in errs), errs)
+
+    def test_a_report_and_a_plane_json_in_the_products_rule_ids_pass(self):
+        ids = refs.Ids(rule_pattern="HR-[0-9]+")
+        report = self.report(rule_changes=[{"rule": "HR-1", "action": "add", "text": "One registry.", "check": "pass"}])
+        self.assertEqual(architecture_review.validate_report(report, self.RID, "demo", ids=ids), [])
+        plane_json = {"project_id": "demo", "language": "python",
+                      "ids": {"task": {"width": 5}, "rule": {"pattern": "HR-[0-9]+"}},
+                      "architect": {"checks": [{"id": "HR-1", "cmd": "true"}], "shape_from_task": "00042",
+                                    "budgets": [{"id": "HR-2", "glob": "src/**/*.py", "max_lines": 400}]}}
+        self.assertEqual(schema_errors(plane_json, contract("plane_config.schema.json")), [])
+
+    def test_a_rule_id_outside_the_products_pattern_is_refused(self):
+        report = self.report(rule_changes=[{"rule": "HR-1", "action": "add", "text": "One registry.", "check": "pass"}])
+        errs = architecture_review.validate_report(report, self.RID, "demo")
+        self.assertTrue(any("rule_changes[0]" in e and "is not a rule id" in e for e in errs), errs)
+
+    def test_the_models_own_review_id_must_be_this_reviews(self):
+        report = self.report()
+        self.assertEqual(architect.validate(report, self.RID, "demo", "pass", ["structure"], head="abc1234"), [])
+        report["review_id"] = "ar-20261101T100000Z-ffff"
+        errs = architect.validate(report, self.RID, "demo", "pass", ["structure"], head="abc1234")
+        self.assertTrue(any("review_id" in e for e in errs), errs)
 
 
 class TriageByAProductsRuleIds(Harness):

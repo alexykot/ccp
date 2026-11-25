@@ -1,12 +1,12 @@
-"""The §19 review kit the architect seat (`ccp architect`, SPEC §19) runs on: review kinds, the
-reviewer lock, report and triage validation, rendering, and the triage hand-off to the task-log owner.
+"""The §19 review kit the architect seat (`ccp architect`, SPEC §19) runs on: the seat's state file, lock,
+id prefixes, event type, lenses and finding categories, the reviewer lock, report and triage validation,
+rendering, and the triage hand-off to the task-log owner.
 
 Runtime files only (QUEUE_ROOT, outside product git); the durable record is written by the triage
 owner in the product repo (docs/delivery/reviews/<review_id>.md). No secrets.
 
-A review *kind* (`Kind`) names its own state file, lock, id prefixes, event type and finding
-categories; every function takes the kind it works on. The older architecture-review and docs-audit
-aliases are retired (§19.12); their queue records stay readable by the board and health.
+The kit serves the architect seat alone. The older architecture-review and docs-audit aliases are
+retired (§19.12); their queue records stay readable by the board and health.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import subprocess
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any
 
 from ccp import models, refs, schema
 from ccp.lib import (
@@ -37,29 +37,28 @@ from ccp.lib import (
     write_json,
 )
 
-CATEGORIES = ("holdover", "not-first-class", "duplication", "vocabulary-drift", "dead-surface",
-              "incoherence", "unobserved", "cost", "rule-cost")
+EVENT = "architect"              # observability event type
+LABEL = "Architect pass"
+PREFIXES = ("ar", "sh")           # review id prefixes: a pass, a shape
+STATE = "architect.json"          # QUEUE_ROOT state file
+LOCK = "architect.lock"           # QUEUE_ROOT reviewer lock
+AUDIT_TASK = "architect"          # prompt-audit task id
+TRIAGE_CMD = "ccp architect triage"  # how the Runner re-runs triage
+RID_RE = re.compile(rf"^(?:{'|'.join(PREFIXES)})-{refs.STAMP_ID}$")
 
+STRUCTURE_CATEGORIES = ("holdover", "not-first-class", "duplication", "vocabulary-drift", "dead-surface",
+                        "incoherence", "unobserved", "cost", "rule-cost")
+LENSES: dict[str, tuple[str, ...]] = {
+    "structure": STRUCTURE_CATEGORIES,
+    "docs": ("doc-wrong", "doc-missing", "doc-aspirational", "doc-padding", "doc-history"),
+    "tests": ("test-cost", "test-brittle"),
+    "process": ("process-cost",),
+}
+CATEGORIES = tuple(c for cats in LENSES.values() for c in cats)  # every lens's, in order
 
-class Kind(NamedTuple):
-    """One kind of review: where its runtime files live and what its findings may say."""
-    name: str            # observability event type
-    label: str           # "Architect pass"
-    prefix: str          # review id prefix
-    state: str           # QUEUE_ROOT state file
-    lock: str            # QUEUE_ROOT reviewer lock
-    audit_task: str      # prompt-audit task id and phase
-    categories: tuple[str, ...]
-    triage_cmd: str      # how the Runner re-runs triage
-    alt_prefixes: tuple[str, ...] = ()  # more id prefixes of the same kind (the architect's `sh-` shapes)
-
-    @property
-    def rid_re(self) -> re.Pattern[str]:
-        p = "|".join((self.prefix, *self.alt_prefixes))
-        return re.compile(rf"^(?:{p})-{refs.STAMP_ID}$")
-
-
-TRIAGE_SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "architecture_review_triage.schema.json"
+CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
+REPORT_SCHEMA = CONTRACTS / "architect_report.schema.json"
+TRIAGE_SCHEMA = CONTRACTS / "architecture_review_triage.schema.json"
 DISPOSITIONS = ("task", "spec", "defer", "needs_operator", "duplicate", "reject")
 BASE_READ_TOOLS = ["Read", "Grep", "Glob", "Skill",
                    "Bash(git log:*)", "Bash(git show:*)", "Bash(git diff:*)", "Bash(git ls-files:*)",
@@ -108,24 +107,24 @@ def out(obj: dict[str, Any], code: int = 0) -> int:
     return code
 
 
-def state_path(root: Path, kind: Kind) -> Path:
-    return root / kind.state
+def state_path(root: Path) -> Path:
+    return root / STATE
 
 
-def load_state(root: Path, kind: Kind) -> dict[str, Any]:
-    p = state_path(root, kind)
+def load_state(root: Path) -> dict[str, Any]:
+    p = state_path(root)
     return read_json(p) if p.is_file() else {"schema_version": 1, "reviews": {}}
 
 
-def save_state(root: Path, st: dict[str, Any], kind: Kind) -> None:
-    write_json(state_path(root, kind), st)
+def save_state(root: Path, st: dict[str, Any]) -> None:
+    write_json(state_path(root), st)
 
 
 @contextmanager
-def state_lock(root: Path, kind: Kind):
+def state_lock(root: Path):
     """The state file's own lock, held for one read-modify-write (milliseconds, never across a call).
     A detached architect pass writes its record while `ccp tasks next` and triage write theirs."""
-    fd = os.open(str(state_path(root, kind)) + ".lock", os.O_CREAT | os.O_RDWR, 0o644)
+    fd = os.open(str(state_path(root)) + ".lock", os.O_CREAT | os.O_RDWR, 0o644)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
@@ -134,13 +133,13 @@ def state_lock(root: Path, kind: Kind):
         os.close(fd)
 
 
-def update_state(root: Path, kind: Kind, fn: Any) -> dict[str, Any]:
+def update_state(root: Path, fn: Any) -> dict[str, Any]:
     """Re-read the state under its lock, apply `fn` to it, save it; returns what was saved."""
-    with state_lock(root, kind):
-        st = load_state(root, kind)
+    with state_lock(root):
+        st = load_state(root)
         st.setdefault("reviews", {})
         fn(st)
-        save_state(root, st, kind)
+        save_state(root, st)
     return st
 
 
@@ -163,12 +162,12 @@ def actor_of(arg: str | None) -> str:
     return a if a in ACTORS else "system"
 
 
-def emit(root: Path, actor: str, op: str, payload: dict[str, Any], kind: Kind) -> None:
+def emit(root: Path, actor: str, op: str, payload: dict[str, Any]) -> None:
     append_event(root, {"at": fmt_dt(now_utc()), "project_id": project_id(root), "task_id": "",
-                        "actor": actor, "type": kind.name, "op": op, "payload": payload})
+                        "actor": actor, "type": EVENT, "op": op, "payload": payload})
 
 
-def transition(root: Path, st: dict[str, Any], rid: str, to: str, actor: str, kind: Kind) -> None:
+def transition(root: Path, st: dict[str, Any], rid: str, to: str, actor: str) -> None:
     """Move one review to `to`, carrying the caller's fields for that review onto a fresh read of the
     state (so a stale `st` never overwrites another writer's records), and emit the event."""
     mine = dict((st.get("reviews") or {}).get(rid) or {})
@@ -181,9 +180,9 @@ def transition(root: Path, st: dict[str, Any], rid: str, to: str, actor: str, ki
         rec["status"] = to
         rec["updated_at"] = fmt_dt(now_utc())
 
-    fresh = update_state(root, kind, apply)
+    fresh = update_state(root, apply)
     st.setdefault("reviews", {})[rid] = fresh["reviews"][rid]
-    emit(root, actor, "transition", {"review_id": rid, "from": frm[0], "to": to}, kind)
+    emit(root, actor, "transition", {"review_id": rid, "from": frm[0], "to": to})
 
 
 def git(cwd: str, *a: str) -> str:
@@ -222,35 +221,33 @@ def last_json_object(text: str) -> dict[str, Any] | None:
     return last
 
 
-def validate_report(r: Any, rid: str, pid: str, kind: Kind, max_findings: int = 25) -> list[str]:
-    errs: list[str] = []
+def validate_report(r: Any, rid: str, pid: str, categories: tuple[str, ...] = CATEGORIES, max_findings: int = 25,
+                    ids: refs.Ids = refs.DEFAULT) -> list[str]:
+    """A report as written against its contract (`REPORT_SCHEMA`, by `ccp.schema`'s one checker), then what the
+    contract cannot say: the review id is this review's, a finding's category is within the pass's lenses
+    (`categories`), no low confidence, a rule-cost finding asks for a decision, a rule change's rule id has the
+    product's shape (`ids`), and no secret."""
     if not isinstance(r, dict):
         return ["report is not an object"]
-    for k in ("summary", "findings"):
-        if k not in r:
-            errs.append(f"missing {k}")
+    errs = schema.schema_errors(r, json.loads(REPORT_SCHEMA.read_text()), at="report")
     if r.get("review_id") not in (None, rid):
         errs.append(f"review_id {r.get('review_id')!r} != {rid}")
     f = r.get("findings")
-    if not isinstance(f, list):
-        return errs + ["findings is not a list"]
-    if len(f) > max_findings:
+    if isinstance(f, list) and len(f) > max_findings:
         errs.append(f"{len(f)} findings > {max_findings}")
-    for i, x in enumerate(f):
+    for x in f if isinstance(f, list) else []:
         if not isinstance(x, dict):
-            errs.append(f"finding {i} is not an object")
             continue
-        for k in ("id", "title", "category", "severity", "confidence", "what", "evidence", "fix", "proposal"):
-            if not x.get(k):
-                errs.append(f"{x.get('id') or i}: missing {k}")
-        if x.get("category") and x["category"] not in kind.categories:
+        if x.get("category") and x["category"] not in categories:
             errs.append(f"{x.get('id')}: category {x['category']!r}")
         if x.get("confidence") == "low":
             errs.append(f"{x.get('id')}: low confidence is not reported (skill rule)")
         if x.get("category") == "rule-cost" and (not x.get("needs_decision") or x.get("fix") != "decide"):
             errs.append(f"{x.get('id')}: a rule-cost finding needs a decision (needs_decision: true, fix: decide)")
-        if not isinstance(x.get("evidence"), list) or not x.get("evidence"):
-            errs.append(f"{x.get('id')}: no evidence")
+    rc = r.get("rule_changes")
+    for i, c in enumerate(rc if isinstance(rc, list) else []):
+        if isinstance(c, dict) and not ids.is_rule_id(c.get("rule")):
+            errs.append(f"rule_changes[{i}]: rule {c.get('rule')!r} is not a rule id ({ids.rule_shape})")
     if looks_like_secret(json.dumps(r)):
         errs.append("report contains a secret-like string")
     return errs
@@ -264,23 +261,13 @@ def is_commit_sha(value: Any) -> bool:
     return isinstance(value, str) and bool(COMMIT_SHA_RE.fullmatch(value))
 
 
-def _triage_contract(ids: refs.Ids) -> dict[str, Any]:
-    """The triage contract without the two id patterns SPEC §7.1 makes product knobs (`ids.task.width`,
-    `ids.rule.pattern`): the contract's are the defaults, and `validate_triage` checks those two values by `ids`."""
-    contract = json.loads(TRIAGE_SCHEMA.read_text())
-    props = contract["properties"]
-    props["tasks_created"]["items"].pop("pattern", None)
-    props["rule_changes"]["items"]["properties"]["rule"].pop("pattern", None)
-    return contract
-
-
 def validate_triage(t: Any, rid: str, ids: refs.Ids = refs.DEFAULT) -> list[str]:
     """A triage against its contract (`TRIAGE_SCHEMA`, by `ccp.schema`'s one checker), then what the contract
-    cannot say: a task id and a rule id have the product's shapes (`ids`; the contract's patterns are the
-    defaults), the review id is this review's, a task or ruling has a commit sha, and no secret."""
+    cannot say: a task id and a rule id have the product's shapes (`ids`, SPEC §7.1), the review id is this review's,
+    a task or ruling has a commit sha, and no secret."""
     if not isinstance(t, dict):
         return ["triage is not an object"]
-    errs = schema.schema_errors(t, _triage_contract(ids), at="triage")
+    errs = schema.schema_errors(t, json.loads(TRIAGE_SCHEMA.read_text()), at="triage")
     created = t.get("tasks_created")
     for i, tid in enumerate(created if isinstance(created, list) else []):
         if isinstance(tid, str) and not ids.task_id_re.match(tid):
@@ -299,8 +286,8 @@ def validate_triage(t: Any, rid: str, ids: refs.Ids = refs.DEFAULT) -> list[str]
     return errs
 
 
-def render_md(r: dict[str, Any], kind: Kind) -> str:
-    lines = [f"# {kind.label} {r.get('review_id')}", "",
+def render_md(r: dict[str, Any], label: str = LABEL) -> str:
+    lines = [f"# {label} {r.get('review_id')}", "",
              f"project `{r.get('project_id')}` · head `{r.get('head')}` · base `{r.get('base')}`", "",
              r.get("summary") or "", "", "| id | sev | category | title | fix |", "| --- | --- | --- | --- | --- |"]
     for f in r.get("findings") or []:
@@ -316,8 +303,8 @@ def render_md(r: dict[str, Any], kind: Kind) -> str:
 
 # ---------------------------------------------------------------- lock (reviewer runs only)
 
-def lock_take(root: Path, actor: str, rid: str, ttl_s: int, kind: Kind) -> tuple[bool, dict[str, Any] | None]:
-    path = root / kind.lock
+def lock_take(root: Path, actor: str, rid: str, ttl_s: int) -> tuple[bool, dict[str, Any] | None]:
+    path = root / LOCK
     for _ in range(2):
         body = {"holder": actor, "pid": os.getpid(), "host": socket.gethostname(), "since": fmt_dt(now_utc()),
                 "ttl_seconds": ttl_s, "review_id": rid}
@@ -326,34 +313,34 @@ def lock_take(root: Path, actor: str, rid: str, ttl_s: int, kind: Kind) -> tuple
         except FileExistsError:
             cur = read_json(path) if path.is_file() else {}
             if lock_is_stale(cur, now_utc()):
-                emit(root, actor, "clear", {"holder": cur.get("holder"), "reason": "stale", "review_id": cur.get("review_id")}, kind)
+                emit(root, actor, "clear", {"holder": cur.get("holder"), "reason": "stale", "review_id": cur.get("review_id")})
                 path.unlink(missing_ok=True)
                 continue
             return False, cur
         with os.fdopen(fd, "w") as fh:
             fh.write(json.dumps(body, indent=2) + "\n")
-        emit(root, actor, "set", {"holder": actor, "reason": "review", "review_id": rid}, kind)
+        emit(root, actor, "set", {"holder": actor, "reason": "review", "review_id": rid})
         return True, body
     return False, None
 
 
-def lock_release(root: Path, actor: str, rid: str, kind: Kind) -> None:
-    path = root / kind.lock
+def lock_release(root: Path, actor: str, rid: str) -> None:
+    path = root / LOCK
     try:
         cur = read_json(path)
     except (OSError, ValueError):
         return
     if cur.get("pid") in (os.getpid(), str(os.getpid())):
         path.unlink(missing_ok=True)
-        emit(root, actor, "clear", {"holder": actor, "reason": "released", "review_id": rid}, kind)
+        emit(root, actor, "clear", {"holder": actor, "reason": "released", "review_id": rid})
 
 
 # ---------------------------------------------------------------- triage
 
-def triage_prompt(pid: str, doc: str, rp: Path, tp: Path, max_new: int, kind: Kind, extra: str = "") -> str:
+def triage_prompt(pid: str, doc: str, rp: Path, tp: Path, max_new: int, extra: str = "") -> str:
     return (
-        f"You own the task log of project {pid}. {'An' if kind.label[0] in 'AEIOU' else 'A'} "
-        f"{kind.label.lower()} needs triage (control-plane SPEC §19).\n"
+        f"You own the task log of project {pid}. {'An' if LABEL[0] in 'AEIOU' else 'A'} "
+        f"{LABEL.lower()} needs triage (control-plane SPEC §19).\n"
         f"Re-read {doc} now and follow it exactly.\n"
         f"Review report: {rp}\n"
         f"max_new_tasks: {max_new}\n"
@@ -363,14 +350,14 @@ def triage_prompt(pid: str, doc: str, rp: Path, tp: Path, max_new: int, kind: Ki
     )
 
 
-def apply_triage(root: Path, rid: str, actor: str, t: dict[str, Any], kind: Kind) -> dict[str, Any]:
-    st = load_state(root, kind)
+def apply_triage(root: Path, rid: str, actor: str, t: dict[str, Any]) -> dict[str, Any]:
+    st = load_state(root)
     recorded = {"commit_sha": t.get("commit_sha"), "tasks_created": t.get("tasks_created") or [],
                 "record": t.get("record"), "triaged_at": t.get("triaged_at")}
     if t.get("commit_sha") == "pending":
         recorded["pending_change"] = t.get("pending_change")
     st.setdefault("reviews", {}).setdefault(rid, {}).update(recorded)
-    transition(root, st, rid, "triaged", actor, kind)
+    transition(root, st, rid, "triaged", actor)
     actions: list[dict[str, Any]] = []
     if t.get("tasks_created"):
         actions.append({"action": "register_tasks", "task_ids": t["tasks_created"],
@@ -404,19 +391,19 @@ def _checkout(named: str, product_dir: str | None) -> str:
     return product_dir or named or ""
 
 
-def triage(root: Path, rid: str, actor: str, kind: Kind, max_new: int, prompt_extra: str = "",
+def triage(root: Path, rid: str, actor: str, max_new: int, prompt_extra: str = "",
            extra_check: Any = None, product_dir: str | None = None, ids: refs.Ids = refs.DEFAULT) -> int:
-    """Hand one report of this kind to the task-log owner, or apply its triage file (§19.8).
+    """Hand one report to the task-log owner, or apply its triage file (§19.8).
 
     The architect (§19) passes `max_new` (its `max_new_tasks`), `prompt_extra` for §19.8's steps,
     `extra_check(triage, report) -> errors`, and `product_dir` for a queue whose binding (§8.3) names
     no product_root; `ids` is the product's id shapes (§7.1)."""
-    if not kind.rid_re.match(rid):
+    if not RID_RE.match(rid):
         die(f"bad review id {rid!r}", 2)
     rp, tp = report_path(root, rid), triage_path(root, rid)
     if not rp.is_file():
         die(f"no report {rp}", 2)
-    st = load_state(root, kind)
+    st = load_state(root)
     status = (st.get("reviews", {}).get(rid) or {}).get("status")
     if status == "triaged":
         return out({"outcome": "already_triaged", "review_id": rid})
@@ -431,16 +418,16 @@ def triage(root: Path, rid: str, actor: str, kind: Kind, max_new: int, prompt_ex
         t = read_json(tp)
         errs = check(t)
         if not errs:
-            return out(apply_triage(root, rid, actor, t, kind))
+            return out(apply_triage(root, rid, actor, t))
         return out({"outcome": "invalid_triage", "review_id": rid, "errors": errs}, 1)
     pid = project_id(root)
     pr = _checkout(product_root(root), product_dir)
     doc = triage_doc(pr or "")
     if not os.path.isfile(doc):
         die(f"missing {doc}: the review-triage protocol (the plugin's skill, or docs/delivery/REVIEW-TRIAGE.md)", 1)
-    prompt = triage_prompt(pid, doc, rp, tp, max_new, kind, prompt_extra)
+    prompt = triage_prompt(pid, doc, rp, tp, max_new, prompt_extra)
     # §17, §17.3: the lead (the task-log owner) triages in its own session and writes the triage file.
-    transition(root, st, rid, "triage_sent", actor, kind)
+    transition(root, st, rid, "triage_sent", actor)
     act = {"action": "send_message_to_lead", "to": "team-lead", "message": prompt,
-           "detail": f"Async: run `{kind.triage_cmd} {rid}` on a later wake to apply the triage file."}
+           "detail": f"Async: run `{TRIAGE_CMD} {rid}` on a later wake to apply the triage file."}
     return out({"outcome": "sent_async", "review_id": rid, "actions": [act]})
