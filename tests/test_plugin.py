@@ -128,9 +128,6 @@ LESSONS = {
 LESSON_BRIEFS = {
     "orientation.md": tuple(LESSONS),
     "agents/delivery-runner.md": tuple(LESSONS),
-    **{f"agents/delivery-{a}.md": ("long commands run in the foreground",
-                                   "an interrupted command is checked before it is called a no-op")
-       for a in ("implementer", "reviewer", "verifier")},
 }
 
 
@@ -144,25 +141,24 @@ class TeamLessons(unittest.TestCase):
                 self.assertEqual(text.count(tokens[-1]), 1, (brief, rule))
 
 
-# SPEC §5, §13: a premise that sets scope names its command and commit; the implementer re-runs it
-# at its base and stops with a scope question when a figure changed materially.
+# SPEC §5, §13: a premise that sets scope names its command and commit; the implementer re-runs it at its base
+# and stops with a scope question when a figure changed materially. Each doc that holds a half of the rule is
+# pinned by the one token only it uses, present once; the worker definitions leave it to the prompt (E13).
 PREMISE_DOCS = {
-    PLUGIN / "skills" / "writing-tasks" / "SKILL.md": ("the command\n  that measured it", "the commit it ran at",
-                                                       "re-runs it at its base", "changed\n  materially",
-                                                       "scope question", "sets scope"),
-    PLUGIN / "agents" / "delivery-implementer.md": ("Before you build, re-run at your base", "measured\n  premise",
-                                                    "changed materially", "scope question", "sets scope"),
-    PLANE_ROOT / "templates" / "prompts" / "implement.md": ("Before you build, re-run at {{base}}", "measured premise",
-                                                      "changed materially", "scope question", "sets scope"),
+    PLUGIN / "skills" / "writing-tasks" / "SKILL.md": ("premise that sets scope",),
+    PLANE_ROOT / "templates" / "prompts" / "implement.md": ("Before you build, re-run at {{base}}",),
 }
 
 
 class MeasuredPremises(unittest.TestCase):
-    def test_the_skill_the_brief_and_the_prompt_each_state_the_rule_once(self):
+    def test_the_skill_and_the_prompt_each_state_the_rule_once(self):
         for doc, tokens in PREMISE_DOCS.items():
             text = doc.read_text()
-            self.assertEqual([t for t in tokens if t not in text], [], doc.name)
-            self.assertEqual(text.count(tokens[0]), 1, doc.name)
+            for token in tokens:
+                self.assertEqual(text.count(token), 1, (doc.name, token))
+
+    def test_the_foreground_rule_stands_once_in_the_common_part(self):
+        self.assertEqual((PLANE_ROOT / "templates" / "prompts" / "_common.md").read_text().count("foreground"), 1)
 
 
 class Hooks(unittest.TestCase):

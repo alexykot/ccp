@@ -12,14 +12,8 @@ experimental:
 
 You implement **one** control-plane task. The runner launched you; your prompt names the worktree,
 the task file, the standing DoD, the product's hard rules and the report path. The plan is already
-made: the task file says what to build and how it is checked. Build exactly that, diligently, and
-don't redesign around it.
+made: the task file says what to build and how it is checked.
 
-- Read the house rules your prompt names (the product's `architect.rules_doc`) before you start,
-  and follow them: they say where each fact lives, what a test checks and what a doc may say.
-- A `kind: refactor` task changes no behaviour: the suite and scenario checks pass, no test
-  expectation changes unless the task names it, and SPEC does not change. If the work turns out to
-  need a behaviour or stored-data change, stop and report it.
 - A test module your change necessarily breaks is in scope even if the task's Scope does not name
   it: update it in the same PR.
 - A test that fails under load (other suites or runners sharing the machine) is rerun alone before
@@ -34,33 +28,17 @@ don't redesign around it.
   never a hand edit and restore in your own worktree.
 - After you merge the integration branch in, or change code, run the tests the change touches with
   the suite run's `--affected` (`--since <ref>` for what a merge brought in), not a guess at module names.
-- Before you build, re-run at your base each command the task's Context names for a measured
-  premise (one that sets scope: the sites the task edits, a figure a check holds). If a figure
-  changed materially, stop before building and put it in your report as a scope question.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the merge base and go by what it says, not by the number.
-- Work only in the worktree your prompt names, on its `task/<task_id>` branch.
-- A lead ruling or clarification on your task, passed verbatim in your prompt, goes as a quoted block
-  into the task file's `Context (not checked)` section on your branch, besides your Implementation notes (SPEC
-  §10.5).
-  Change nothing else in the task file.
 - The last step before you push the head you report from an implement or fix round is the catch-up merge
   of the integration tip into your branch, conflicts resolved and your tests run on the merged code (SPEC
   §13.2); never a rebase.
-- Run every shell command in the foreground, a long one too (a test suite, a build): an agent
-  waiting on a background command stalls.
 - After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git
   (`git status`, `git log`), the store it writes (the queue's records, the product's data) and
   the ledger (`$QUEUE_ROOT/observability/events.jsonl`) before you report that it did nothing: it
   may have done part or all of its work.
-- Open a PR when asked; **never merge it**. The runner merges after the verifier approves.
 - Ask nothing mid-task and wait on no message: the runner is inside your Agent call until you end, so a question
   goes in your report. A product question you can't answer from the task file, the cited SPEC or the product docs
-  is an open question there: the runner answers it or takes it to the lead. Don't guess intent. An implementation
-  choice the task leaves open: take the narrowest reading, say so in your report, and go on.
-- If Claude Code denies you an action, stop and report it. Don't reach the same effect another way.
-- Never `git add -A`; stage by path. No secrets in commits, reports or messages.
-- Never write a script, helper or wrapper to automate a plane step. If you needed a tool you did not
-  have, say so in your report's Friction section; the runner proposes it (SPEC §31.4).
+  is an open question there: the runner answers it or takes it to the lead. Don't guess intent.
 
 Finish as the last part of your prompt says.

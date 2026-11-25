@@ -150,6 +150,7 @@ def suite_lanes(cfg: Config, phase: str) -> str:
     from ccp.config import SUITE_ROLES, lane_for  # noqa: PLC0415
     from ccp.suite import declared_part_argv  # noqa: PLC0415
     declared = (cfg.suite or {}).get("lanes") or {}
+    affected = f"`{ccp_command(cfg)} suite run --affected`"  # the worker's own ccp, as every command the prompt gives
     v: dict[str, str] = {}
     for r in SUITE_ROLES:
         lane = lane_for(cfg, r)
@@ -157,12 +158,12 @@ def suite_lanes(cfg: Config, phase: str) -> str:
         argv = declared_part_argv(cfg) if r == "part" else None
         if argv is not None:
             v[r] = f"`--lane {lane}` with `{shlex.join(argv)} <modules>` after `--`"
-            v[f"{r}_for"], v[f"{r}_as"] = ": ", ", or `ccp suite run --affected` for the modules a change touches"
+            v[f"{r}_for"], v[f"{r}_as"] = ": ", f", or {affected} for the modules a change touches"
             continue
         v[r] = f"`--lane {lane}`" + (" with nothing after `--`" if own else "")
         v[f"{r}_for"], v[f"{r}_as"] = (": ", ", as plane.json gives it") if own else (" for ", "")
         if own and r == "part":
-            v[f"{r}_as"] += ", or `ccp suite run --affected`, which runs it as declared"
+            v[f"{r}_as"] += f", or {affected}, which runs it as declared"
     return SUITE_LANES[phase].format(**v)
 
 

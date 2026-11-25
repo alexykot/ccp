@@ -1643,7 +1643,7 @@ tasks:
     depends_on: []
     path: tasks/0333-every-docs-cli-part-takes-one-table-shape-e25-reads-every-line-and-the-cli-reference-tests-run-on-their-own-docs.md
   - id: 0334-the-implementer-brief-leaves-its-phase-template-s-instructions-to-it-and-the-lanes-line-renders-the-worker-s-ccp
-    status: pending
+    status: done
     title: The worker definitions leave to the rendered prompt every instruction its implement template or common part gives, §13.1's four rules kept, and E13 says so; the implement template states the narrowest-reading rule once; a test pins each rule in the one doc that holds it; the Lanes line names suite run --affected through the worker's own ccp command
     depends_on: []
     path: tasks/0334-the-implementer-brief-leaves-its-phase-template-s-instructions-to-it-and-the-lanes-line-renders-the-worker-s-ccp.md
