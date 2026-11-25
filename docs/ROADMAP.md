@@ -65,7 +65,7 @@ All reshape phases have landed.
   - `ar-20261124T234643Z-3c95` F09: `ccp tasks migrate` (an earlier plane generation's task files) and `ccp tasks
     backfill-review-points` (tasks closed before close stamped a review point) have no stated end. At triage no bound
     product held an earlier generation's task file; done tasks with no review point remain. The operator chose (a)
-    on 2026-11-25: retire `migrate`, with its §5.3 and §22.6 text, `tasks check`'s pointer and its tests, in a signed
+    on 2026-11-25: retire `migrate`, with its §5.3 text, `tasks check`'s pointer and its tests, in a signed
     task; keep `backfill-review-points`. Triggers: retiring `migrate` is a task of the next triage; retiring
     `backfill-review-points` waits until every bound product's `--dry-run` stamps nothing.
   - T102 at triage `ar-20261124T205520Z-4ce8`: init's starter `citations` rule covers `docs/*.md`, so a product
