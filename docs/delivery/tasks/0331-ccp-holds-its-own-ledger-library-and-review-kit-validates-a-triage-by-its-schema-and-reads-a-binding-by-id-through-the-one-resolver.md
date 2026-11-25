@@ -1,7 +1,7 @@
 ---
 task_id: 0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver
 title: ccp holds the ledger library and the architect's review kit and imports nothing from scripts/, which E7 checks; a triage is validated against its contract; the telemetry commands and the docs sync read a binding by project id through the one resolver, honouring PROJECT_YAML; the estimator's failure file and the rendered prompt are written atomically
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S10", "S19", "S23"]
@@ -245,3 +245,5 @@ Measured at `1a575497`:
   `scripts/observability/CLAUDE.md` now name `binding_for_id`.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #409 head `973d94d` (squash `8528afa`): APPROVE. Passed: code-01, code-02, code-03, code-04, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver.json.
+
