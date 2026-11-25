@@ -23,7 +23,7 @@ command follows are in the SPEC, not here.
 
 | Command | Who | SPEC |
 |---|---|---|
-| `ccp plane check [--archive]` | lead | §31.3 (the queue entries the plane does not write; `--archive` moves them) |
+| `ccp plane check [--archive]` | lead | §31.3 (the queue entries the plane does not write) |
 
 ## Releases (§29)
 

@@ -6,9 +6,9 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 |---|---|---|
 | `ccp adr new "<title>"` | any seat | §6.6 (the next ADR, from the template, `proposed`) |
 | `ccp adr status N <status> [--note T]` | any seat | §6.4, §6.6 (an allowed status move) |
-| `ccp adr supersede OLD NEW [--decisions D2,D4] [--by Dk] [--archive]` | any seat | §6.5, §6.6 (links both ways; retires the decisions or the ADR) |
+| `ccp adr supersede OLD NEW [--decisions D2,D4] [--by Dk] [--archive]` | any seat | §6.5, §6.6 (retires the decisions or the ADR) |
 | `ccp adr decide N Dn <state> [--by REF] [--note T]` | any seat | §6.3 (one decision's build state) |
-| `ccp adr check` | any seat | §6.7 (`ccp docs check` runs them) |
+| `ccp adr check` | any seat | §6.7 (the ADR checks, which `ccp docs check` runs) |
 | `ccp adr index [--stdout]` | any seat | §6.6 (regenerate the ADR index) |
 | `ccp adr list [--json] [--dir DIR]` | any seat | §6.6 (every ADR's frontmatter) |
 | `ccp adr migrate --markers [--dry-run]` | any seat | §6.3 (rewrite non-canonical decision markers) |
@@ -16,7 +16,7 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 | `ccp docs adr list [--json] [--dir DIR]` | any seat | §6.6 (the same as `ccp adr index\|list`) |
 | `ccp tasks index [--stdout]` | lead, runner | §5.7 (regenerate `INDEX.yaml`) |
 | `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--language L] [--gate CMD] [--no-starter-rules] [--starter-rules] [--telemetry on\|off] [--force]` | operator | §4.3, §4.5, §8.3, §20.5 (`--starter-rules` is a no-op) |
-| `ccp init --rules-doc PATH [--adopt]` | operator | §4.5, §20.1, §20.5 (`--adopt` gives each rule with no `check:` line `check: pass`) |
+| `ccp init --rules-doc PATH [--adopt]` | operator | §4.5, §20.1, §20.5 (each house rule with no `check:` line) |
 | `ccp init --permissions` | operator | §4.5, §18.5 (the runner's and workers' permissions as a JSON `permissions` block) |
 | `ccp notify render <trigger> [--task ID] [--id ID] [--reason R] [--json]` | any seat | §3.6 (the notice for a trigger) |
 | `ccp notify sent <trigger> [--task ID] [--id ID] --via command\|lead [--note T]` | lead | §3.6 (record a notice sent) |

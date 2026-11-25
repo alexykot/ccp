@@ -11,10 +11,10 @@ command follows are in the SPEC, not here.
 | `ccp board install\|uninstall\|timer` | operator | §28.2 (the per-project rebuild timer) |
 | `ccp otel serve [--port N]` | the machine's service manager | §24.2 (the telemetry receiver) |
 | `ccp otel env [--project ID]` | operator | §24.1 (print the user-settings block) |
-| `ccp otel install\|uninstall\|status` | operator | §24.1, §24.2 (the receiver's service; `status` reports the counts and checks the user settings) |
+| `ccp otel install\|uninstall\|status` | operator | §24.1, §24.2 (`status` reports the counts and checks the user settings) |
 | `ccp usage [--task ID] [--since DATE] [--json]` | lead | §24.4, §24.6 (per-run and per-seat tokens and cost) |
 | `ccp usage --system [--since DATE] [--json]` | lead | §24.3 (the system sink by cwd and day) |
-| `ccp usage --by-model [--seat SEAT] [--json]` | lead | §2.4 (one seat's tasks compared by model; default `implementer`) |
+| `ccp usage --by-model [--seat SEAT] [--json]` | lead | §2.4 (one seat's tasks compared by model, `implementer` by default) |
 | `ccp allowance status [--sample]` | any seat | §25.3 (the allowance state) |
 | `ccp allowance continue --to <percent> --reason "<the operator's words>"` | lead | §25.3 (record the operator's decision past the checkpoint) |
 | `ccp allowance session-wake [--sample] [--armed] [--fire]` | lead | §25.4 (the session wake) |

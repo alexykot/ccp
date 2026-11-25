@@ -172,5 +172,10 @@ Measured at `1a575497`:
   is there; one more test holds the small docs clean against the small parser, so each case's exact problem list
   stands for the change alone.
 - E25's text and `architect.checks` `E25` are the ruled ones; `docs/ENGINEERING.md` is at 150 lines.
+- Fix round 1 (review NITs): four SPEC cells cut to one clause of purpose (`adr supersede` keeps the retiring, which
+  §6.6 states with the links; `otel` keeps the `status` clause the ruling names; `usage --by-model` keeps its default
+  inside the one clause; `plane check` drops what `--archive` does, which §31.3 states); `adr check` and `init` get back
+  the subject the move into the SPEC cell lost; the second blank line before `__main__` in `tests/test_cli_reference.py`
+  is back.
 
 ## Verification notes

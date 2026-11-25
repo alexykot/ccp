@@ -284,5 +284,6 @@ class Checker(unittest.TestCase):
     def test_a_command_the_docs_leave_out_is_found(self):
         self.assertIn("docs/cli names no `ccp where`", self.problems("`ccp where`", "`ccp were`"))
 
+
 if __name__ == "__main__":
     unittest.main()
