@@ -1627,3 +1627,28 @@ tasks:
     title: The docs/cli rows give call syntax, who calls it, one clause of purpose and the §, not the SPEC's rules or exit codes, and E25 checks it; the reviewer brief leaves the Spec-beyond-intent instruction to the review prompt; the scripts package doc follows E7
     depends_on: []
     path: tasks/0330-docs-cli-rows-give-call-syntax-not-spec-rules-the-reviewer-brief-leaves-the-prompt-s-rule-to-it-and-the-scripts-doc-follows-e7.md
+  - id: 0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver
+    status: pending
+    title: ccp holds the ledger library and the architect's review kit and imports nothing from scripts/, which E7 checks; a triage is validated against its contract; the telemetry commands and the docs sync read a binding by project id through the one resolver, honouring PROJECT_YAML; the estimator's failure file and the rendered prompt are written atomically
+    depends_on: []
+    path: tasks/0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver.md
+  - id: 0332-one-fence-aware-markdown-section-helper-and-ccp-spec-show-prints-a-cited-section
+    status: pending
+    title: One fence-aware Markdown section helper finds a section under a heading for the task log, the estimator, the ADR reader, the report parser and the task converter, and E22 checks it; ccp spec show prints each cited SPEC section, which the estimator also quotes for a ref written with the prefix, and the worker prompts name it
+    depends_on: []
+    path: tasks/0332-one-fence-aware-markdown-section-helper-and-ccp-spec-show-prints-a-cited-section.md
+  - id: 0333-every-docs-cli-part-takes-one-table-shape-e25-reads-every-line-and-the-cli-reference-tests-run-on-their-own-docs
+    status: pending
+    title: Every docs/cli part lists its commands in one table shape, Command | Who | SPEC, with no fenced block, no exit-code prose and no command listed twice, and E25's check reads every line; the command-reference checker tests build their own docs; §24.6 and §27.1 name the knobs the code reads
+    depends_on: []
+    path: tasks/0333-every-docs-cli-part-takes-one-table-shape-e25-reads-every-line-and-the-cli-reference-tests-run-on-their-own-docs.md
+  - id: 0334-the-implementer-brief-leaves-its-phase-template-s-instructions-to-it-and-the-lanes-line-renders-the-worker-s-ccp
+    status: pending
+    title: The worker definitions leave to the rendered prompt every instruction its implement template or common part gives, §13.1's four rules kept, and E13 says so; the implement template states the narrowest-reading rule once; a test pins each rule in the one doc that holds it; the Lanes line names suite run --affected through the worker's own ccp command
+    depends_on: []
+    path: tasks/0334-the-implementer-brief-leaves-its-phase-template-s-instructions-to-it-and-the-lanes-line-renders-the-worker-s-ccp.md
+  - id: 0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps
+    status: pending
+    title: The writing-tasks skill tells an absence check on a code form to allow leading whitespace; this repo's task rules point at house rules E2 and E21 instead of the test helpers; ccp init counts only the files git keeps when it decides whether the task log needs its .gitkeep
+    depends_on: []
+    path: tasks/0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps.md

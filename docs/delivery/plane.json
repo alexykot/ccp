@@ -14,7 +14,7 @@
       },
       {
         "id": "E4",
-        "cmd": "! git grep -nE '= test_[a-z_]+\\.[A-Z][A-Za-z]+\\.[a-z_]+' -- tests && ! git grep -n '\\.plane-runtime' -- 'tests/test_*.py' ':(exclude)tests/test_plane_json_constants.py' && python3 -B scripts/house_checks.py e4-count --max 448 && python3 -B scripts/house_checks.py e4-imports && ! git grep -nF '__file__).resolve().parent' -- 'tests/*.py' ':(exclude)tests/helpers.py' && ! git grep -nw GIT_AUTHOR_NAME -- 'tests/*.py' ':(exclude)tests/helpers.py' && ! git grep -nP '^[A-Z_]+ = PLANE_ROOT\\s*(#.*)?$' -- 'tests/*.py' && ! git grep -nwP 'PLANE_ROOT as' -- 'tests/*.py'"
+        "cmd": "! git grep -nE '= test_[a-z_]+\\.[A-Z][A-Za-z]+\\.[a-z_]+' -- tests && ! git grep -n '\\.plane-runtime' -- 'tests/test_*.py' ':(exclude)tests/test_plane_json_constants.py' && python3 -B scripts/house_checks.py e4-count --max 448 && python3 -B scripts/house_checks.py e4-imports && ! git grep -nF '__file__).resolve().parent' -- 'tests/*.py' ':(exclude)tests/helpers.py' && ! git grep -nw GIT_AUTHOR_NAME -- 'tests/*.py' ':(exclude)tests/helpers.py' && ! git grep -nP '^\\s*[A-Z_]+ = PLANE_ROOT\\s*(#.*)?$' -- 'tests/*.py' && ! git grep -nwP 'PLANE_ROOT as' -- 'tests/*.py'"
       },
       {
         "id": "E13",
