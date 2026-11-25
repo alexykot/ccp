@@ -1,7 +1,7 @@
 ---
 task_id: 0351-the-runner-s-scope-slot-and-readiness-decisions-move-into-a-ccp-module-tested-on-plain-values
 title: The runner seat's scope, slot and readiness decisions move out of scripts/observability/team.py into ccp/runnerscope.py as functions on plain values, which team.py imports, and their branches are tested there on plain values
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E7", "E15"]
@@ -116,4 +116,17 @@ Measured at `becb6417`:
 
 ## Implementation notes
 
+- `ccp/runnerscope.py` holds the ruled functions. `team.py` keeps its reads and writes and calls them: `refusing(fn, ...)`
+  turns a `QueueError` into `die(message, code)`, so messages and exit codes are as before; `task_states` reads the
+  task files once for `slot_tasks` and `orphans`; `slot_tasks(root, w, slot)` stays in `team.py` as the reader around
+  `runnerscope.slot_tasks`; `readiness` reads the log, `tasklog.check`, `followups.closed_points` and the worktree
+  and passes them to `readiness_checks`.
+- Narrowest readings where the task left a shape open: `orphans` raises the refusal itself (it returns nothing);
+  `readiness_checks` takes the worktree as `(path, state)` with state `WORKTREE`, `ABSENT` or `OCCUPIED`, or None;
+  `refactor_scope` takes `pending=None` for "no refactor log" and the waiting refactors only when the point is new;
+  `point_scope` takes the caller's scope, `--scope` as a bool, and the two `reviewpoints.problem` results.
+- Cut by E15: the four end-to-end tests the task names; `RespawnScope` moved to `tests/test_runner_scope.py`.
+
 ## Verification notes
+- 2026-11-25 — verifier, PR #431 head `c73b583` (squash `b68093d`): APPROVE. Passed: code-01, code-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0351-the-runner-s-scope-slot-and-readiness-decisions-move-into-a-ccp-module-tested-on-plain-values.json.
+

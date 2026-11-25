@@ -420,14 +420,6 @@ class Spawn(TeamCase):
         self.assertEqual((w["scope"], w["review_point"]), (["0002-b", "0003-c"], "R8"))
         self.assertIn("Scope: 0002-b, 0003-c (review point R8)", res["actions"][0]["prompt"])
 
-    def test_with_scope_warns_both_ways(self):
-        code, res, err = self.team("runner", "spawn", "--scope", "0002-b,0004-d,0005-e", "--review-point", "R8")
-        self.assertEqual(code, 0, err)
-        self.assertEqual(res["scope"], ["0002-b", "0004-d", "0005-e"])
-        self.assertIn("2 scope task(s) are not tagged R8: 0004-d, 0005-e", res["warnings"][0])
-        self.assertIn("1 open task(s) tagged R8 are not in the scope: 0003-c", res["warnings"][1])
-        self.assertIn("warning: 2 scope task(s)", err)
-
     def test_refusals_write_nothing(self):
         before = (self.q / "work.json").read_text()
         for rp, why in (("R9", "R9 is not in the register"), ("PM", "is not R<number>"), ("R10", "no open task is tagged")):
