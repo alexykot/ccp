@@ -3,7 +3,7 @@
 Which tasks a spawn or respawn takes, which slots it makes, which tasks no slot holds, and whether the plan is
 ready. The caller (`scripts/observability/team.py`) reads work.json, the task states, the task log, the review-point
 register and the runner worktree, and prints and writes; each function here takes what it read as lists, dicts and
-strings, touches no file, git, config or process, and prints nothing. A refusal is a `QueueError` with exit 2 and the
+strings, touches no file, git, config or process, and prints nothing. A refusal is a `QueueError` (code 2) carrying the
 message the caller prints, which it turns into its own `die`.
 """
 from __future__ import annotations

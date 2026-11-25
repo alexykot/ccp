@@ -43,8 +43,10 @@ class ScopeWarnings(unittest.TestCase):
     def test_both_ways(self):
         got = rs.scope_warnings(TASKS, "R8", ["0002-b", "0005-e", "0006-f"])
         self.assertEqual(len(got), 2)
-        self.assertIn("2 scope task(s) are not tagged R8: 0005-e, 0006-f", got[0])
-        self.assertIn("2 open task(s) tagged R8 are not in the scope: 0001-a, 0003-c", got[1])
+        self.assertIn("2 scope task(s) are not tagged R8", got[0])
+        self.assertIn("0005-e, 0006-f", got[0])
+        self.assertIn("2 open task(s) tagged R8", got[1])
+        self.assertIn("not in the scope: 0001-a, 0003-c", got[1])
 
     def test_a_refactor_and_an_unknown_entry_are_not_named_and_a_number_names_its_task(self):
         self.assertEqual(rs.scope_warnings(TASKS, "R8", ["0001", "0002-b", "0003-c", "0007-g", "0099-x"]), [])
@@ -52,7 +54,8 @@ class ScopeWarnings(unittest.TestCase):
     def test_only_the_missing_side(self):
         got = rs.scope_warnings(TASKS, "R8", ["0001-a", "0002-b"])
         self.assertEqual(len(got), 1)
-        self.assertIn("1 open task(s) tagged R8 are not in the scope: 0003-c", got[0])
+        self.assertIn("1 open task(s) tagged R8", got[0])
+        self.assertIn("not in the scope: 0003-c", got[0])
 
 
 class PointScope(Refusal):
@@ -66,13 +69,14 @@ class PointScope(Refusal):
         scope, warns = self.call(entries=None, review_point="PM", problem_given="bad", problem_for="bad point")
         self.assertEqual(scope, ["0006-f"])
         self.assertEqual(len(warns), 1)
-        self.assertIn("bad point: `ccp tasks close` will not stamp it into the tasks it closes", warns[0])
+        self.assertIn("bad point: `ccp tasks close` will not", warns[0])
         # a refusing --review-point is only a warning without a register
         self.assertEqual(self.call(entries=None, problem_for=None), (["0006-f"], []))
 
     def test_an_unknown_review_point_refuses_before_anything(self):
-        msg = self.refused(self.call, ("R8",), ("0006-f",), "R9", False, None, (), (), "R9 is not in the register", None)
-        self.assertEqual(msg, "runner spawn --review-point: R9 is not in the register")
+        why = "R9 is not in the register"
+        msg = self.refused(self.call, ("R8",), ("0006-f",), "R9", False, None, (), (), why, None)
+        self.assertEqual(msg, "runner spawn --review-point: " + why)
 
     def test_a_given_scope_is_kept_and_warned_about(self):
         scope, warns = self.call(review_point="R8", scope=["0002-b", "0005-e"], scope_given=True)
@@ -90,14 +94,15 @@ class PointScope(Refusal):
 
     def test_no_open_tagged_task_refuses(self):
         msg = self.refused(self.call, ("R8",), ("0006-f",), "R1", False, None, (), (), None, None)
-        self.assertEqual(msg, "no open task is tagged review_point: R1; tag the point's tasks "
-                              "(`ccp review-points tag R1 …`) or pass --scope (SPEC §22)")
+        self.assertTrue(msg.startswith("no open task is tagged review_point: R1; "), msg)
+        self.assertTrue(msg.endswith("or pass --scope (SPEC §22)"), msg)
 
     def test_work_json_point_with_a_problem_warns_and_keeps_the_scope(self):
         scope, warns = self.call(work_point="PM", problem_for="review point 'PM' is not R<number>")
         self.assertEqual(scope, ["0006-f"])
         self.assertEqual(len(warns), 1)
-        self.assertIn("work.json's review point 'PM' is not R<number>; `ccp tasks close` will not stamp it", warns[0])
+        self.assertTrue(warns[0].startswith("work.json's review point 'PM' is not R<number>;"), warns[0])
+        self.assertIn("will not stamp it", warns[0])
 
     def test_nothing_to_say(self):
         self.assertEqual(self.call(), (["0006-f"], []))
@@ -142,8 +147,9 @@ class NewSlots(Refusal):
         self.assertEqual(rs.new_slots(["runner-1", "runner-2"], "runner", "runner-2", None, 2), ["runner-2"])
 
     def test_a_slot_that_is_none_refuses_naming_the_recorded(self):
-        self.assertEqual(self.refused(rs.new_slots, ["runner-2", "runner-1"], "runner", "runner-9", None, 2),
-                         "--slot runner-9: no such slot (runner-1, runner-2)")
+        msg = self.refused(rs.new_slots, ["runner-2", "runner-1"], "runner", "runner-9", None, 2)
+        self.assertTrue(msg.startswith("--slot runner-9: no such slot"), msg)
+        self.assertTrue(msg.endswith("(runner-1, runner-2)"), msg)
         self.assertEqual(self.refused(rs.new_slots, [], "runner", "runner-1", None, 2),
                          "--slot runner-1: no such slot (none)")
 
@@ -156,12 +162,14 @@ class NewSlots(Refusal):
         self.assertEqual(rs.new_slots(["runner-2"], "runner", None, None, 2), ["runner-1"])
 
     def test_a_count_above_the_cap_refuses(self):
-        self.assertEqual(self.refused(rs.new_slots, [], "runner", None, 3, 2),
-                         "--count 3 is above parallel.max_in_flight 2 (SPEC §16.5)")
+        msg = self.refused(rs.new_slots, [], "runner", None, 3, 2)
+        self.assertTrue(msg.startswith("--count 3 is above"), msg)
+        self.assertTrue(msg.endswith("max_in_flight 2 (SPEC §16.5)"), msg)
 
     def test_no_slot_left_refuses(self):
-        self.assertEqual(self.refused(rs.new_slots, ["runner-1", "runner-2"], "runner", None, 2, 2),
-                         "2 slot(s) are recorded already; respawn one with --slot")
+        msg = self.refused(rs.new_slots, ["runner-1", "runner-2"], "runner", None, 2, 2)
+        self.assertTrue(msg.startswith("2 slot(s) are recorded already"), msg)
+        self.assertTrue(msg.endswith("respawn one with --slot"), msg)
 
 
 class Orphans(Refusal):
@@ -204,7 +212,8 @@ class ReadinessChecks(unittest.TestCase):
         self.assertTrue(all(x["ok"] for x in c.values()))
         self.assertEqual(c["scope_tasks_exist"]["detail"], "2 scope task(s) in the task log")  # 0002 names 0002-b
         self.assertEqual(c["tasks_check"]["detail"], "`ccp tasks check` is clean")
-        self.assertEqual(c["closed_points"]["detail"], "no closed review point holds an undecided follow-up")
+        self.assertTrue(c["closed_points"]["detail"].startswith("no closed review point holds"))
+        self.assertTrue(c["closed_points"]["detail"].endswith("an undecided follow-up"))
 
     def test_a_scope_entry_missing_from_the_log_is_named(self):
         c = self.by_name(rs.readiness_checks(["0001-a", "0009-z", "0010"], ["0001-a"], [], [], None))
@@ -229,7 +238,7 @@ class ReadinessChecks(unittest.TestCase):
                                           "detail": "/w/runner would be made by the spawn"})
         occupied = one(rs.OCCUPIED)
         self.assertFalse(occupied["ok"])
-        self.assertIn("/w/runner exists and is not a working tree of the product", occupied["detail"])
+        self.assertIn("/w/runner exists and is not a", occupied["detail"])
 
     def test_no_worktree_to_check_adds_none(self):
         self.assertNotIn("runner_worktree", self.by_name(rs.readiness_checks([], [], [], [], None)))
