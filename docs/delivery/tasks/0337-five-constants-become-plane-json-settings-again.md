@@ -1,7 +1,7 @@
 ---
 task_id: 0337-five-constants-become-plane-json-settings-again
 title: architect.rules_max_lines, notes_due and max_new_tasks, task_log.dry_run and docs.workers are plane.json settings again, with their constants as defaults, so a product that sets one hears no constant warning
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S8", "S19", "S20", "S21", "S29"]
@@ -216,3 +216,5 @@ Ruling 0337-five-constants-become-plane-json-settings-again-r1 (the lead, 2026-1
   until 0191; the task's authority is the operator's 2026-11-24 ruling its Context quotes. Nothing else changed.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #413 head `2b26d34` (squash `6cbbe7d`): APPROVE. Passed: cmd-01, cmd-02, code-01, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0337-five-constants-become-plane-json-settings-again.json.
+

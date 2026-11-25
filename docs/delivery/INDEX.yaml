@@ -1658,7 +1658,7 @@ tasks:
     depends_on: []
     path: tasks/0336-suite-affected-honours-an-exclude-list-from-plane-json.md
   - id: 0337-five-constants-become-plane-json-settings-again
-    status: pending
+    status: done
     title: architect.rules_max_lines, notes_due and max_new_tasks, task_log.dry_run and docs.workers are plane.json settings again, with their constants as defaults, so a product that sets one hears no constant warning
     depends_on: []
     path: tasks/0337-five-constants-become-plane-json-settings-again.md
