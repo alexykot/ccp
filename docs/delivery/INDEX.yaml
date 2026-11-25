@@ -1733,7 +1733,7 @@ tasks:
     depends_on: []
     path: tasks/0351-the-runner-s-scope-slot-and-readiness-decisions-move-into-a-ccp-module-tested-on-plain-values.md
   - id: 0352-a-fix-up-names-its-end-and-the-docs-sync-only-reports-leftover-managed-copies
-    status: pending
+    status: done
     title: A release's fix-up command names its end in the plane's roadmap, with its signed §29.3 sentence; scripts/sync-product-docs.sh only checks, reporting a product's leftover managed copies as §9.5 says, its install mode, daily stamp and --allow-dirty gone, and the plugin skills and scripts doc stop saying it installs copies
     depends_on: []
     path: tasks/0352-a-fix-up-names-its-end-and-the-docs-sync-only-reports-leftover-managed-copies.md

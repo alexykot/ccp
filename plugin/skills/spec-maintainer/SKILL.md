@@ -4,8 +4,7 @@ description: The control plane's spec maintainer protocol (SPEC §17): how the t
 ---
 <!--
   Control-plane spec maintainer protocol (SPEC §17, Appendix 21-A; locked 2026-09-25).
-  Delivered by the control-plane plugin (SPEC §4). A product not yet on the plugin gets it at
-  docs/delivery/SPEC-MAINTAINER.md from scripts/sync-product-docs.sh. Sync drops this comment.
+  Delivered by the control-plane plugin (SPEC §4).
   Source: control-plane plugin/skills/spec-maintainer/SKILL.md.
 -->
 # Spec maintainer protocol

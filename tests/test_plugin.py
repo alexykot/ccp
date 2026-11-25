@@ -420,26 +420,25 @@ class LaunchdLabel(unittest.TestCase):
 
 
 class SyncInPluginMode(unittest.TestCase):
-    def test_a_product_on_the_plugin_gets_no_copies_and_loses_stale_ones(self):
+    def test_a_product_on_the_plugin_has_its_leftover_copies_reported_and_nothing_written(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d) / "prod"
             (root / ".claude").mkdir(parents=True)
             (root / ".claude/settings.json").write_text(json.dumps({"enabledPlugins": {"ccp@ccp": True}}))
             stale = root / "docs/delivery/REVIEW-TRIAGE.md"
             stale.parent.mkdir(parents=True)
-            stale.write_text("> Managed copy of control-plane `templates/docs-delivery/REVIEW-TRIAGE.md` at abcdef1. Edit.\n\nold\n")
+            text = "> Managed copy of control-plane `templates/docs-delivery/REVIEW-TRIAGE.md` at abcdef1. Edit.\n\nold\n"
+            stale.write_text(text)
             mine = root / ".claude/agents/delivery-runner.md"
             mine.parent.mkdir(parents=True)
             mine.write_text("my own runner, no header\n")
             yml = Path(d) / "demo.yaml"
             yml.write_text(binding(product_root=root))
-            sync = [str(PLANE_ROOT / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--allow-dirty"]
-            r = run(["bash", *sync[0:1], *sync[1:], "--check"])
+            r = run(["bash", str(PLANE_ROOT / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--check"])
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
             self.assertIn("DRIFT docs/delivery/REVIEW-TRIAGE.md: retired", r.stdout, r.stdout + r.stderr)
-            r = run(["bash", *sync])
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertFalse(stale.exists())
-            self.assertTrue(mine.exists())  # no header: the product's own, left alone
+            self.assertEqual(stale.read_text(), text)
+            self.assertEqual(mine.read_text(), "my own runner, no header\n")  # no header: the product's own, left alone
             self.assertIn("left alone", r.stdout)
             self.assertFalse((root / "docs/delivery/CONTROL-PLANE.md").exists())
             self.assertFalse((root / "CLAUDE.md").exists())

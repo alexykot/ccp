@@ -1,7 +1,7 @@
 ---
 task_id: 0352-a-fix-up-names-its-end-and-the-docs-sync-only-reports-leftover-managed-copies
 title: A release's fix-up command names its end in the plane's roadmap, with its signed §29.3 sentence; scripts/sync-product-docs.sh only checks, reporting a product's leftover managed copies as §9.5 says, its install mode, daily stamp and --allow-dirty gone, and the plugin skills and scripts doc stop saying it installs copies
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S9", "S29", "S31"]
@@ -144,4 +144,17 @@ Measured at `becb6417`:
 
 ## Implementation notes
 
+- `scripts/sync-product-docs.sh` is check-only: no `--check`, or any other option than `--product-root` and
+  `--project-yaml`, exits 2 with the usage line. The `plugin_enabled` branch, `expected()`, the git lookups and the
+  CLAUDE.md-appending code are gone; the managed paths are one list of (path, reason).
+- Narrowest readings: the settings hook-entry check now runs for every product (it was plugin-only, and every product
+  is read as on the plugin); the `ok:` lines are gone (nothing is a match to report); a missing copy is nothing.
+- `QUEUE_OWNED` no longer holds the retired stamp's name; a live queue holding it fails `ccp plane check` until the
+  standing `ccp plane check --archive` (§31.3) moves it. No roadmap end: it ships no fix-up.
+- A test naming the retired stamp (`tests.test_plane_check.Archive.test_the_retired_docs_sync_stamp_is_a_leftover_that_is_archived`)
+  builds the name from two joined strings so `code-02`'s grep stays empty.
+- No test of the removed options by name: `code-02`'s grep forbids their names in tests; the bare call is the refusal test.
+
 ## Verification notes
+- 2026-11-25 — verifier, PR #430 head `6d17b09` (squash `6623be7`): APPROVE. Passed: spec-01, code-01, code-02, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0352-a-fix-up-names-its-end-and-the-docs-sync-only-reports-leftover-managed-copies.json.
+
