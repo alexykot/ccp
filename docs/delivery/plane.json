@@ -34,7 +34,7 @@
       },
       {
         "id": "E17",
-        "cmd": "! git grep -nE '_BINDING_LINE|def read_binding' -- ccp scripts ':(exclude)ccp/lib.py' && ! git grep -nF 'bindings_dir() / f\"{' -- ccp scripts ':(exclude)ccp/lib.py'"
+        "cmd": "! git grep -nE '_BINDING_LINE|def read_binding' -- ccp scripts ':(exclude)ccp/lib.py' && ! git grep -nP 'bindings_dir\\(\\) / f[\"\\x27]\\{' -- ccp scripts ':(exclude)ccp/lib.py'"
       },
       {
         "id": "E18",
@@ -135,6 +135,11 @@
       "docs/delivery/plane.json": [
         "tests.test_doclang_test_facts",
         "tests.test_self_hosting"
+      ],
+      "ccp/suite.py": [
+        "tests.test_suite_wait",
+        "tests.test_suite_cold",
+        "tests.test_marked_checks_loop"
       ]
     }
   },

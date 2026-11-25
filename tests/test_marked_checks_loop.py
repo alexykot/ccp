@@ -9,14 +9,13 @@ import json
 import subprocess
 import unittest
 from pathlib import Path
-from unittest import mock
 
 from ccp import prompt
 from tests.review_flow import ReviewFlow
 from tests.suite_fixture import ccp_proc
 from tests.git_helpers import git
 from tests.toolkit_fixture import ToolkitFixture
-from tests.helpers import as_lead
+from tests.helpers import as_lead, run_clock
 from tests.report_helpers import MARKED_BLOCK as MARKED, MARKED_CHECK_ID as CHECK, MARKED_TASK_ID as TASK
 
 
@@ -68,11 +67,7 @@ class MarkedLoop(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        # runs open a minute apart: `opened_at` has one-second resolution, and the gates order by it
-        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
-        patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))
-        patch.start()
-        self.addCleanup(patch.stop)
+        run_clock(self)
         self.ccp("tasks", "claim", "0002")
         self.mark()
         self.checkouts = 0

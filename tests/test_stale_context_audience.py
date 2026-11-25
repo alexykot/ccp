@@ -10,10 +10,9 @@ import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from unittest import mock
 
 from ccp import cli, config, tasklog
-from tests.helpers import PLANE_ROOT, REVIEW_REGISTER as REGISTER, Product, tagged_task as _tagged
+from tests.helpers import PLANE_ROOT, REVIEW_REGISTER as REGISTER, Product, run_clock, tagged_task as _tagged
 from tests.report_helpers import done_report
 from tests.review_flow import A, ReviewFlow
 from tests.team_hosting_fixture import TeamCase
@@ -102,10 +101,7 @@ class ImplementPrompt(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
-        patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))
-        patch.start()
-        self.addCleanup(patch.stop)
+        run_clock(self)
 
     def make_stale(self) -> None:
         """Measure 0002-second's Context at a commit, then change its path, on origin/main and the runner's checkout."""

@@ -14,7 +14,7 @@ from unittest import mock
 
 from ccp import cli, health, report, runs, verify
 from tests.review_flow import ReviewFlow
-from tests.helpers import GIT_ENV, PLANE_ROOT
+from tests.helpers import GIT_ENV, PLANE_ROOT, run_clock
 from tests.git_helpers import git
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -58,11 +58,7 @@ class Resolution(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        # runs open a minute apart: `opened_at` has one-second resolution, and the gates order by it
-        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
-        patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))
-        patch.start()
-        self.addCleanup(patch.stop)
+        run_clock(self)
         self.ccp("tasks", "claim", "0002")
         task = self.runner / "docs/delivery/tasks/0002-second.md"
         task.write_text(task.read_text().replace("## Implementation notes", SECOND_CHECK, 1))

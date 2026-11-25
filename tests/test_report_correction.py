@@ -6,9 +6,9 @@ from __future__ import annotations
 import json
 import unittest
 from pathlib import Path
-from unittest import mock
 
 from ccp import report, runs
+from tests.helpers import run_clock
 from tests.report_helpers import done_report, implement_report, REPORT_HEAD as HEAD
 from tests.review_flow import ReviewFlow
 from tests.toolkit_fixture import ToolkitFixture
@@ -27,12 +27,7 @@ class Correction(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        # runs open a minute apart: `opened_at` has one-second resolution
-        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
-        for where in ("ccp.runs.iso", "ccp.report.iso"):
-            patch = mock.patch(where, side_effect=lambda: next(clock))
-            patch.start()
-            self.addCleanup(patch.stop)
+        run_clock(self, "ccp.runs.iso", "ccp.report.iso")
         self.ccp("tasks", "claim", "0002")
 
     def run_rec(self, run_id: str) -> dict:
