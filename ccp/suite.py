@@ -205,15 +205,66 @@ def _green_from(cfg: Config | None, q: Path, started: dict[str, Any]) -> str | N
     except (OSError, ValueError):
         return None
     found = green_run(rows, started, lane_for(cfg, "full"))
-    if found and started.get("task_id") and cfg is not None:
-        try:
-            from ccp import verify  # noqa: PLC0415
-            from ccp.queue import task_meta  # noqa: PLC0415
-            if verify.cold_gate(cfg, task_meta(cfg, str(started["task_id"]))):
-                return None
-        except Exception:  # noqa: BLE001  (unknown whether the gate is cold: the lock, as before)
-            return None
-    return found
+    return None if found and _cold_task(cfg, started) else found
+
+
+def _cold_task(cfg: Config | None, started: dict[str, Any]) -> bool:
+    """§16.6: the run is bound to a task whose gate is cold (§15.3), so it takes the lock whatever lets other runs
+    skip it; a task that cannot be read counts as cold (the lock, as before)."""
+    if not started.get("task_id") or cfg is None:
+        return False
+    try:
+        from ccp import verify  # noqa: PLC0415
+        from ccp.queue import task_meta  # noqa: PLC0415
+        return bool(verify.cold_gate(cfg, task_meta(cfg, str(started["task_id"]))))
+    except Exception:  # noqa: BLE001  (unknown whether the gate is cold: the lock, as before)
+        return True
+
+
+CACHE_PROBE = "cache_probe"  # §16.6: the `lane_skipped` value of a run its lane's cache probe let skip the lock
+CACHE_PROBE_TIMEOUT_S = 60  # §16.6: seconds a lane's cache probe may take; a timeout leaves the run taking the lock
+
+
+def cache_probe_argv(cfg: Config | None, lane: str, stages: list[dict[str, Any]]) -> list[str] | None:
+    """§16.6: the lane's cache probe (plane.json `suite.cache_probe`) with the command the run would run appended
+    (nothing for a lane declared with stages), or None when the lane declares none."""
+    probe = ((getattr(cfg, "suite", None) or {}).get("cache_probe") or {}).get(lane) if cfg is not None else None
+    if not probe:
+        return None
+    return [*probe, *([] if stages[0].get("staged") else stages[0]["argv"])]
+
+
+def run_cache_probe(argv: list[str], lane: str, env: dict[str, str]) -> tuple[bool, str | None]:
+    """§16.6: ask a lane's cache probe whether the product's test cache answers every module of the run: (whether it
+    said so, by exit 0, and a warning when it timed out or could not start). It runs in the current directory with
+    `env` and CCP_SUITE_LANE, stdin from /dev/null, its output discarded, in its own process group, killed whole
+    after CACHE_PROBE_TIMEOUT_S, or when `ccp` itself ends first: on an exception (SIGINT), and through a
+    watchdog (WATCHDOG) in the probe's group when `ccp` dies (SIGTERM, SIGKILL, a harness killing its group)."""
+    try:
+        proc = subprocess.Popen(argv, env={**env, **for_child({"CCP_SUITE_LANE": lane})}, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_group(0))
+    except OSError as e:
+        return False, f"lane {lane}: its cache probe could not start ({argv[0]}: {e.strerror or e}): taking the lock"
+    dog_w = _start_watchdog(proc.pid)
+    try:
+        return proc.wait(timeout=CACHE_PROBE_TIMEOUT_S) == 0, None
+    except subprocess.TimeoutExpired:
+        _end_group(proc)
+        return False, f"lane {lane}: its cache probe took over {CACHE_PROBE_TIMEOUT_S} s and was ended: taking the lock"
+    except BaseException:
+        _end_group(proc)  # `ccp` is ending: the probe ends with it
+        raise
+    finally:
+        _release_watchdog(dog_w)
+
+
+def _end_group(proc: subprocess.Popen) -> None:
+    """Kill the process group `proc` leads, then reap it."""
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except OSError:
+        pass
+    proc.wait()
 
 
 def _append(q: Path, row: dict[str, Any]) -> None:
@@ -959,15 +1010,7 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
         print(f"ccp suite: {argv[0]}: {e.strerror or e}", file=sys.stderr)
         return (127 if isinstance(e, FileNotFoundError) else 126), time.monotonic() - t0
     current.update(proc=proc, group=own_group)
-    dog_w = None
-    if own_group:
-        try:
-            r_fd, dog_w = os.pipe()
-            subprocess.Popen([sys.executable, "-I", "-c", WATCHDOG], stdin=r_fd, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, close_fds=True, **_group(proc.pid))
-            os.close(r_fd)
-        except Exception:  # noqa: BLE001  (no watchdog: the run goes on)
-            dog_w = None
+    dog_w = _start_watchdog(proc.pid) if own_group else None
     pumps = []
     if log_fd is None:
         pumps.append(threading.Thread(target=_pump, args=(proc.stdout, 1, counters[0], tee), daemon=True))
@@ -988,13 +1031,38 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
             t.join(max(0.0, deadline - time.monotonic()))
     finally:
         current.clear()
-        if dog_w is not None:
-            try:
-                os.write(dog_w, b"x")  # ccp ends normally: the watchdog leaves the group alone
-                os.close(dog_w)
-            except OSError:
-                pass
+        _release_watchdog(dog_w)
     return rc, time.monotonic() - t0
+
+
+def _start_watchdog(pgid: int) -> int | None:
+    """Put a watchdog (WATCHDOG) in process group `pgid`: the write end of its pipe, or None when it cannot start
+    (the command still runs, unwatched)."""
+    try:
+        r_fd, dog_w = os.pipe()
+    except OSError:
+        return None
+    try:
+        subprocess.Popen([sys.executable, "-I", "-c", WATCHDOG], stdin=r_fd, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, close_fds=True, **_group(pgid))
+    except Exception:  # noqa: BLE001  (no watchdog: the run goes on)
+        os.close(dog_w)
+        return None
+    finally:
+        os.close(r_fd)
+    return dog_w
+
+
+def _release_watchdog(dog_w: int | None) -> None:
+    """`ccp` ends normally: the watchdog leaves the group alone."""
+    if dog_w is None:
+        return
+    try:
+        os.write(dog_w, b"x")
+    except OSError:  # the watchdog is gone already (its group was ended)
+        pass
+    finally:
+        os.close(dog_w)
 
 
 def worktree_env(cfg: Config | None, command: list[str] | None, warn: _Warn) -> dict[str, str]:
@@ -1234,6 +1302,18 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         t_wait = time.monotonic()
         try:
             lane_fd, holder = take_lane(q, mine)
+            probe = cache_probe_argv(cfg, lane, stages) if lane_fd is None else None
+            if probe and not _cold_task(cfg, started):
+                # §16.6: once, before any wait, whatever the wait; its time counts against the wait (t_wait)
+                cached, why_not = run_cache_probe(probe, lane, {**(os.environ if caller_env is None else caller_env),
+                                                                **wt_env, **cold_env})
+                if why_not:
+                    warn(why_not)
+                if cached:
+                    started.update(lane_skipped=CACHE_PROBE)
+                    print(f"ccp suite: lane {lane}: its cache probe says every module is a cache hit: running "
+                          f"without the lock", file=sys.stderr)
+                    lane_fd, holder = -1, {}
             told = False
             if auto and lane_fd is None:  # resolved once, when the lane turns out to be held
                 wait, why = auto_wait(cfg, q, lane)

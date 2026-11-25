@@ -266,6 +266,9 @@ SUITE_DEFAULTS: dict[str, Any] = {"lanes": {}, "count_re": None, "summary": None
                                   # SPEC §16.6: lanes that run one at a time in a queue (a run with no lane
                                   # is the `full` role's lane)
                                   "exclusive_lanes": [],
+                                  # SPEC §16.6: an exclusive lane's cache probe, a lane name to the argv that
+                                  # says (exit 0) the product's test cache answers the whole run ({} = none)
+                                  "cache_probe": {},
                                   # §14.1: the lane name for each role the plane reads: `full` (the whole
                                   # suite), `gate` (the formal gate), `part` (a subset of the tests)
                                   "roles": {"full": "full", "gate": "gate", "part": "part"}}
@@ -1600,6 +1603,10 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     xl = out["suite"]["exclusive_lanes"]
     if not isinstance(xl, list) or not all(isinstance(x, str) and SUITE_LANE_RE.match(x) for x in xl):
         bad.append("suite.exclusive_lanes must be a list of lane names")
+    cp = out["suite"]["cache_probe"]
+    if not isinstance(cp, dict) or not all(isinstance(k, str) and SUITE_LANE_RE.match(k) and _str_list(v) and v
+                                           for k, v in cp.items()):
+        bad.append("suite.cache_probe must map a lane name to a command, a list of strings (§16.6)")
     ro = out["suite"]["roles"]
     if not isinstance(ro, dict) or set(ro) - set(SUITE_ROLES) or not all(
             isinstance(v, str) and SUITE_LANE_RE.match(v) for v in ro.values()):

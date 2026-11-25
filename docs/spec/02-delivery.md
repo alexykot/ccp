@@ -796,7 +796,7 @@ lane's `started` row has `cmd` `stages` and its stage count as `argc`. A recorde
 adds `pid`, `host` and `pstart`: the recording `ccp`'s process id, host name and process start time
 (*Totals*, below). A run from a git checkout with
 nothing to commit adds `tree`, the `HEAD^{tree}` it ran (§16.6), and `head`, the `HEAD` it ran (§10.2), and a run that skipped an exclusive
-lane's lock adds `lane_skipped` and `green_from`. Never the command's arguments,
+lane's lock adds `lane_skipped`, and `green_from` for a green-tree skip. Never the command's arguments,
 never its output; the event carries the numbers, `cold` and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
 
 - **Reports cite them.** `Suite: from <suite_id>`, the preferred form, takes the tests, seconds and
@@ -1415,8 +1415,8 @@ exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event
 plane.json `suite.exclusive_lanes` names the `ccp suite run` lanes that run one at a time in a queue
 (a run with no `--lane` counts as the full role's lane, §14.1). A run of an exclusive lane takes
 `QUEUE_ROOT/locks/suite-exclusive.lock` first. Held, a run given `--wait 0`, or given no `--wait` and
-bound to no worker run, exits 75 at once, saying who holds it, since when, and the holder's usual
-duration; a run bound to a worker run (§14.2) and given no `--wait` waits as `--wait auto` does. A run
+bound to no worker run, exits 75 at once (after its cache probe, when the lane declares one), saying
+who holds it, since when, and the holder's usual duration; a run bound to a worker run (§14.2) and given no `--wait` waits as `--wait auto` does. A run
 whose wait ends with the lane still held exits the same way, and the worker does other work and retries.
 `--wait SECONDS` waits up to that bound instead (the wait plus the run stay under the worker shell's
 600 s limit), recorded as `wait_s` apart from the run's time. `--wait auto` takes the bound from that
@@ -1427,7 +1427,15 @@ taken over with a warning. A run whose clean checkout (nothing to commit, untrac
 has the tree of a passing run of the same lane and command already recorded in the queue does not
 take the lock: it runs at once, recorded `lane_skipped: "green_tree"` with `green_from` naming that run,
 since the product's test cache answers most of it; a run bound to a task whose gate is cold (§15.3)
-takes the lock as any other. The verifier still runs its gate (§15.3). Busy exits are recorded on the run (`lane_busy`). A run that has started
+takes the lock as any other. A lane may declare a cache probe, plane.json `suite.cache_probe`
+(`{"<lane>": [<argv>]}`, default none). When a run of that lane finds the lock held, `ccp` runs the
+probe once, before any wait, in the run's directory, with the command the run would run appended as
+arguments (none for a lane declared with stages), for at most 60 s; its time counts against the run's
+wait (`--wait SECONDS` or `--wait auto`'s bound, and `wait_s`). Exit 0 says the product's test cache
+answers every module of the run: the run does not take the lock and is recorded
+`lane_skipped: "cache_probe"`. Any other exit, a timeout, or a probe that cannot start leaves the run
+taking the lock as before, and a run bound to a task whose gate is cold takes the lock whatever the
+probe says. The verifier still runs its gate (§15.3). Busy exits are recorded on the run (`lane_busy`). A run that has started
 and outlasts its caller's command limit is waited on by its suite id with `ccp suite wait` (§14.2).
 
 ### 16.7 Records, forecast, usage and the board
