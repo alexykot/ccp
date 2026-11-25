@@ -1,7 +1,7 @@
 ---
 task_id: 0343-the-reviewer-and-verifier-definitions-leave-their-templates-instructions-to-them-and-the-lanes-line-gives-whole-commands
 title: The reviewer and verifier definitions leave to the rendered prompt every instruction their phase template gives, §13.1's four rules kept, and the tests pin each in the template; the Lanes line gives a part lane declared as an argv as whole commands; the runner brief names a pending run's expiry; §11.1's Record lists expired_told_at
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S11", "S13"]
@@ -161,3 +161,5 @@ Measured at `b6c2bc17`:
   the modules a change touches ``; `PART_ARGV` and the `--affected` assert read the new form.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #419 head `4c24925` (squash `d214de9`): APPROVE. Passed: code-01, code-02, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0343-the-reviewer-and-verifier-definitions-leave-their-templates-instructions-to-them-and-the-lanes-line-gives-whole-commands.json.
+
