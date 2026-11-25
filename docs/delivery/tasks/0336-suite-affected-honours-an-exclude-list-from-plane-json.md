@@ -1,7 +1,7 @@
 ---
 task_id: 0336-suite-affected-honours-an-exclude-list-from-plane-json
 title: ccp suite affected and suite run --affected leave out the paths plane.json suite.affected_exclude names, so a test module the product's lanes do not run is never listed, run or counted in the suite
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14"]
@@ -168,3 +168,5 @@ Measured at `41cabf26`:
 - Tests: class `Exclude` in `tests/test_suite_affected.py`, the four tests the task names.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #407 head `c4d664f` (squash `f9467d5`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, code-01, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0336-suite-affected-honours-an-exclude-list-from-plane-json.json.
+
