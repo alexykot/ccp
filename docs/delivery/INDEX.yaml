@@ -1738,7 +1738,7 @@ tasks:
     depends_on: []
     path: tasks/0352-a-fix-up-names-its-end-and-the-docs-sync-only-reports-leftover-managed-copies.md
   - id: 0353-prompt-tests-pin-rendered-values-ccp-prompt-render-prints-a-template-and-the-lanes-line-names-the-module-form
-    status: pending
+    status: done
     title: The prompt tests stop asserting removed sentences are absent and find an instruction by the value it renders, not a sentence around it; ccp prompt render prints a phase's prompt with placeholder values, writing nothing, so a template change is compared by two renders (§31.1); the Lanes line names the language pack's test-module form
     depends_on: []
     path: tasks/0353-prompt-tests-pin-rendered-values-ccp-prompt-render-prints-a-template-and-the-lanes-line-names-the-module-form.md

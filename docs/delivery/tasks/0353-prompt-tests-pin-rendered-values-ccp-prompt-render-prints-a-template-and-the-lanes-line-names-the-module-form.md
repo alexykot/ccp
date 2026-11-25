@@ -1,7 +1,7 @@
 ---
 task_id: 0353-prompt-tests-pin-rendered-values-ccp-prompt-render-prints-a-template-and-the-lanes-line-names-the-module-form
 title: The prompt tests stop asserting removed sentences are absent and find an instruction by the value it renders, not a sentence around it; ccp prompt render prints a phase's prompt with placeholder values, writing nothing, so a template change is compared by two renders (§31.1); the Lanes line names the language pack's test-module form
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S14", "S21"]
@@ -157,3 +157,5 @@ Measured at `becb6417`:
 - Narrowest readings: `--on` given to a non-render phase is ignored, as `--supersede` is for `env`; the two prompt-tool/lane tests that found a line by a sentence now require each line holding `mutate --run <run>/<phase> --test <test id>` to hold `QUEUE_ROOT=<q> `, and in a verify render there are two such lines (the shared evidence line and the verifier's own revert line). `test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command` keeps its `mut worktree` absence assertion, which the task does not list.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #432 head `baf650d` (squash `a0bd440`): APPROVE. Passed: test-01, test-02, cmd-01, code-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0353-prompt-tests-pin-rendered-values-ccp-prompt-render-prints-a-template-and-the-lanes-line-names-the-module-form.json.
+
