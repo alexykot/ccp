@@ -1800,7 +1800,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = vf.add_parser("spec-text", help="check the branch's SPEC lines against the signed text (§15.2)")
     p.add_argument("target", type=_nonblank, metavar="TASK", help="the task id")
     p.add_argument("--base", help="the ref the branch's diff is taken from (default: origin/<integration branch>)")
-    p.add_argument("--head", help="the commit whose SPEC change is checked (default: HEAD)")
+    p.add_argument("--head", help="the commit whose SPEC change is checked (default: the working tree, against its "
+                   "merge base with the base)")
     p.set_defaults(fn=cmd_verify)
     p = vf.add_parser("later", help="record the result of a deferred check run after its task closed (§15.4)")
     p.add_argument("target", type=_nonblank, metavar="TASK", help="the task id")

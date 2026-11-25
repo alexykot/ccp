@@ -1,6 +1,6 @@
 """SPEC §16.6: an exclusive lane's cache probe (plane.json `suite.cache_probe`). A run that finds the lane held asks the
 probe once, before any wait; exit 0 lets it run without the lock, recorded `lane_skipped: "cache_probe"`, and anything
-else leaves it taking the lock. A free lane, and a run bound to a cold-gate task, run no probe."""
+else leaves it taking the lock. A free lane, a run bound to a cold-gate task and a run given `--cold` run no probe."""
 from __future__ import annotations
 
 import json
@@ -166,6 +166,17 @@ class CacheProbe(SuiteFixture, unittest.TestCase):
         self.assertEqual(self.probed(), [])
         r = self.run_suite("--lane", "gate", "--run", "0001-first/implement", "--wait", "0", "--", PY, "-c", "print(1)")
         self.assertEqual(r.returncode, 0, r.stderr)  # its gate is not cold
+        self.assertEqual(self.started_rows()[-1].get("lane_skipped"), suite.CACHE_PROBE)
+
+    def test_a_cold_run_takes_the_lock_whatever_the_probe_says(self):
+        self.configure(self.probe(0))
+        self.hold()
+        r = self.run_suite("--lane", "gate", "--cold", "--wait", "0", "--", PY, "-c", "print(1)")
+        self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
+        self.assertEqual(self.probed(), [])
+        self.assertNotIn("lane_skipped", self.started_rows()[-1])
+        r = self.run_suite("--lane", "gate", "--wait", "0", "--", PY, "-c", "print(1)")
+        self.assertEqual(r.returncode, 0, r.stderr)  # the same run, not cold, is let past by the probe
         self.assertEqual(self.started_rows()[-1].get("lane_skipped"), suite.CACHE_PROBE)
 
     def test_the_key_must_map_a_lane_to_a_command(self):
