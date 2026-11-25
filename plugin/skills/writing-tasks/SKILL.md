@@ -26,7 +26,7 @@ One `key: value` per line; lists inline (`["a", "b"]`), on one line.
 | `status` | `pending`, `done` or `dropped`. Nothing else: claimed, implementing, in review and verifying are queue states, never written here. `ccp tasks close` writes `done` |
 | `depends_on` | task ids that must be `done` first; one may have a higher number. A cycle is refused |
 | `created`, `updated` | `YYYY-MM-DD` |
-| `spec_refs`, `adr_refs` | the SPEC sections it must satisfy; the decisions it builds (`"0031 D2"`). `spec_refs` is a required key by default (`task_log.required`), and by default a task must cite at least one SPEC section there (`task_log.refs_any`), even when it also cites `rule_refs` or `review_refs`. Only a kind with its own `refs_any`, read with the architect seat on (a refactor, below), leaves it out |
+| `spec_refs`, `adr_refs` | the SPEC sections it must satisfy; the decisions it builds (`"0031 D2"`). By default a feature task cites at least one of the two (`task_log.refs_any`), even when it also cites `rule_refs` or `review_refs`, and neither key is required on its own. A kind with its own `refs_any`, read with the architect seat on (a refactor, below), cites its own lists |
 | `kind` | `feature` (default) or `refactor` (with the architect seat; see below) |
 | `rule_refs`, `review_refs` | a refactor's house rules (`"E3"`) or review findings (`"<review_id>#F03"`) |
 | `review_point` | the review point whose scope it belongs to (`R<n>`) |
@@ -278,7 +278,8 @@ without a waiver. A `review_point` not in the register (or, without one, not mat
 placeholder (`NNNN-kebab-slug`, `YYYY-MM-DD`, `As a <role>`, `<preconditions`,
 `<concrete, observable result>`, `One line, imperative`), named with its line; a placeholder quoted
 in a code span or a fenced block is not read. A task citing nothing, where `spec_refs` is one of the
-lists it may cite, is told to list the SPEC sections in `spec_refs` and cite them in its text.
+lists it may cite, is told to list the SPEC sections in `spec_refs` (or, where `adr_refs` is one too, the ADR
+decisions it builds in `adr_refs`) and cite them in its text.
 `plane.json` validation refuses a `suite.lanes` command that holds `<your test command>`.
 
 ## When the operator says "not verifiable"

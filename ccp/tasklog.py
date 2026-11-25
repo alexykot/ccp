@@ -144,6 +144,9 @@ NO_FRONTMATTER = ("no frontmatter: an earlier plane generation's task file? conv
                   "`ccp tasks migrate`")
 # §5.2: what an empty ref list that includes spec_refs is told to do.
 SPEC_REFS_HINT = " — list the SPEC sections this task answers to in `spec_refs` and cite them in its text (§5.2)"
+# §5: where adr_refs is a list the task may cite too, the hint names both lists.
+SPEC_ADR_REFS_HINT = (" — list the SPEC sections this task answers to in `spec_refs`, or the ADR decisions it builds "
+                      "in `adr_refs`, and cite them in its text (§5.2)")
 
 
 @functools.lru_cache(maxsize=8)
@@ -1024,8 +1027,11 @@ def unreadable_proposed(t: dict[str, Any], rel: str) -> list[str]:
 
 
 def _spec_hint(lists: list[str]) -> str:
-    """The hint for a task that cites none of `lists`, when spec_refs is one of them."""
-    return SPEC_REFS_HINT if "spec_refs" in lists else ""
+    """The hint for a task that cites none of `lists`, when spec_refs is one of them: naming adr_refs too when
+    it is one of them."""
+    if "spec_refs" not in lists:
+        return ""
+    return SPEC_ADR_REFS_HINT if "adr_refs" in lists else SPEC_REFS_HINT
 
 
 def _check_shaping(cfg: Config, t: dict[str, Any], rel: str, shaped: set[int]) -> list[str]:

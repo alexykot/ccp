@@ -14,6 +14,7 @@ notes: |-
   2026-11-19: status proposed → accepted: Accepted by the operator 2026-11-19: "accept ADR-0043"
   Operator 2026-11-19: the language is a top-level `language` key; package-doc checks follow it, `none` turns them off (shape F03)
   2026-11-24: operator: architect.rules_max_lines, notes_due and max_new_tasks, task_log.dry_run and docs.workers are settings again, defaults unchanged ("Agree with all recommendations. Go ahead.")
+  2026-11-24: operator: a feature task cites spec_refs or adr_refs; task_log.required no longer lists spec_refs
 decisions:
   - "D1 built"
   - "D2 built"
@@ -296,7 +297,7 @@ The schema's own annotations, `$schema` and `_note`, stay accepted and mean noth
 **`plane.json`, constants:**
 - `task_log`:
   - `dir`: `docs/delivery`;
-  - `required`, `refs_any`, `sections`, `kinds`: the canonical task format;
+  - `required`, `refs_any`, `sections`, `kinds`: the canonical task format (refs_any spec_refs or adr_refs, required without spec_refs: operator 2026-11-24);
   - `reviews_dir`, `max_checks`, `soft_words`, `index`.
 - `package_docs`:
   - `doc_name`, `size_ratio`, `banned_headings`;

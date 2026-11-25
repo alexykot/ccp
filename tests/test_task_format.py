@@ -111,7 +111,7 @@ class Kinds(unittest.TestCase):
             front(p, "0001-c", "kind: chore", 'kind: chore\nreview_refs: ["ar-20261014T000000Z-abcd#F01"]')
             self.assertEqual(tasklog.check(p.cfg), [])
             self.assertEqual(tasklog.kind_refs(p.cfg, "chore"), ["review_refs"])
-            self.assertEqual(tasklog.kind_refs(p.cfg, "feature"), ["spec_refs"])
+            self.assertEqual(tasklog.kind_refs(p.cfg, "feature"), ["spec_refs", "adr_refs"])
         finally:
             p.cleanup()
 
