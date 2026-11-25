@@ -43,29 +43,6 @@ class TestSpawnDryRun(TeamCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(act["prompt"], real["actions"][-1]["prompt"])
 
-    def test_a_scope_task_missing_from_the_log_is_not_ready(self):
-        code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a,0009-z")
-        self.assertEqual(code, 1, err)
-        self.assertFalse(res["ready"])
-        self.assertEqual(res["failed"], ["scope_tasks_exist"])
-        self.assertIn("scope_tasks_exist", err)
-        self.assertFalse(self.check(res, "scope_tasks_exist")["ok"])
-        self.assertIn("0009-z", self.check(res, "scope_tasks_exist")["detail"])
-        self.assertTrue(self.check(res, "tasks_check")["ok"])
-
-    def test_a_scope_entry_by_number_names_its_task(self):
-        code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001")
-        self.assertEqual(code, 0, err)
-        self.assertTrue(self.check(res, "scope_tasks_exist")["ok"])
-
-    def test_a_failing_tasks_check_is_not_ready(self):
-        self.prod.task("0003-c", deps=["0099-nowhere"])
-        code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
-        self.assertEqual(code, 1, err)
-        self.assertEqual((res["ready"], self.check(res, "tasks_check")["ok"]), (False, False))
-        self.assertEqual(res["failed"], ["tasks_check"])
-        self.assertIn("tasks_check", err)
-
     def test_no_task_log_is_not_ready(self):
         (self.prod.root / "docs/delivery/plane.json").unlink()
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")

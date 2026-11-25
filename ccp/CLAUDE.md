@@ -20,6 +20,7 @@ normative, and a module that disagrees with it is the bug.
   questions), `lib.py` (the ledger library: events, the work.json lock, the atomic write, the one binding
   reader and resolver; it imports only the standard library at module level, so `scripts/run-checkout.sh` runs it as
   a file, and the scripts in `scripts/observability/` are single writers built on it, house rules E7 and E17), `lifecycle.py` (claim, phase, wait, release, close), `selection.py` and `parallel.py` (what the runner may take),
+  `runnerscope.py` (the runner seat's spawn decisions on plain values: scope, slots, orphans, readiness, §16.5, §22),
   `prhost.py` (the one module that reaches a PR host; the rest see `PrFacts`, house rule E19),
   `runs.py`, `followups.py` (the lead's outcome for each worker follow-up, and the open ones, §13.4),
   `report.py`, `submit.py` (formal-submit, `ccp tasks submit`, §15.1), `verify.py`, `schema.py` (the one schema checker
