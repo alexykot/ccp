@@ -13,6 +13,7 @@ notes: |-
   the architect's shape.
   2026-11-19: status proposed → accepted: Accepted by the operator 2026-11-19: "accept ADR-0043"
   Operator 2026-11-19: the language is a top-level `language` key; package-doc checks follow it, `none` turns them off (shape F03)
+  2026-11-24: operator: architect.rules_max_lines, notes_due and max_new_tasks, task_log.dry_run and docs.workers are settings again, defaults unchanged ("Agree with all recommendations. Go ahead.")
 decisions:
   - "D1 built"
   - "D2 built"
@@ -191,7 +192,7 @@ The appendix lists every key with its outcome.
   - where things are;
   - what only the product knows: its commands, paths, ids and privacy dirs;
   - choices a product makes: refactor capacity, the architect's cadence, quality knobs.
-- **`task_log.dry_run`:** it becomes a constant, at today's behaviour.
+- **`task_log.dry_run`:** it becomes a constant, at today's behaviour (reversed 2026-11-24: a setting, default off).
 - **`adr.strict`:** it stays a setting. Fixing it on would turn every product's ADR warnings into
   failures at release.
 - **`verify.skip_review_after_clean`:** it stays a setting, default off. It is a quality choice, not
@@ -239,16 +240,19 @@ The schema's own annotations, `$schema` and `_note`, stay accepted and mean noth
 **`plane.json`, kept (some with new defaults):**
 - `project_id`
 - `spec_paths`: one top-level key, merging `task_log.spec_paths` and `estimate.spec_paths`.
+- `task_log.dry_run`: default off (a setting again, operator 2026-11-24).
 - `package_docs`:
   - `language`: required, D4.
   - `claude_md_dirs`, `source_suffixes`, `exempt_dirs`, `docstring_globs`, `delivery_id_patterns`,
     `rules`.
 - `docs`:
   - `checks`;
+  - `workers`: as many as there are checks (a setting again, operator 2026-11-24);
   - `starter_rules.declined`; init adopts the starter rules by default.
 - `architect`:
   - `rules_doc`: default is the starter rules doc.
   - `every_n_tasks`.
+  - `rules_max_lines` (a setting again, operator 2026-11-24), `notes_due` (a setting again, operator 2026-11-24), `max_new_tasks` (a setting again, operator 2026-11-24).
   - `shape_from_task`: the adoption point.
   - `refactor_every`, `probes`, `checks`, `budgets`, `metrics`.
   - `areas`: default is the top-level directories.
@@ -293,17 +297,15 @@ The schema's own annotations, `$schema` and `_note`, stay accepted and mean noth
 - `task_log`:
   - `dir`: `docs/delivery`;
   - `required`, `refs_any`, `sections`, `kinds`: the canonical task format;
-  - `reviews_dir`, `max_checks`, `soft_words`, `index`, `dry_run`.
+  - `reviews_dir`, `max_checks`, `soft_words`, `index`.
 - `package_docs`:
   - `doc_name`, `size_ratio`, `banned_headings`;
   - `path_ref_suffixes`: derived from the pack;
   - `no_delivery_ids`: always on.
-- `docs.workers`: as many as there are checks.
 - `architect`:
-  - `rules_max_lines`, `max_days`, `notes_due`, `drift_ratio`, `grace_tasks`,
-    `triage_grace_tasks`;
+  - `max_days`, `drift_ratio`, `grace_tasks`, `triage_grace_tasks`;
   - `shape_adrs`: on when ADRs are on;
-  - `refactor_in_scope`, `call_timeout_minutes`, `max_new_tasks`.
+  - `refactor_in_scope`, `call_timeout_minutes`.
 - `prompts`:
   - `fragment`: `docs/delivery/WORKERS.md` when it exists;
   - `keep_body`: off;
