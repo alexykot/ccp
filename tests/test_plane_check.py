@@ -189,6 +189,16 @@ class Archive(SandboxCase):
         self.assertEqual([r["path"] for r in body["not_moved"]], ["run-task.sh"])
         self.assertTrue((self.q / "run-task.sh").is_file())
 
+    def test_the_retired_docs_sync_stamp_is_a_leftover_that_is_archived(self):
+        stamp = "product-docs" + "-check.json"  # joined: the name is retired from every plane file but this one's data
+        self.put(stamp, "{}\n")
+        code, body, _ = self.ccp("plane", "check")
+        self.assertEqual((code, body["root"]), (1, [f"unknown: {stamp}"]))
+        code, body, _ = self.ccp("plane", "check", "--archive")
+        self.assertEqual(code, 0)
+        self.assertEqual([r["path"] for r in body["archived"]], [stamp])
+        self.assertFalse((self.q / stamp).exists())
+
     def test_a_retired_script_is_archived(self):
         self.put("scripts/spec-maintainer-lock.sh", "#!/bin/sh\n")
         code, body, _ = self.ccp("plane", "check", "--archive")

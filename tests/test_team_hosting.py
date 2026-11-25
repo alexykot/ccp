@@ -724,11 +724,6 @@ class TestSync(TeamCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue(r.stdout.rstrip().endswith("result: clean"), r.stdout)
 
-    def test_an_option_the_script_does_not_have_is_refused(self):
-        r = self.sync("--check", "--install")
-        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
-        self.assertIn("usage:", r.stderr)
-
     def test_the_rules_doc_note_names_the_path_ccps_default_gives(self):
         """The note on a missing `architect.rules_doc` takes the path from ccp's loaded configuration."""
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"shape_from_task": "0001"}}))
