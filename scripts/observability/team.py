@@ -24,8 +24,9 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parents[1]))  # the plane root: `ccp` is the package the ledger library lives in
 
-from lib import (LEAD, OPEN_GATE_STATUSES, RUNNER, RUNNER_NAME, die, fmt_dt, looks_like_secret,  # noqa: E402
+from ccp.lib import (LEAD, OPEN_GATE_STATUSES, RUNNER, RUNNER_NAME, die, fmt_dt, looks_like_secret,  # noqa: E402
                  read_json, runner_worktree, utcnow, work_lock, write_json)
 import spec_maintainer as sm  # noqa: E402
 

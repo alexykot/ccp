@@ -85,7 +85,7 @@ def headless_pins(cfg: Config | None = None) -> dict[str, Any]:
     flags = architect.ar.headless_flags(cfg)
     pick = lambda k: flags[flags.index(k) + 1] if k in flags and flags.index(k) + 1 < len(flags) else None  # noqa: E731
     return {"model": pick("--model"), "effort": pick("--effort"),
-            "source": "scripts/observability/architecture_review.py HEADLESS_MODEL (claude -p flags)"}
+            "source": "ccp/architecture_review.py HEADLESS_MODEL (claude -p flags)"}
 
 
 # ------------------------------------------------------------------------------------- observed

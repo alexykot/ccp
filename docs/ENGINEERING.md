@@ -51,10 +51,10 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E6** The plane never parses a product's prose for a fact: the product declares it in `plane.json` or reports it as
   JSON. An action the plane needs from a product is a hook, never an instruction in prompt prose.
   check: pass
-- **E7** Every queue write goes through `ccp` and records its own event. A script a seat or product calls only wraps
-  `ccp` or Git; a plane-development script (the gate's, the house checks') may hold its own program and writes no queue
-  state.
-  check: pass — the architect lists the scripts/ files that write the queue or that a seat calls, and compares them with ccp
+- **E7** Every queue write goes through `ccp` and records its own event, and `ccp` imports nothing from scripts/. A
+  script a seat or product calls only wraps `ccp` or Git, or is a single writer built on ccp/lib.py; a plane-development
+  script (the gate's, the house checks') may hold its own program and writes no queue state.
+  check: command — architect.checks `E7` (no sys.path edit or scripts/ import in ccp); pass — the architect lists the scripts/ files that write the queue or that a seat calls, and compares them with ccp
 - **E8** Headless children strip `ANTHROPIC_API_KEY`, `CLAUDE_API_KEY` and `ANTHROPIC_AUTH_TOKEN`.
   check: pass
 - **E9** Readers accept every value a live queue may hold; writers emit only the current one. A renamed value stays as
@@ -80,8 +80,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   the file, by literal name or by `CONFIG_REL`, and never defaults a key itself. A command that
   records into plane.json edits its text through ccp/jsonedit.py.
   check: command — architect.checks `E16`
-- **E17** One module, scripts/observability/lib.py, resolves and parses a product's binding; every other reader calls it.
-  check: command — architect.checks `E17` (the parser); pass — the architect looks for binding paths resolved outside lib.py
+- **E17** One module, ccp/lib.py, resolves a binding (by queue or project id) and parses it; every other reader calls it.
+  check: command — architect.checks `E17` (the parser, and no binding path built outside ccp/lib.py); pass — the architect looks for binding paths resolved outside lib.py
 - **E18** A language's facts (its doc conventions, test-output patterns including the line that says the code did
   not build or import, the command that runs named tests or one test, and import reading) live in its language
   pack (ccp/doclang); plane.json may override them. Core code names no language and no test runner.

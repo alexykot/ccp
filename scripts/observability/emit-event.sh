@@ -77,7 +77,7 @@ if [[ "$JSON_IN" == "-" ]]; then
 fi
 
 export QUEUE_ROOT TYPE OP TASK_ID ACTOR_IN PROJECT_IN PAYLOAD AT JSON_IN
-export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$HERE/../..${PYTHONPATH:+:$PYTHONPATH}"
 
 python3 <<'PY'
 import json, os, sys
@@ -85,7 +85,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get("PYTHONPATH", ".").split(":")[0])
-from lib import append_event, die, events_path, fmt_dt, looks_like_secret
+from ccp.lib import append_event, die, events_path, fmt_dt, looks_like_secret
 
 raw = os.environ.get("JSON_IN") or ""
 if raw:

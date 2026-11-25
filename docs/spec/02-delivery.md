@@ -229,7 +229,8 @@ that merged) and only reconciles; a task already reconciled only has its queue s
 - **Token, model and effort figures come from the harness** (§24), never from an agent's account.
 - **Numbers are diagnostics, never targets**: no board figure is a DoD item or a worker goal.
 - The runner brief (`plugin/agents/delivery-runner.md`) names these commands at each step and describes no step in prose.
-  `scripts/observability/*.sh` stay as thin wrappers over `ccp`.
+  `ccp` imports nothing from `scripts/`: the scripts in `scripts/observability/` are single writers built on `ccp`'s
+  own library, which `ccp` calls or the operator runs.
 
 **Exit codes** of `ccp` commands, run in the product checkout (`--root DIR`, else `$CCP_ROOT`, else
 the git toplevel): 0 ok; 1 check failures or a failed run; 2 usage or configuration; 3 nothing

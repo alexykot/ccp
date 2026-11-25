@@ -1,7 +1,7 @@
 ---
 task_id: 0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver
 title: ccp holds the ledger library and the architect's review kit and imports nothing from scripts/, which E7 checks; a triage is validated against its contract; the telemetry commands and the docs sync read a binding by project id through the one resolver, honouring PROJECT_YAML; the estimator's failure file and the rendered prompt are written atomically
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S10", "S19", "S23"]
@@ -218,4 +218,32 @@ Measured at `1a575497`:
 
 ## Implementation notes
 
+- `ccp/lib.py` and `ccp/architecture_review.py` are `git mv`s of the two modules. Paths that were relative to
+  `scripts/observability/` now go through `parents[1]`: `bindings_dir()`'s default `projects/`, `PLUGIN_DIR`, and
+  `wait_writer_cmd`'s `scripts/observability/set-waiting-on.sh`. `_config` imports `ccp.config` when called, with no
+  `sys.path` fallback, so the module still runs as a file with the standard library alone.
+- `ccp/queue.py`, `architect.py` and `health.py` import from `ccp`; no `sys.path` edit stays in `ccp` (E7's check passes).
+  `spec_maintainer.py` and `team.py` put the plane root on their path and import `ccp.lib`; the four shell scripts
+  export the plane root as `PYTHONPATH` and import `ccp.lib`.
+- `binding_for_id` honours `PLANE_PROJECT_YAML` as well as `PROJECT_YAML`, as `binding_path` does: the narrowest
+  reading that keeps one resolver's environment the same for a queue and an id.
+- `validate_triage` runs `schema.schema_errors` on `contracts/architecture_review_triage.schema.json` first, then keeps
+  the review id, the commit sha for a task or ruling, and the secret check. `DISPOSITIONS` stays in code and only the
+  new test reads it; `triage_check`'s `RULE_DISPOSITIONS` check is now reached only when the contract's enum passed.
+- `ccp prompt` takes `lib` from `ccp.queue` at module level, since its local import in `build` would otherwise make
+  `lib` local to the whole function.
+- The triage fixtures in `tests/test_architect.py` and `tests/test_review_aliases_retired.py` gained `triaged_at` (and
+  `project_id`, `tasks_created` in the latter); expectations unchanged.
+- Added beyond the task's tests: `test_the_rendered_prompt_is_written_atomically` (`tests/test_prompt_end.py`),
+  `test_the_failure_file_is_written_atomically` (`tests/test_estimator.py`) and
+  `test_the_bindings_directory_defaults_to_projects_beside_the_plane_code` (`tests/test_binding_by_id.py`).
+- Fix round 1: the contract's two id patterns (`tasks_created[]`, `rule_changes[].rule`) are the defaults, while SPEC §7.1
+  makes the task width and the rule pattern product knobs. `validate_triage` and `triage` take the product's `Ids`
+  (`refs.DEFAULT` when none), the architect passes `refs.ids(cfg)` on both paths, and the validation runs the contract
+  with those two patterns removed, then checks the two values by `task_id_re` and `is_rule_id`; every other contract
+  error still refuses. The contract file is unchanged. `scripts/sync-product-docs.sh`'s header and
+  `scripts/observability/CLAUDE.md` now name `binding_for_id`.
+
 ## Verification notes
+- 2026-11-25 — verifier, PR #409 head `973d94d` (squash `8528afa`): APPROVE. Passed: code-01, code-02, code-03, code-04, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver.json.
+

@@ -2,16 +2,13 @@
 launchers read it, and each plugin agent definition's model id and effort equal its role's row."""
 from __future__ import annotations
 
-import sys
 import unittest
 
-from ccp import estimator, models, tasklog
+from ccp import architecture_review, estimator, models, tasklog
 from tests.helpers import PLANE_ROOT
 
 PLUGIN = PLANE_ROOT / "plugin"
 DEFINED = ("runner", "implementer", "reviewer", "verifier")
-sys.path.insert(0, str(PLUGIN.parent / "scripts" / "observability"))
-import architecture_review  # noqa: E402
 
 
 class TheRoleTable(unittest.TestCase):

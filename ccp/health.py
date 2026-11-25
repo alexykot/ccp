@@ -59,11 +59,9 @@ from typing import Any
 from ccp import adr, refs, runs, tasklog
 from ccp.config import ARCHITECT_DEFAULTS, HEALTH_DEFAULTS, USAGE_DEFAULTS, WHOLE_SUITE_ROLES, Config
 from ccp.config import spec_paths as spec_paths_of
+from ccp.lib import LEAD, looks_like_secret
 from ccp.queue import QueueError
 from ccp.rules import budget_failures, glob_re
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "observability"))
-from lib import LEAD, looks_like_secret  # noqa: E402
 
 PR_SUFFIX_RE = re.compile(r"\(#\d+\)\s*$")
 STAMP_RE = re.compile(r"^(\d{8}T\d{6}Z)_(.*)\.json$")

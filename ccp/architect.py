@@ -3,7 +3,7 @@
 One seat owns a product's structural health across four lenses (structure, docs, tests, process).
 A fresh, read-only `claude -p` runs the product's managed `architect` skill and returns one report;
 the task-log owner triages it under `docs/delivery/REVIEW-TRIAGE.md`. Everything after the call is
-§19's review kit (`architecture_review.py`), as a review *kind* with its own state
+§19's review kit (`ccp/architecture_review.py`), as a review *kind* with its own state
 (`architect.json`), lock (`architect.lock`) and id prefixes: `ar-` for a pass, `sh-` for a shape.
 
 `ccp` computes when a pass is due, so no seat has to remember it (§19.6), from:
@@ -41,17 +41,15 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from ccp import architecture_review as ar  # review kinds, lock, validation, triage
 from ccp import config, headless, health, parallel, pkgdocs, refs, rules, tasklog, wt
 from ccp.adr import find_file as find_adr_file
 from ccp.config import ARCHITECT_DEFAULTS, Config
+from ccp.lib import fmt_dt, lock_is_stale, parse_dt, read_json, write_atomic, write_json
 from ccp.queue import spawn_detached
 
 PLANE = Path(__file__).resolve().parent.parent
 OBS = PLANE / "scripts" / "observability"
-sys.path.insert(0, str(OBS))
-
-import architecture_review as ar  # noqa: E402  (review kinds, lock, validation, triage)
-from lib import fmt_dt, lock_is_stale, parse_dt, read_json, write_atomic, write_json  # noqa: E402
 
 LENSES: dict[str, tuple[str, ...]] = {
     "structure": ar.CATEGORIES,
@@ -921,7 +919,7 @@ def cmd_apply(cfg: Config, q: Path, rid: str, actor: str) -> int:
                        "error": "commit the triage file first; --apply does not ask anyone to write it"}, 1)
     t = read_json(tp)
     report = read_json(rp)
-    errs = ar.validate_triage(t, rid) if isinstance(t, dict) else ["triage is not an object"]
+    errs = ar.validate_triage(t, rid, refs.ids(cfg)) if isinstance(t, dict) else ["triage is not an object"]
     if not errs and isinstance(report, dict):
         errs = triage_check(t, report)
     elif not errs:
@@ -943,7 +941,7 @@ def cmd_triage(cfg: Config, q: Path, rid: str, actor: str) -> int:
     report = read_json(rp) if rp.is_file() else {}
     return ar.triage(q, rid, actor, ARCH, max_new=s["max_new_tasks"],
                      prompt_extra=triage_extra(cfg, report), extra_check=triage_check,
-                     product_dir=str(cfg.root))
+                     product_dir=str(cfg.root), ids=refs.ids(cfg))
 
 
 # ---------------------------------------------------------------- status and CLI

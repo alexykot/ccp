@@ -84,7 +84,7 @@ class BindingEntryPointTest(unittest.TestCase):
     """`lib.py binding <file>`: what the release script reads a binding through."""
 
     def run_entry(self, *args: str) -> subprocess.CompletedProcess:
-        return subprocess.run([sys.executable, "-I", str(PLANE / "scripts/observability/lib.py"), *args],
+        return subprocess.run([sys.executable, "-I", str(PLANE / "ccp/lib.py"), *args],
                               capture_output=True, text=True)
 
     def test_it_prints_the_top_level_scalars_as_json(self):

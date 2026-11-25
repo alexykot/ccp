@@ -264,10 +264,10 @@ def looks_like_secret(text: str) -> bool:
 def wait_writer_cmd(action: str, tid: str, reason: str, *, actor: str, project_id: str, task_only: bool = False,
                     quota_class: str | None = None, resets_at: str | None = None,
                     planned_resume_at: str | None = None, detail: str | None = None) -> list[str]:
-    """The argv of one call to `waiting_on`'s single writer, set-waiting-on.sh beside this module (§10.1): each
+    """The argv of one call to `waiting_on`'s single writer, scripts/observability/set-waiting-on.sh (§10.1): each
     option that is set, and `--task-only` when asked. Each caller runs it and handles its failure itself."""
-    cmd = [str(Path(__file__).resolve().parent / "set-waiting-on.sh"), action, tid, reason, "--actor", actor,
-           "--project-id", project_id]
+    writer = Path(__file__).resolve().parents[1] / "scripts" / "observability" / "set-waiting-on.sh"
+    cmd = [str(writer), action, tid, reason, "--actor", actor, "--project-id", project_id]
     for flag, value in (("--quota-class", quota_class), ("--resets-at", resets_at),
                         ("--planned-resume-at", planned_resume_at), ("--detail", detail)):
         if value:
@@ -728,7 +728,7 @@ def _yaml_block_scalars(text: str, block: str) -> dict[str, str]:
 
 def bindings_dir() -> Path:
     """SPEC §8.3: this plane's bindings, `projects/` beside its code (`CCP_BINDINGS_DIR` overrides it)."""
-    return Path(os.environ.get("CCP_BINDINGS_DIR") or Path(__file__).resolve().parents[2] / "projects")
+    return Path(os.environ.get("CCP_BINDINGS_DIR") or Path(__file__).resolve().parents[1] / "projects")
 
 
 MACHINE_FILE = "machine.json"
@@ -781,6 +781,25 @@ def binding_path(root: Path) -> Path | None:
     return p if p.is_file() else None
 
 
+def binding_for_id(project_id: str) -> Path | None:
+    """SPEC §8.3: the binding of the project `project_id` (the caller checks the id is well formed): the file
+    `PROJECT_YAML` (or `PLANE_PROJECT_YAML`) names, when it is a file whose `project_id` is this one (a sandbox's
+    binding sits outside the bindings directory, §29.3); else `<bindings_dir()>/<project_id>.yaml` when that is a
+    file; else None."""
+    for key in ("PROJECT_YAML", "PLANE_PROJECT_YAML"):
+        v = os.environ.get(key)
+        b = Path(v).expanduser() if v else None
+        if b is not None and b.is_file():
+            try:
+                named = binding_str(read_binding(b.read_text()), "project_id")
+            except OSError:
+                continue
+            if named == project_id:
+                return b
+    b = bindings_dir() / f"{project_id}.yaml"
+    return b if b.is_file() else None
+
+
 def product_binding(project_id: str, roots: Any) -> Path | None:
     """SPEC §8.3, §9.2: the binding of the product `project_id` (the caller checks the id is well formed):
     the file `PROJECT_YAML` names, when it is set, ahead of `<bindings_dir()>/<project_id>.yaml` (a
@@ -831,12 +850,9 @@ MOVED_KEYS = {WINDOW_KEY: "the product's .claude/settings.json autoCompactWindow
 
 
 def _config() -> Any:
-    """`ccp.config`, for the constant mechanism (`constant_override`); importable from a script here too."""
-    try:
-        from ccp import config  # noqa: PLC0415
-    except ImportError:
-        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-        from ccp import config  # noqa: PLC0415
+    """`ccp.config`, for the constant mechanism (`constant_override`); imported when used, so this module still
+    runs as a file (`lib.py binding`) with the standard library alone."""
+    from ccp import config  # noqa: PLC0415
     return config
 
 

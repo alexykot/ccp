@@ -97,7 +97,7 @@ QUEUE_ROOT="${QUEUE_ROOT:?set QUEUE_ROOT to live queue dir outside product git}"
 command -v python3 >/dev/null || { echo "set-waiting-on: python3 required" >&2; exit 1; }
 
 export QUEUE_ROOT ACTION TASK_ID REASON RESETS_AT PLANNED_AT QUOTA_CLASS DETAIL ACTOR_IN PROJECT_IN TASK_ONLY
-export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$HERE/../..${PYTHONPATH:+:$PYTHONPATH}"
 
 python3 <<'PY'
 import json, os, sys
@@ -105,7 +105,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get("PYTHONPATH", ".").split(":")[0])
-from lib import WAIT_REASONS, append_event, die, fmt_dt, looks_like_secret, work_lock, write_json
+from ccp.lib import WAIT_REASONS, append_event, die, fmt_dt, looks_like_secret, work_lock, write_json
 
 root = Path(os.environ["QUEUE_ROOT"]).expanduser()
 action = os.environ["ACTION"]
