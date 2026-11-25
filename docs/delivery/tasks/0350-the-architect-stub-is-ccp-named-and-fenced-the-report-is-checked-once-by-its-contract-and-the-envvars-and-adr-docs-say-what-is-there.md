@@ -161,4 +161,10 @@ Measured at `05cb00e2`:
 
 ## Implementation notes
 
+- Premises re-measured at `248a2b14` (one commit, 0347, since `05cb00e2`): the 16 `DA_*` lines, the 18 `for_child` lines, the five `cpl ` lines and the one `Kind` hold as the Context states.
+- `ccp/architect.py`: the launch line reads `envvar("CCP_ARCHITECT_CLAUDE_BIN") or "claude"`; `validate` keeps `ar.validate_report` and the comparisons of the model's `review_id`, `mode` and `lenses`, and loses the hand checks of `rule_changes`, `metrics` and `shape`. `RULE_ACTIONS`, which only those checks used, is removed with them (the contract's enum holds the actions).
+- `contracts/architect_report.schema.json`: `rule_changes.items.properties.check` gains `"pattern": "\\S"`.
+- `for_child` is removed from `ccp/envvars.py` and its six callers; `ccp/envvars.py`, `ccp/CLAUDE.md`, `docs/adr/README.md` and `docs/design/architect.md` carry the ruled text; the SPEC §19.7 item 3 carries the PROPOSED passage (§31.1).
+- Tests: `tests/__init__.py` fences `CCP_ARCHITECT_CLAUDE_BIN`; the stub's variables are `CCP_ARCHITECT_STUB_*`; the pinned message in `test_rule_changes_are_validated_and_disposed` is `rule_changes[0]: missing check`; the new contract test is in `tests/test_architect_triage_schema.py`.
+
 ## Verification notes
