@@ -1713,7 +1713,7 @@ tasks:
     depends_on: []
     path: tasks/0347-a-cold-suite-run-takes-the-exclusive-lock-mutate-names-the-lines-of-an-ambiguous-mutant-and-spec-text-says-what-it-read.md
   - id: 0348-the-runner-and-verifier-briefs-leave-refusal-conditions-to-their-commands-and-the-mutation-fallback-is-written-once
-    status: pending
+    status: done
     title: The runner brief leaves the review-skip conditions and the second behind_tip refusal to the commands and the SPEC; the verifier definition leaves verify record's refusals and §15.6 rule 3 to them; the hand-mutation fallback is written once, in _common.md; the review prompt drops its pre-rule line; the verify prompt carries the two sentences 0343 cut
     depends_on: []
     path: tasks/0348-the-runner-and-verifier-briefs-leave-refusal-conditions-to-their-commands-and-the-mutation-fallback-is-written-once.md

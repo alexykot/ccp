@@ -1,7 +1,7 @@
 ---
 task_id: 0348-the-runner-and-verifier-briefs-leave-refusal-conditions-to-their-commands-and-the-mutation-fallback-is-written-once
 title: The runner brief leaves the review-skip conditions and the second behind_tip refusal to the commands and the SPEC; the verifier definition leaves verify record's refusals and §15.6 rule 3 to them; the hand-mutation fallback is written once, in _common.md; the review prompt drops its pre-rule line; the verify prompt carries the two sentences 0343 cut
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S15"]
@@ -149,3 +149,5 @@ Measured at `05cb00e2`:
   the item holding "is a recorded one", where `_common.md` carries the fallback and its `--lane {{part_lane}}`).
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #425 head `1774194` (squash `5f64382`): APPROVE. Passed: doc-01, doc-02, doc-03, doc-04, doc-05. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0348-the-runner-and-verifier-briefs-leave-refusal-conditions-to-their-commands-and-the-mutation-fallback-is-written-once.json.
+
