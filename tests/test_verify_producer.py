@@ -317,7 +317,7 @@ class Producer(unittest.TestCase):
                 self.assertIn("checks[0] (data-01)", "\n".join(reasons))
 
     def test_the_briefs_name_the_field(self):
-        self.assertIn("produced_by", (PLANE_ROOT / "plugin/agents/delivery-verifier.md").read_text())
+        self.assertIn("produced_by", (PLANE_ROOT / "templates/prompts/verify.md").read_text())
         self.assertIn("produced_by", (PLANE_ROOT / "plugin/agents/delivery-runner.md").read_text())
 
 

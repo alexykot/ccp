@@ -96,7 +96,7 @@ class UndeclaredFullLane(ToolkitFixture, unittest.TestCase):
         self.assertNotIn(DECLARED, text)
 
 
-PART_ARGV = "`--lane part` with `scripts/gate.sh <modules>` after `--`"
+PART_ARGV = "suite run --lane part -- scripts/gate.sh <module> …` (module names, not test ids)"
 PART_EMPTY = "`--lane part` with nothing after `--`"
 
 
@@ -107,8 +107,8 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
         c = config.load(self.runner)
         for phase in ("implement", "fix", "merge", "ruling", "review", "verify"):
             lanes = prompt_mod.suite_lanes(c, phase)
-            self.assertIn(PART_ARGV, lanes, phase)
-            self.assertIn(f", or `{prompt_mod.ccp_command(c)} suite run --affected` for", lanes, phase)
+            self.assertIn(f"`{prompt_mod.ccp_command(c)} {PART_ARGV}", lanes, phase)
+            self.assertIn(f", or `{prompt_mod.ccp_command(c)} suite run --affected` (it picks", lanes, phase)
             self.assertNotIn(PART_EMPTY, lanes, phase)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
@@ -117,6 +117,15 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
         text = Path(body["prompt_path"]).read_text()
         self.assertIn(PART_ARGV, text)
         self.assertIn("for one the Lanes line above gives", text)
+
+    def test_a_part_lane_declared_as_an_argv_is_given_as_whole_commands(self):
+        """§14.7: each option is a command the worker can run as written, never `--lane` and `--affected` in one."""
+        c = config.load(self.runner)
+        for phase in ("implement", "fix", "merge", "ruling", "review", "verify"):
+            lanes = prompt_mod.suite_lanes(c, phase)
+            self.assertIn("suite run --lane part -- scripts/gate.sh <module> …", lanes, phase)
+            self.assertIn("(it picks the lane itself)", lanes, phase)
+            self.assertNotIn("`--lane part` with", lanes, phase)
 
     def test_a_staged_part_lane_still_runs_with_nothing_after_it(self):
         staged = {"lanes": {"part": [{"name": "unit", "cmd": "true"}]}}

@@ -663,11 +663,6 @@ class TestArchitectInTemplates(unittest.TestCase):
         common = (PLANE_ROOT / "templates" / "prompts" / "_common.md").read_text()
         self.assertIn("{{#rules_doc}}- Read the house rules, {{rules_doc}}", common)
 
-    def test_workers_read_the_rules(self):
-        # the implementer's definition leaves reading the rules to its prompt (the `_common.md` pin above)
-        for w in ("delivery-reviewer", "delivery-verifier"):
-            self.assertIn("architect.rules_doc", self.brief(w), w)
-
 
 class TheRunnerSpawnFollowsCcpsDefault(TeamCase):
     """SPEC §16.2: `runner spawn` asks ccp's loaded configuration for parallel.max_in_flight, so a product

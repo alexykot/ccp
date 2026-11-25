@@ -70,8 +70,8 @@ file in full first and follow it exactly."). Pass that pointer as printed, **nev
 a retyped prompt loses its tail. The file's last line is `Prompt end: <token>`, and the worker's report
 repeats it as `Prompt: <token>` (SPEC §13.2, §13.4). `--note "<text>"` adds
 text of your own for this run, and `--note-file PATH` reads a multi-line note from a file (SPEC §13.2); a note you keep repeating is a plane proposal.
-`ccp prompt` refuses while a run of the same agent type is still pending (opened, its agent not
-started); `--supersede` abandons it when that launch never happened (SPEC §11.1, §16.4). With a runner
+`ccp prompt` refuses while a run of the same agent type is still pending, until it binds or expires
+(SPEC §11.1); `--supersede` abandons it when that launch never happened (SPEC §11.1, §16.4). With a runner
 slot, pass `--holder <your slot>` to every `ccp prompt`, as you do to claim: only the slot holding the
 task's lease opens its rounds (SPEC §16.4). Its exit 3 is a refusal under §11.1 or §16.4, and its message names
 the condition that failed: read it.

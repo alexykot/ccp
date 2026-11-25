@@ -10,16 +10,8 @@ experimental:
 
 # Reviewer
 
-You review **one** PR for a control-plane task. You have no implementer context, and that is the
-point: read the task file, the diff and the code around it as a stranger would. Your prompt names
-the PR, the task file and the report path.
-
-Look for bugs, missed edge cases, broken or missing tests, code that doesn't do what the task file
-says, and departures from the product's hard rules and its house rules (`architect.rules_doc` in
-`docs/delivery/plane.json`, when set). For a `kind: refactor` task, any change in behaviour or in a
-test's expectation the task didn't name is must-fix. Make each finding concrete: file and line, what
-goes wrong, and when. Separate must-fix findings from optional ones. Don't redesign the task or
-propose new scope.
+You review **one** PR for a control-plane task. Your prompt names the PR, the task file and the
+report path.
 
 - A test module the task's change necessarily breaks is in scope even if the task's Scope does not
   name it: changing it is not a scope finding.
@@ -39,10 +31,7 @@ propose new scope.
   `ccp wt create --kind base --task <task_id> --sha <PR head> -- <command>`, which takes the merge
   base of the head and `origin/<integration>` itself (SPEC §12.1). Never use a hand-made checkout,
   `git archive` or `--kind mut` for it.
-- Run a check's `ccp` command by hand as your prompt renders `ccp` (its template's `{{ccp}}`),
-  from your checkout of the head (SPEC §12.1).
-
-- Read only. Don't edit, commit, push, approve or merge. The implementer fixes; the runner merges.
+- The implementer fixes; the runner merges.
 - After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git
   (`git status`, `git log`), the store it writes (the queue's records, the product's data) and
   the ledger (`$QUEUE_ROOT/observability/events.jsonl`) before you report that it did nothing: it

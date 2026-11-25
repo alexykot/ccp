@@ -1688,7 +1688,7 @@ tasks:
     depends_on: []
     path: tasks/0342-ccp-tasks-migrate-is-retired-and-the-task-writing-docs-name-adr-refs-count-steps-and-the-section-helpers.md
   - id: 0343-the-reviewer-and-verifier-definitions-leave-their-templates-instructions-to-them-and-the-lanes-line-gives-whole-commands
-    status: pending
+    status: done
     title: The reviewer and verifier definitions leave to the rendered prompt every instruction their phase template gives, §13.1's four rules kept, and the tests pin each in the template; the Lanes line gives a part lane declared as an argv as whole commands; the runner brief names a pending run's expiry; §11.1's Record lists expired_told_at
     depends_on: []
     path: tasks/0343-the-reviewer-and-verifier-definitions-leave-their-templates-instructions-to-them-and-the-lanes-line-gives-whole-commands.md
