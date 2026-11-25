@@ -1707,3 +1707,23 @@ tasks:
     title: ccp verify spec-text with no --head reads the working tree, so an uncommitted SPEC edit counts, with its signed §15.2 passage; ccp plane built takes a task's number; the observability doc stops inventorying ccp/lib.py and restating E7, and the doclang doc E18, and team.py puts the plane on sys.path once; release.sh fast-forwards from a fetched ref, not FETCH_HEAD
     depends_on: []
     path: tasks/0346-verify-spec-text-reads-the-working-tree-plane-built-takes-a-task-number-and-the-observability-scripts-and-release-are-tidied.md
+  - id: 0347-a-cold-suite-run-takes-the-exclusive-lock-mutate-names-the-lines-of-an-ambiguous-mutant-and-spec-text-says-what-it-read
+    status: pending
+    title: A suite run given --cold takes the exclusive lane's lock whatever its tree or cache probe says, with its signed §16.6 sentence; ccp mutate's refusal of an old text found more than once names the lines it is on; verify spec-text's help, not-found line and a base with no merge base say what it read
+    depends_on: []
+    path: tasks/0347-a-cold-suite-run-takes-the-exclusive-lock-mutate-names-the-lines-of-an-ambiguous-mutant-and-spec-text-says-what-it-read.md
+  - id: 0348-the-runner-and-verifier-briefs-leave-refusal-conditions-to-their-commands-and-the-mutation-fallback-is-written-once
+    status: pending
+    title: The runner brief leaves the review-skip conditions and the second behind_tip refusal to the commands and the SPEC; the verifier definition leaves verify record's refusals and §15.6 rule 3 to them; the hand-mutation fallback is written once, in _common.md; the review prompt drops its pre-rule line; the verify prompt carries the two sentences 0343 cut
+    depends_on: []
+    path: tasks/0348-the-runner-and-verifier-briefs-leave-refusal-conditions-to-their-commands-and-the-mutation-fallback-is-written-once.md
+  - id: 0349-tests-stop-asserting-a-retired-name-is-absent-and-pin-the-run-clock-and-the-docs-sync-refusal
+    status: pending
+    title: Tests stop asserting that a retired name is absent (0342's seven assertions, the operator rename's six, the three no-marker tests and the docs-audit command test), keeping the behaviour they also pin; the run clock's shared stamps and its start, and the docs sync's refusal of a project with no binding, are tested; tests/helpers.py's imports are in order
+    depends_on: []
+    path: tasks/0349-tests-stop-asserting-a-retired-name-is-absent-and-pin-the-run-clock-and-the-docs-sync-refusal.md
+  - id: 0350-the-architect-stub-is-ccp-named-and-fenced-the-report-is-checked-once-by-its-contract-and-the-envvars-and-adr-docs-say-what-is-there
+    status: pending
+    title: The architect's claude override is CCP_ARCHITECT_CLAUDE_BIN, fenced in the tests like the estimator's; ccp architect checks a report's shape only through its contract, as §19.7 item 3 says (§31.1); envvars.py drops for_child and says what envvar does; the architect design note and docs/adr/README.md describe what is there
+    depends_on: []
+    path: tasks/0350-the-architect-stub-is-ccp-named-and-fenced-the-report-is-checked-once-by-its-contract-and-the-envvars-and-adr-docs-say-what-is-there.md

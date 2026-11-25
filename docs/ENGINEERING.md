@@ -1,8 +1,7 @@
 # Engineering rules
 
-The control plane's house rules. Every change follows them; every rule says how it is checked. The
-format is the one `ccp` reads (SPEC §20.1). The command rules run through `architect.checks` in
-`docs/delivery/plane.json` (SPEC §19.11), except E1, which the verifier's gate (`scripts/gate.sh`) runs.
+The control plane's house rules. Every change follows them; every rule says how it is checked, in the format `ccp`
+reads (SPEC §20.1). A command check runs in `architect.checks` (§19.11), in the gate, or both, as its line says.
 
 ## Tests
 
@@ -16,9 +15,10 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E4** A test checks behaviour, not wording: no assertion on prose, help text or prompt text beyond the token it
   pins. A test names a plane constant or shared fixture fact (the worktrees directory, a binding) through the code or
   a fixture helper, never as a copied literal. A fixture or helper other modules reuse lives in a module that holds no
-  tests; no module imports a test module or binds another module's test-class methods.
+  tests; no module imports a test module or binds another module's test-class methods. A retirement deletes the
+  code and its tests; no test asserts that a retired name is absent (a reader refusing old data is behaviour).
   check: command — architect.checks `E4`: greps and scripts/house_checks.py `e4-imports`, each printing its hits, and its
-  `e4-count` of assert calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over
+  `e4-count` of assert calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over; pass — the architect reads the tests each retirement since the last pass touched for an `assertNotIn` of the retired name
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch: a change that gives a branch a
   plain-value test cuts that branch's end-to-end test in the same change.
