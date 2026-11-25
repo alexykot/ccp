@@ -1,7 +1,7 @@
 ---
 task_id: 0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps
 title: The writing-tasks skill tells an absence check on a code form to allow leading whitespace; this repo's task rules point at house rules E2 and E21 instead of the test helpers; ccp init counts only the files git keeps when it decides whether the task log needs its .gitkeep
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4"]
@@ -113,3 +113,5 @@ Measured at `1a575497`:
   it tests the fallback whatever `TMPDIR` sits in; the skill paragraph re-wrapped to the paragraph's width.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #411 head `78bcc2c` (squash `4d0e9c8`): APPROVE. Passed: doc-01, doc-02, code-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps.json.
+

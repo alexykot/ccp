@@ -1648,7 +1648,7 @@ tasks:
     depends_on: []
     path: tasks/0334-the-implementer-brief-leaves-its-phase-template-s-instructions-to-it-and-the-lanes-line-renders-the-worker-s-ccp.md
   - id: 0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps
-    status: pending
+    status: done
     title: The writing-tasks skill tells an absence check on a code form to allow leading whitespace; this repo's task rules point at house rules E2 and E21 instead of the test helpers; ccp init counts only the files git keeps when it decides whether the task log needs its .gitkeep
     depends_on: []
     path: tasks/0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps.md
