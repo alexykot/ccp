@@ -108,7 +108,7 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
         for phase in ("implement", "fix", "merge", "ruling", "review", "verify"):
             lanes = prompt_mod.suite_lanes(c, phase)
             self.assertIn(PART_ARGV, lanes, phase)
-            self.assertIn(", or `ccp suite run --affected` for", lanes, phase)
+            self.assertIn(f", or `{prompt_mod.ccp_command(c)} suite run --affected` for", lanes, phase)
             self.assertNotIn(PART_EMPTY, lanes, phase)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
@@ -124,17 +124,18 @@ class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
         self.assertIn(PART_EMPTY, lanes)
         self.assertNotIn("<modules>", lanes)
 
-    def test_a_staged_part_lane_names_suite_run_affected(self):
+    def test_a_staged_part_lane_names_suite_run_affected_through_the_workers_ccp(self):
         stages = [{"name": "unit", "cmd": "true"}]
         staged = {"lanes": {"part": stages, "gate": stages}}
         c = dataclasses.replace(config.load(self.runner), suite=staged)
+        affected = f"{prompt_mod.ccp_command(c)} suite run --affected"
         for phase in ("implement", "review"):
-            self.assertIn("ccp suite run --affected", prompt_mod.suite_lanes(c, phase), phase)
+            self.assertIn(affected, prompt_mod.suite_lanes(c, phase), phase)
         # the staged gate lane gets no such tail: the verify line names it once, for the part lane
-        self.assertEqual(prompt_mod.suite_lanes(c, "verify").count("ccp suite run --affected"), 1)
+        self.assertEqual(prompt_mod.suite_lanes(c, "verify").count(affected), 1)
         # nor does an undeclared part lane, which takes the command after `--`
         bare = dataclasses.replace(c, suite={"lanes": {}})
-        self.assertNotIn("ccp suite run --affected", prompt_mod.suite_lanes(bare, "implement"))
+        self.assertNotIn("suite run --affected", prompt_mod.suite_lanes(bare, "implement"))
 
 
 class GateOnlyLanes(ReviewFlow, ToolkitFixture, unittest.TestCase):
