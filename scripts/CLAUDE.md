@@ -6,8 +6,8 @@
   `leak-check.sh` (no managed-product specifics in tracked files), `house_checks.py` (the programs of the
   house rules' command checks, a subcommand each, that plane.json `architect.checks` calls with their figures).
 - **Seat helpers products call:** `team.sh` (the runner teammate and gates, §2), `spec-maintainer-ask.sh`
-  (the runner raises a spec question to the lead, §17), `sync-product-docs.sh` (managed copies for
-  products not on the plugin), `formal-submit.template.sh` (formal-submit, a wrapper of `ccp tasks submit`, §15.1).
+  (the runner raises a spec question to the lead, §17), `sync-product-docs.sh` (reports a
+  product's leftover managed copies, §9.5; it writes nothing), `formal-submit.template.sh` (formal-submit, a wrapper of `ccp tasks submit`, §15.1).
 - `observability/` holds the ledger writers (§23) that `ccp` and the hooks share.
 
 Scripts follow E7.

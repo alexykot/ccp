@@ -491,7 +491,6 @@ QUEUE_OWNED = frozenset({
     "locks",                    # §16.6: the exclusive test lanes' lock
     "observability",            # §23.2: the ledger and the seats' heartbeats (§18.3)
     "plane",                    # §31.4: plane proposals
-    "product-docs-check.json",  # §9.5: the daily stamp of scripts/sync-product-docs.sh --check
     "progress",                 # §23.7: progress files and worker reports (§13.4)
     "project.yaml",             # §8.3: the retired queue copy of the binding, still read as a fallback
     "prompts",                  # §23.8: the prompt audit

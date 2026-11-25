@@ -1,5 +1,5 @@
 """SPEC §2 Claude team: team.sh (runner + gates), the team-lead question channel, the
-TeammateIdle hook, the triage hand-off and the managed copies sync installs."""
+TeammateIdle hook, the triage hand-off and the managed copies sync reports."""
 from __future__ import annotations
 
 import json
@@ -685,25 +685,44 @@ class TheRunnerSpawnFollowsCcpsDefault(TeamCase):
 
 
 class TestSync(TeamCase):
-    def test_installs_agent_and_executable_hook(self):
+    def sync(self, *extra):
         yml = self.q / "project.yaml"
-        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
-                            "--allow-dirty"], capture_output=True, text=True)
-        if "is not committed" in r.stderr:
-            self.skipTest("templates not committed yet")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        for name, (model, _) in AGENT_MODELS.items():
-            agent = (self.prod.root / f".claude/agents/{name}.md").read_text()
-            self.assertTrue(agent.startswith(f"---\nname: {name}\n"), name)
-            self.assertIn(f"\nmodel: {model}\n", agent)
-        hook = self.prod.root / ".claude/hooks/runner-idle.sh"
-        lines = hook.read_text().splitlines()
-        self.assertEqual(lines[0], "#!/usr/bin/env bash")
-        self.assertTrue(lines[1].startswith("# Managed copy of control-plane `plugin/hooks/runner-idle.sh`"))
-        self.assertTrue(os.access(hook, os.X_OK))
-        chk = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
-                              "--check"], capture_output=True, text=True)
-        self.assertNotIn("DRIFT .claude/hooks", chk.stdout)
+        return subprocess.run(["bash", str(PLANE_ROOT / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
+                               *extra], capture_output=True, text=True)
+
+    def test_a_call_without_check_is_refused(self):
+        r = self.sync()
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("usage: sync-product-docs.sh <project", r.stderr)
+        self.assertFalse((self.prod.root / "docs/delivery/CONTROL-PLANE.md").exists())
+        self.assertFalse((self.prod.root / ".claude/agents").exists())
+
+    def test_a_leftover_copy_is_reported_and_nothing_is_written(self):
+        header = "> Managed copy of control-plane `plugin/agents/delivery-runner.md` at abc1234. Edit the template.\n"
+        agent = ".claude/agents/delivery-runner.md"
+        hook = ".claude/hooks/runner-idle.sh"
+        self.prod.write(agent, "---\nname: delivery-runner\n---\n" + header)
+        self.prod.write(hook, "#!/usr/bin/env bash\n# Managed copy of control-plane `plugin/hooks/runner-idle.sh` at abc1234. Edit.\n")
+        self.prod.write(".claude/agents/delivery-verifier.md", "my own verifier, no header\n")
+        before = sorted(str(p.relative_to(self.prod.root)) for p in self.prod.root.rglob("*") if ".git" not in p.parts)
+        texts = {rel: (self.prod.root / rel).read_text() for rel in (agent, hook)}
+        r = self.sync("--check")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn(f"DRIFT {agent}: retired", r.stdout)
+        self.assertIn(f"DRIFT {hook}: retired", r.stdout)
+        self.assertIn("delivery-verifier.md: the control-plane", r.stdout)
+        self.assertIn("no managed-copy header; left alone", r.stdout)
+        self.assertNotIn("DRIFT .claude/agents/delivery-v", r.stdout)
+        self.assertNotIn("missing", r.stdout)  # a copy the product lacks is nothing
+        self.assertTrue(r.stdout.rstrip().endswith("and commit the product change"), r.stdout)
+        self.assertEqual(before, sorted(str(p.relative_to(self.prod.root)) for p in self.prod.root.rglob("*")
+                                        if ".git" not in p.parts))
+        self.assertEqual(texts, {rel: (self.prod.root / rel).read_text() for rel in (agent, hook)})
+
+    def test_a_product_with_no_copies_is_clean(self):
+        r = self.sync("--check")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(r.stdout.rstrip().endswith("result: clean"), r.stdout)
 
     def test_the_rules_doc_note_names_the_path_ccps_default_gives(self):
         """The note on a missing `architect.rules_doc` takes the path from ccp's loaded configuration."""
@@ -717,24 +736,16 @@ class TestSync(TeamCase):
         self.assertIn("plane.json architect.rules_doc docs/HOUSE-RULES.md does not exist", chk.stdout)
 
     def test_architect_skill_replaces_the_two_old_ones(self):
-        yml = self.q / "project.yaml"
-        sync = ["bash", str(PLANE_ROOT / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--allow-dirty"]
         header = "> Managed copy of control-plane `plugin/skills/docs-audit/SKILL.md` at abc1234. Edit it.\n"
         self.prod.write(".claude/skills/docs-audit/SKILL.md", "---\nname: docs-audit\n---\n\n" + header)
         self.prod.write(".claude/skills/architecture-review/SKILL.md", "---\nname: architecture-review\n---\nmine\n")
-        chk = subprocess.run(sync[:-1] + ["--check"], capture_output=True, text=True)
-        if "is not committed" in chk.stderr:
-            self.skipTest("templates not committed yet")
-        self.assertIn("DRIFT .claude/skills/docs-audit/SKILL.md: retired", chk.stdout)
-        r = subprocess.run(sync, capture_output=True, text=True)
-        if "is not committed" in r.stderr:
-            self.skipTest("templates not committed yet")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertTrue((self.prod.root / ".claude/skills/architect/SKILL.md").read_text().startswith("---\nname: architect\n"))
-        self.assertFalse((self.prod.root / ".claude/skills/docs-audit").exists())
+        chk = self.sync("--check")
+        self.assertEqual(chk.returncode, 1, chk.stdout + chk.stderr)
+        self.assertIn("docs-audit/SKILL.md: retired — replaced by the arch", chk.stdout)
         # a copy without the managed header is the product's own: left alone, with a note
+        self.assertTrue((self.prod.root / ".claude/skills/docs-audit/SKILL.md").is_file())
         self.assertTrue((self.prod.root / ".claude/skills/architecture-review/SKILL.md").is_file())
-        self.assertIn("no managed-copy header; left alone", r.stdout)
+        self.assertIn("no managed-copy header; left alone", chk.stdout)
 
 
 if __name__ == "__main__":
