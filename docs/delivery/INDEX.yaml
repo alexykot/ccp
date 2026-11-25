@@ -1682,3 +1682,28 @@ tasks:
     title: An exclusive lane may declare a cache probe in plane.json suite.cache_probe, and a run the probe says the product's test cache answers whole skips the lane's lock, recorded as such
     depends_on: []
     path: tasks/0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock.md
+  - id: 0342-ccp-tasks-migrate-is-retired-and-the-task-writing-docs-name-adr-refs-count-steps-and-the-section-helpers
+    status: pending
+    title: ccp tasks migrate is retired with its §5.3 paragraph, tasks check's pointer to it in §21.1 and its tests; the managed task template and README name adr_refs beside spec_refs; the writing-tasks skill says a count step names the exit it accepts; ccp/CLAUDE.md maps mdsection.py and spec.py
+    depends_on: []
+    path: tasks/0342-ccp-tasks-migrate-is-retired-and-the-task-writing-docs-name-adr-refs-count-steps-and-the-section-helpers.md
+  - id: 0343-the-reviewer-and-verifier-definitions-leave-their-templates-instructions-to-them-and-the-lanes-line-gives-whole-commands
+    status: pending
+    title: The reviewer and verifier definitions leave to the rendered prompt every instruction their phase template gives, §13.1's four rules kept, and the tests pin each in the template; the Lanes line gives a part lane declared as an argv as whole commands; the runner brief names a pending run's expiry; §11.1's Record lists expired_told_at
+    depends_on: []
+    path: tasks/0343-the-reviewer-and-verifier-definitions-leave-their-templates-instructions-to-them-and-the-lanes-line-gives-whole-commands.md
+  - id: 0344-suite-affected-covers-the-suite-driving-tests-and-the-tests-share-one-current-run-clock
+    status: pending
+    title: This repo's suite.affected_map names the test modules that drive ccp suite through a subprocess, so suite run --affected selects them for a change to ccp/suite.py; the tests' copies of a fixed past-day run clock become one helper anchored at the real time, and 0340's expiry patches go; E17's check reads a single-quoted f-string, and the docs sync builds no binding path of its own
+    depends_on: []
+    path: tasks/0344-suite-affected-covers-the-suite-driving-tests-and-the-tests-share-one-current-run-clock.md
+  - id: 0345-contracts-leave-id-shapes-to-the-ids-knobs-the-architect-report-is-checked-by-its-contract-and-the-review-kit-drops-kind
+    status: pending
+    title: The architect report, triage and plane_config contracts hold no task-id or rule-id pattern the ids knobs make the product's, and no code edits a contract before using it; the architect report is checked through ccp/schema.py, not by a hand list of its keys; the review kit drops its one-instance Kind
+    depends_on: []
+    path: tasks/0345-contracts-leave-id-shapes-to-the-ids-knobs-the-architect-report-is-checked-by-its-contract-and-the-review-kit-drops-kind.md
+  - id: 0346-verify-spec-text-reads-the-working-tree-plane-built-takes-a-task-number-and-the-observability-scripts-and-release-are-tidied
+    status: pending
+    title: ccp verify spec-text with no --head reads the working tree, so an uncommitted SPEC edit counts, with its signed §15.2 passage; ccp plane built takes a task's number; the observability doc stops inventorying ccp/lib.py and restating E7, and the doclang doc E18, and team.py puts the plane on sys.path once; release.sh fast-forwards from a fetched ref, not FETCH_HEAD
+    depends_on: []
+    path: tasks/0346-verify-spec-text-reads-the-working-tree-plane-built-takes-a-task-number-and-the-observability-scripts-and-release-are-tidied.md

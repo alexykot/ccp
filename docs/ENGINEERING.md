@@ -25,15 +25,15 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass — the architect looks for branches reachable only through a fixture repo, and for refusals
   tested both on plain values and end to end; the health summary's slowest modules point at them
 - **E21** A dod_check proves behaviour with the head's own tool: a check of a `ccp` command runs the checkout's
-  `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A check that runs tests runs
-  them through `bin/ccp suite run --lane <part lane> -- <command>` and pins a named test by giving its id to that
-  command, so the run's exit code decides, never by a grep of the runner's text or a bare test runner's output. A
-  check that needs a modified copy (a planted fault) names `ccp mutate` where it can run one test (§20.6), else a
-  `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text is proved by
-  `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row. A check that needs a
-  scratch product builds it with `bin/ccp sandbox create` in the step that uses it and runs `ccp` there, with no `<…>`
-  placeholder but the verifier's `<your run>`.
-  check: pass — the architect and the reviewer read new tasks' dod_checks
+  `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A check that runs tests runs them
+  through `bin/ccp suite run --lane <part lane> -- <command>` and pins each test by giving its id to that command, so
+  the run's exit code decides: never by a grep of the runner's text, a bare test runner's output or a count of a class's
+  tests. A check that needs a modified copy (a planted fault) names `ccp mutate` where it can run one test (§20.6), else
+  a `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text is proved by `bin/ccp verify
+  spec-text <task>`; a doc grep pins one token, never a sentence or a table row. A check that needs a scratch product
+  builds it with `bin/ccp sandbox create` in the step that uses it and runs `ccp` there, with no `<…>` placeholder but
+  the verifier's `<your run>`.
+  check: pass — the architect and the reviewer read new tasks' dod_checks, class-wide test counts included
 
 ## Publishing
 
@@ -66,12 +66,12 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   that seat (unset or unknown included), and a reader counts only that seat's records.
   check: command — architect.checks `E27`; pass for the guard (the architect compares the commands the SPEC gives one seat)
 - **E12** One source per enumerated concept: a list of values (round phases, event types and ops, plane.json's blocks,
-  their keys and defaults, the roles and their default models) is defined once in code. Other code derives from it.
-  One test compares every plane.json block's keys and defaults with contracts/plane_config.schema.json, one compares
-  the ledger's event types, ops and required payloads with contracts/observability_event.schema.json, and one compares
-  the agent definitions' models with the role table.
-  check: pass, plus the gate — tests.test_plane_config_defaults and tests.test_event_registry run in
-  the gate (E1); no architect.checks entry, so the pre-gate never renders a bare test run
+  their keys and defaults, the roles and their default models) is defined once in code. Other code derives from it. A
+  contract holds no pattern a plane.json knob makes the product's (the `ids` shapes); code checks a record against its
+  contract through ccp/schema.py. One test compares every plane.json block's keys and defaults with
+  contracts/plane_config.schema.json, one compares the ledger's event types, ops and required payloads with
+  contracts/observability_event.schema.json, and one compares the agent definitions' models with the role table.
+  check: pass, plus the gate — tests.test_plane_config_defaults and tests.test_event_registry run in the gate (E1), with no architect.checks entry, so the pre-gate never renders a bare test run; the architect greps contracts/ for an `ids` default (`"pattern": "^E[0-9]+$"`)
 - **E14** Git merge analysis (merge-tree, patch-id, remerge-diff) goes through one helper module; no
   other module calls those git subcommands.
   check: command — architect.checks `E14`
@@ -117,7 +117,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass
 - **E26** A house rule is stated once, in this doc. The standing DoD and the package docs name its id; they never
   restate its text, a prohibition included. The root CLAUDE.md, the session's own instructions, is exempt.
-  check: pass — the architect greps each package doc for a rule's distinctive clause (`git grep -n 'only wrap\|imports another\|copied literal\|names no language' -- '*/CLAUDE.md'`)
+  check: pass — the architect greps each package doc for a rule's distinctive clause (`git grep -n 'only wrap\|imports another\|imports nothing from\|copied literal\|names no language\|stays language-neutral' -- '*/CLAUDE.md'`)
 - **E13** Briefs and prompt templates name the command and the § that decides; they never restate a rule's conditions,
   a tool's quirk a `ccp` command can absorb, or a sample record (a sample lives in contracts/ as `*.example.json`, and
   a test runs it through the command). The report's lines and sections are given once, in the rendered prompt's last
