@@ -218,4 +218,24 @@ Measured at `1a575497`:
 
 ## Implementation notes
 
+- `ccp/lib.py` and `ccp/architecture_review.py` are `git mv`s of the two modules. Paths that were relative to
+  `scripts/observability/` now go through `parents[1]`: `bindings_dir()`'s default `projects/`, `PLUGIN_DIR`, and
+  `wait_writer_cmd`'s `scripts/observability/set-waiting-on.sh`. `_config` imports `ccp.config` when called, with no
+  `sys.path` fallback, so the module still runs as a file with the standard library alone.
+- `ccp/queue.py`, `architect.py` and `health.py` import from `ccp`; no `sys.path` edit stays in `ccp` (E7's check passes).
+  `spec_maintainer.py` and `team.py` put the plane root on their path and import `ccp.lib`; the four shell scripts
+  export the plane root as `PYTHONPATH` and import `ccp.lib`.
+- `binding_for_id` honours `PLANE_PROJECT_YAML` as well as `PROJECT_YAML`, as `binding_path` does: the narrowest
+  reading that keeps one resolver's environment the same for a queue and an id.
+- `validate_triage` runs `schema.schema_errors` on `contracts/architecture_review_triage.schema.json` first, then keeps
+  the review id, the commit sha for a task or ruling, and the secret check. `DISPOSITIONS` stays in code and only the
+  new test reads it; `triage_check`'s `RULE_DISPOSITIONS` check is now reached only when the contract's enum passed.
+- `ccp prompt` takes `lib` from `ccp.queue` at module level, since its local import in `build` would otherwise make
+  `lib` local to the whole function.
+- The triage fixtures in `tests/test_architect.py` and `tests/test_review_aliases_retired.py` gained `triaged_at` (and
+  `project_id`, `tasks_created` in the latter); expectations unchanged.
+- Added beyond the task's tests: `test_the_rendered_prompt_is_written_atomically` (`tests/test_prompt_end.py`),
+  `test_the_failure_file_is_written_atomically` (`tests/test_estimator.py`) and
+  `test_the_bindings_directory_defaults_to_projects_beside_the_plane_code` (`tests/test_binding_by_id.py`).
+
 ## Verification notes
