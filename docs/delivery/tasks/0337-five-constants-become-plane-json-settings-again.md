@@ -5,7 +5,6 @@ status: pending
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S8", "S19", "S20", "S21", "S29"]
-adr_refs: ["0043 D9"]
 review_point: R36
 paths: ["ccp/config.py", "contracts/plane_config.schema.json", "tests/test_plane_json_constants.py", "tests/test_doc_rules.py", "README.md", "docs/spec/01-model.md", "docs/spec/03-quality.md", "docs/adr/0043-opinionated-defaults-short-configuration.md"]
 clashes_with: ["0191-the-grace-release-ends", "0331-ccp-holds-its-own-ledger-library-and-review-kit-validates-a-triage-by-its-schema-and-reads-a-binding-by-id-through-the-one-resolver", "0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps", "0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs", "0341-an-exclusive-lane-may-declare-a-cache-probe-that-lets-a-fully-cached-run-skip-the-lock"]
@@ -84,6 +83,14 @@ Measured at `554fe3a`:
   recommendations. Go ahead.")`. In the appendix the five move from "`plane.json`, constants" to
   "`plane.json`, kept", each followed by `(a setting again, operator 2026-11-24)`, and D9's `task_log.dry_run`
   bullet ends `(reversed 2026-11-24: a setting, default off)`. D9 stays `not_built`; nothing else in the ADR changes.
+
+Ruling 0337-five-constants-become-plane-json-settings-again-r1 (the lead, 2026-11-25), as the runner passed it:
+
+> Option (a). Drop `adr_refs: ["0043 D9"]` from this task's file on the task branch, so the edit lands in PR #413, as
+> task 0192 did. adr.strict refuses approving a head whose cited decision is still not_built. D9 stays not_built
+> until 0191. The task's authority is the operator's 2026-11-24 ruling, which its Context quotes. Do not run
+> `ccp adr decide 43 D9 built`. Change nothing else; the front matter becomes `adr_refs: []` (or the field removed,
+> as 0192 did). Re-run tasks check and docs check.
 
 ## Scope
 
@@ -204,5 +211,8 @@ Measured at `554fe3a`:
   `is a constant in code` on stderr).
 - ADR-0043: the appendix's kept entries carry a short default where the kept list's style gives one (`task_log.dry_run`
   default off, `docs.workers` as many as there are checks); D9 stays `not_built` (0191 marks it).
+- Ruling r1 (lead, 2026-11-25): the `adr_refs: ["0043 D9"]` field is removed from the front matter, as 0192 did,
+  because adr.strict refuses approving a head whose cited decision is still `not_built` and D9 stays `not_built`
+  until 0191; the task's authority is the operator's 2026-11-24 ruling its Context quotes. Nothing else changed.
 
 ## Verification notes
