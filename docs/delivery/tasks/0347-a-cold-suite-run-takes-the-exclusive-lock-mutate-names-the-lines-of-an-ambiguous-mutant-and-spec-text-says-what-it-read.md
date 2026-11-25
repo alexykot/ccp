@@ -69,6 +69,10 @@ Measured at `05cb00e2`:
   recorded, the lane is held, the same run given `--cold --wait 0` exits `suite.BUSY_EXIT`) and
   `tests.test_suite_cache_probe.CacheProbe.test_a_cold_run_takes_the_lock_whatever_the_probe_says` (a probe that
   exits 0, the lane held, a run given `--cold --wait 0` exits `suite.BUSY_EXIT` and `probed()` is empty).
+  §16.6's earlier sentence, "exits 75 at once (after its cache probe, when the lane declares one)", stays as the
+  operator signed it: its parenthesis describes a run that probes, and a `--cold` run runs no probe, so it exits
+  75 at once with no probe first. That reading is a description (§31.1) and adds no rule; no SPEC text changes for
+  it.
 - **mutate.** When `old` is in the text two or more times, `_once`'s message adds the line of each occurrence (the
   1-based line its first byte is on, in the text as checked: the file, or what the earlier parts leave), after the
   count: `the old text is in calc.py 2 times, at lines 2 and 6; a mutant names one place` (`at lines 2, 6 and 9`

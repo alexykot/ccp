@@ -1719,7 +1719,7 @@ tasks:
     path: tasks/0348-the-runner-and-verifier-briefs-leave-refusal-conditions-to-their-commands-and-the-mutation-fallback-is-written-once.md
   - id: 0349-tests-stop-asserting-a-retired-name-is-absent-and-pin-the-run-clock-and-the-docs-sync-refusal
     status: pending
-    title: Tests stop asserting that a retired command's name is absent (0342's seven assertions, and the docs-audit command test), keeping the behaviour they also pin; the run clock's shared stamps and its start, and the docs sync's refusal of a project with no binding, are tested; tests/helpers.py's imports are in order
+    title: Tests stop asserting that a retired name is absent (0342's seven assertions, the operator rename's six, the three no-marker tests and the docs-audit command test), keeping the behaviour they also pin; the run clock's shared stamps and its start, and the docs sync's refusal of a project with no binding, are tested; tests/helpers.py's imports are in order
     depends_on: []
     path: tasks/0349-tests-stop-asserting-a-retired-name-is-absent-and-pin-the-run-clock-and-the-docs-sync-refusal.md
   - id: 0350-the-architect-stub-is-ccp-named-and-fenced-the-report-is-checked-once-by-its-contract-and-the-envvars-and-adr-docs-say-what-is-there

@@ -8,7 +8,7 @@ spec_refs: ["S6", "S19"]
 rule_refs: ["E12"]
 review_refs: ["ar-20261125T184522Z-c248#F07", "ar-20261125T184522Z-c248#F08", "ar-20261125T184522Z-c248#F09", "ar-20261125T184522Z-c248#F10"]
 review_point: R38
-paths: ["ccp/architect.py", "ccp/envvars.py", "ccp/CLAUDE.md", "ccp/baseline.py", "ccp/lifecycle.py", "ccp/notify.py", "ccp/prhost.py", "ccp/suite.py", "ccp/wt.py", "docs/spec/03-quality.md", "docs/design/architect.md", "docs/adr/README.md", "tests/__init__.py", "tests/architect_fixture.py", "tests/test_architect.py", "tests/test_architect_triage_schema.py"]
+paths: ["ccp/architect.py", "ccp/envvars.py", "ccp/CLAUDE.md", "ccp/baseline.py", "ccp/lifecycle.py", "ccp/notify.py", "ccp/prhost.py", "ccp/suite.py", "ccp/wt.py", "docs/spec/03-quality.md", "docs/design/architect.md", "docs/adr/README.md", "contracts/architect_report.schema.json", "tests/__init__.py", "tests/architect_fixture.py", "tests/test_architect.py", "tests/test_architect_triage_schema.py"]
 clashes_with: ["0191-the-grace-release-ends", "0347-a-cold-suite-run-takes-the-exclusive-lock-mutate-names-the-lines-of-an-ambiguous-mutant-and-spec-text-says-what-it-read"]
 adopt: "none"
 created: 2026-11-25
@@ -66,14 +66,17 @@ Measured at `05cb00e2`:
   `tests/test_architect.py`, its docstring included).
 - **validate.** `architect.validate` keeps `ar.validate_report` on the report as written and its own comparisons of
   the model's `review_id`, `mode` and `lenses` with the run's (the report as written overwrites them, so the
-  contract never sees the model's); the hand checks of `rule_changes`, `metrics` and `shape` go. A `check` of only
-  spaces then passes, as the contract's `minLength: 1` allows. In
+  contract never sees the model's); the hand checks of `rule_changes`, `metrics` and `shape` go. The hand check's
+  refusal of a blank `check` moves to the contract: `contracts/architect_report.schema.json`'s
+  `rule_changes.items.properties.check` gains `"pattern": "\\S"` beside its `minLength: 1`, so §19.7 item 3's
+  "every `rule_changes` entry names … a check" still refuses a `check` of only spaces. In
   `test_rule_changes_are_validated_and_disposed`, `rule_changes[0]: names no check` becomes `rule_changes[0]:
   missing check`. New test
   `tests.test_architect_triage_schema.ReportContract.test_a_malformed_rule_change_metrics_or_shape_is_refused_once_by_the_contract`:
   a shape report whose rule change has action `x` and no check, whose `metrics` is `3` and whose `shape.hot_spots`
   is `1` gets exactly one error naming `rule_changes[0]` and `check`, one naming `rule_changes[0].action`, one naming
-  `metrics` and one naming `shape.hot_spots`.
+  `metrics` and one naming `shape.hot_spots`; and a report whose one rule change has a `check` of three spaces gets
+  exactly one error, naming `rule_changes[0].check`.
 - **F08.** `for_child` goes; each caller passes its dict as it is (`{COLD_VAR: "1"}` in place of
   `for_child({COLD_VAR: "1"})`), and the imports drop the name. `ccp/envvars.py`'s docstring becomes "The plane's
   environment variables are named `CCP_*` (ADR-0036 D3). `envvar` reads one, an empty value counting as unset, as
@@ -93,8 +96,8 @@ Measured at `05cb00e2`:
 
 - **In:** `ccp/architect.py` (the launch line and `validate`); `ccp/envvars.py`; `ccp/CLAUDE.md` (the one entry);
   `ccp/baseline.py`, `ccp/lifecycle.py`, `ccp/notify.py`, `ccp/prhost.py`, `ccp/suite.py`, `ccp/wt.py` (the
-  `for_child` calls and imports only); `docs/design/architect.md`; `docs/adr/README.md`; `tests/__init__.py`;
-  `tests/architect_fixture.py`; `tests/test_architect.py`; `tests/test_architect_triage_schema.py`; the SPEC, a
+  `for_child` calls and imports only); `docs/design/architect.md`; `docs/adr/README.md`; `contracts/architect_report.schema.json` (the `check`
+  pattern only); `tests/__init__.py`; `tests/architect_fixture.py`; `tests/test_architect.py`; `tests/test_architect_triage_schema.py`; the SPEC, a
   description of 0345's accepted feature (§31.1), no sign-off:
 
   CURRENT (`docs/spec/03-quality.md` at `05cb00e2`), §19.7 item 3:

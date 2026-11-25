@@ -131,9 +131,10 @@ Measured at `05cb00e2`:
   story: As a verifier, my prompt tells me to say whether my verdict relies on a check not run and to cite a ruling passed by message.
   setup: A checkout of the PR head (any seat).
   steps:
-    1. Run `grep -c -e 'whether your verdict relies on' -e 'by message' templates/prompts/verify.md`.
-  expect: prints `2`.
-  dry run (`05cb00e2`): printed `0` (exit 1).
+    1. Run `grep -n 'whether your verdict relies on' templates/prompts/verify.md`.
+    2. Run `grep -n 'by message' templates/prompts/verify.md`.
+  expect: each step prints at least one line and exits 0.
+  dry run (`05cb00e2`): steps 1 and 2 printed nothing (exit 1 each).
 
 ## Implementation notes
 

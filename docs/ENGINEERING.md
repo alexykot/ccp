@@ -1,7 +1,7 @@
 # Engineering rules
 
-The control plane's house rules. Every change follows them; every rule says how it is checked. The format is the
-one `ccp` reads (SPEC §20.1). The command rules run through `architect.checks` in `docs/delivery/plane.json` (§19.11).
+The control plane's house rules. Every change follows them; every rule says how it is checked, in the format `ccp`
+reads (SPEC §20.1). A command check runs in `architect.checks` (§19.11), in the gate, or both, as its line says.
 
 ## Tests
 
