@@ -3,31 +3,30 @@
 Call syntax and flags for the commands of SPEC part `docs/spec/04-observability.md`. The rules each
 command follows are in the SPEC, not here.
 
-| Command | What it does |
-|---|---|
-| `ccp board build [--quiet]` | Fold the sources into the board and the day's snapshot (the rebuild timer, the lead; §28) |
-| `ccp board status` | Terminal summary (any seat; §23.4) |
-| `ccp board task <id\|NNNN>` | One task's drill-down (any seat) |
-| `ccp board install\|uninstall\|timer` | The per-project rebuild timer (the operator) |
-| `ccp otel serve [--port N]` | The telemetry receiver (the machine's service manager; §24.2) |
-| `ccp otel env [--project ID]` | Print the user-settings block (the operator; §24.1) |
-| `ccp otel install\|uninstall\|status` | The receiver's service; `status` reports the counts and checks the user settings (the operator) |
-| `ccp usage [--task ID] [--since DATE] [--json]` | Per-run and per-seat tokens and cost (the lead; §24.4, §24.6) |
-| `ccp usage --system [--since DATE] [--json]` | The system sink by cwd and day (the lead; §24.3) |
-| `ccp usage --by-model [--seat SEAT] [--json]` | One seat's tasks compared by model (the lead; §2.4; default `implementer`) |
-| `ccp allowance status [--sample]` | The allowance state (any seat; §25.3) |
-| `ccp allowance continue --to <percent> --reason "<the operator's words>"` | Record the operator's decision past the checkpoint (the lead) |
-| `ccp allowance session-wake [--sample] [--armed] [--fire]` | The session wake (the lead; §25.4) |
-| `ccp tasks estimate ID [--baseline] [--force] [--dry-run] [--json] [--print-prompt ID]` | Estimate one task (the lead; §26.3) |
-| `ccp tasks estimate --all [--baseline] [--max N] [--detach]` | Estimate every task that needs it (the lead) |
-| `ccp tasks estimate show ID` | A task's estimates, latest of each source (any seat) |
-| `ccp estimate backfill [--dry-run] [--json]` | Baselines and actuals for merged tasks (the lead; §26.3) |
-| `ccp estimate accuracy [--json]` | The accuracy panel (any seat) |
-| `ccp estimate calibration [--json]` | The calibration factors (any seat; §26.6) |
-| `ccp forecast [--point R<n> \| --backlog] [--json]` | The completion forecast (the lead; §26.4, §26.5) |
-| `ccp health [--since DATE] [--json]` | Measurements and suite series since the adoption point, or `--since`, and the usage cost advice (the lead; §27.1, §27.2, §14.6, §24.6) |
-| `ccp health record --task <id> --metric <name>=<n>` | Record a product metric (the runner; §27.1) |
-| `ccp health note --text TEXT` | Record a friction note (the runner; §19.6) |
+| Command | Who | SPEC |
+|---|---|---|
+| `ccp board build [--quiet]` | the rebuild timer, lead | §28 (fold the sources into the board and the day's snapshot) |
+| `ccp board status` | any seat | §23.4 (the terminal summary) |
+| `ccp board task <id\|NNNN>` | any seat | §28.3 (one task's drill-down) |
+| `ccp board install\|uninstall\|timer` | operator | §28.2 (the per-project rebuild timer) |
+| `ccp otel serve [--port N]` | the machine's service manager | §24.2 (the telemetry receiver) |
+| `ccp otel env [--project ID]` | operator | §24.1 (print the user-settings block) |
+| `ccp otel install\|uninstall\|status` | operator | §24.1, §24.2 (`status` reports the counts and checks the user settings) |
+| `ccp usage [--task ID] [--since DATE] [--json]` | lead | §24.4, §24.6 (per-run and per-seat tokens and cost) |
+| `ccp usage --system [--since DATE] [--json]` | lead | §24.3 (the system sink by cwd and day) |
+| `ccp usage --by-model [--seat SEAT] [--json]` | lead | §2.4 (one seat's tasks compared by model, `implementer` by default) |
+| `ccp allowance status [--sample]` | any seat | §25.3 (the allowance state) |
+| `ccp allowance continue --to <percent> --reason "<the operator's words>"` | lead | §25.3 (record the operator's decision past the checkpoint) |
+| `ccp allowance session-wake [--sample] [--armed] [--fire]` | lead | §25.4 (the session wake) |
+| `ccp tasks estimate ID [--baseline] [--force] [--dry-run] [--json] [--print-prompt ID]` | lead | §26.3 (estimate one task) |
+| `ccp tasks estimate --all [--baseline] [--max N] [--detach]` | lead | §26.3 (estimate every task that needs it) |
+| `ccp tasks estimate show ID` | any seat | §26.2 (a task's estimates, latest of each source) |
+| `ccp estimate backfill [--dry-run] [--json]` | lead | §26.3 (baselines and actuals for merged tasks) |
+| `ccp estimate accuracy [--json]` | any seat | §26.3 (the accuracy panel) |
+| `ccp estimate calibration [--json]` | any seat | §26.6 (the calibration factors) |
+| `ccp forecast [--point R<n> \| --backlog] [--json]` | lead | §26.4, §26.5 (the completion forecast) |
+| `ccp health [--since DATE] [--json]` | lead | §27.1, §27.2, §14.6, §24.6 (the measurements, suite series and usage cost advice) |
+| `ccp health record --task <id> --metric <name>=<n>` | runner | §27.1 (record a product metric) |
 
 Scripts kept as single writers built on `ccp/lib.py`, the ledger library `ccp` itself imports (§10.6):
 `scripts/observability/emit-event.sh`, `heartbeat.sh`, `write-prompt-audit.sh`; `prune-prompts.sh` prunes the audit files.

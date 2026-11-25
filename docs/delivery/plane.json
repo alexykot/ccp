@@ -58,7 +58,7 @@
       },
       {
         "id": "E25",
-        "cmd": "! awk '/^\\| `ccp/ && length > 300 {print FILENAME \": \" substr($0, 1, 60); n++} END {exit n == 0}' docs/cli/*.md && ! git grep -nP '\\bexits? (code )?[0-9]|\\bexit code' -- docs/cli"
+        "cmd": "! awk 'length > 300 {print FILENAME \": \" substr($0, 1, 60); n++} END {exit n == 0}' docs/cli/*.md && ! git grep -nP '^\\s*(\\x60{3}|~{3})' -- docs/cli && ! git grep -niP '\\bexits? (code )?[0-9]|\\bexit code' -- docs/cli"
       },
       {
         "id": "E27",
