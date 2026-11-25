@@ -57,8 +57,8 @@ Measured at `becb6417`:
   not None and its `prompts.keep_body` is set; it returns the last stdout line, and on a non-zero exit raises
   `QueueError("write-prompt-audit failed: <stderr>", 1)`. `ccp/prompt.py`'s `audit`, `ccp/architect.py`,
   `ccp/estimator.py` and `team.py`'s three calls use it; `team.py`'s `keep_body` goes, replaced by
-  `product_config(root)`, which returns the product's loaded config, or None where `keep_body` returned nothing
-  (no product root, no plane.json, a load that fails), and which the three calls pass to `write`. `ccp prompt`'s message becomes `write-prompt-audit failed: …`; the
+  `product_config(root)`, which returns the product's loaded config, or None
+  when there is no product root, no plane.json, or a load that fails, and which the three calls pass to `write`. `ccp prompt`'s message becomes `write-prompt-audit failed: …`; the
   architect and estimator keep raising `RuntimeError` with the same message; `team.py` keeps its `die`. New module
   `tests/test_promptaudit.py` (new) runs `write` against a scratch queue: the ref returned, `--keep-body` only with
   the setting, and the failure.

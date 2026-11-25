@@ -74,7 +74,7 @@ Measured at `becb6417`:
 - `ccp/queue.py`: `"product-docs-check.json"` leaves `QUEUE_OWNED`, so a live queue's old stamp is a §31.3 leftover
   that `ccp plane check --archive` archives; `tests/test_plane_check.py`'s list follows. That makes a live queue
   holding the old stamp fail `ccp plane check` (exit 1) until it is archived, so the PR names
-  `ccp plane check --archive` as this change's fix-up, as §29.3 requires.
+  the standing `ccp plane check --archive` (§31.3) as the remedy; it ships no new fix-up, so no roadmap end.
 - Tests: the install tests go (`tests.test_team_hosting.TestSync.test_installs_agent_and_executable_hook`, the
   install half of `test_architect_skill_replaces_the_two_old_ones` and of
   `tests.test_plugin`'s `test_a_product_on_the_plugin_gets_no_copies_and_loses_stale_ones`); a `--check` test that
