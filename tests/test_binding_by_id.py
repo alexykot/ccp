@@ -32,6 +32,11 @@ class BindingById(BindingDir):
         with mock.patch.dict(os.environ, {"PROJECT_YAML": str(yml)}):
             self.assertEqual(lib.binding_for_id("demo"), yml)
 
+    def test_the_bindings_directory_defaults_to_projects_beside_the_plane_code(self):
+        with mock.patch.dict(os.environ):
+            os.environ.pop("CCP_BINDINGS_DIR", None)
+            self.assertEqual(lib.bindings_dir(), PLANE_ROOT / "projects")
+
     def test_project_yaml_naming_another_id_falls_back(self):
         yml = self.sandbox("other")
         with mock.patch.dict(os.environ, {"PROJECT_YAML": str(yml)}):
