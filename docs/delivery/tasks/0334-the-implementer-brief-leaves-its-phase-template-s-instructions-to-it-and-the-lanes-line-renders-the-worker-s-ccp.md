@@ -1,7 +1,7 @@
 ---
 task_id: 0334-the-implementer-brief-leaves-its-phase-template-s-instructions-to-it-and-the-lanes-line-renders-the-worker-s-ccp
 title: The worker definitions leave to the rendered prompt every instruction its implement template or common part gives, §13.1's four rules kept, and E13 says so; the implement template states the narrowest-reading rule once; a test pins each rule in the one doc that holds it; the Lanes line names suite run --affected through the worker's own ccp command
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13"]
@@ -144,3 +144,5 @@ Measured at `1a575497`:
 - Fix round 1: the questions bullet in `delivery-implementer.md` regains its third sentence, "Don't guess intent." (the review's MINOR-1; the task keeps the bullet's first three sentences and no template or `_common.md` line carries it). Left for the lead: the review's two follow-ups (a pin for the interrupted-command rule in the definitions; the task text's `sets scope` token).
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #404 head `3748d3f` (squash `204604a`): APPROVE. Passed: doc-01, doc-02, code-01, code-02, rule-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0334-the-implementer-brief-leaves-its-phase-template-s-instructions-to-it-and-the-lanes-line-renders-the-worker-s-ccp.json.
+
