@@ -5,12 +5,12 @@ left room, and walk-throughs. The SPEC states the rules; nothing here overrides 
 
 ## How it is built
 
-- **One review kit.** `scripts/observability/architecture_review.py` defines a `Kind` (state file,
+- **One review kit.** `ccp/architecture_review.py` defines a `Kind` (state file,
   lock, id prefix, event type, categories, triage command) and the lock, report and triage
   validation, rendering and triage hand-off every kind shares. The architect (`ccp/architect.py`)
   is its one kind.
 - **Shared helpers.** The driver takes the lock check and the binding readers (project id, product
-  root) from `scripts/observability/lib.py`. The durable `done`
+  root) from `ccp/lib.py`. The durable `done`
   count is the task log's: `ccp/architect.py` reads it with `tasklog.load`.
 - **The skill loads by slash command.** The reviewer prompt starts with `/architect` so Claude Code
   loads the skill, and tells the model to read the skill file

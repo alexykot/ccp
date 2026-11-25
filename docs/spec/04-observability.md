@@ -91,7 +91,7 @@ is open: a task waiting, a gate or question open, a stale source while a runner 
 allowance at its checkpoint. A cron wrapper can rely on that exit code. The board is the status: the
 older snapshot (`now.json`, `STATUS.md`) and the scripts that write or read it (`status.sh`,
 `rebuild-now.sh`) are retired; `emit-event.sh` and `set-waiting-on.sh` remain as
-wrappers over `ccp`.
+single writers built on `ccp`'s own library (§10.6).
 
 ### 23.5 Durable reconciliation
 

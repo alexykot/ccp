@@ -24,7 +24,7 @@ from tests.toolkit_fixture import ToolkitFixture
 
 sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
 
-import lib  # noqa: E402
+from ccp import lib  # noqa: E402
 import spec_maintainer as sm  # noqa: E402
 
 WRITER = PLANE_ROOT / "scripts" / "observability" / "set-waiting-on.sh"

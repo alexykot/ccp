@@ -17,16 +17,13 @@ import os
 import re
 import socket
 import subprocess
-import sys
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, NamedTuple
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-
-from lib import (  # noqa: E402
+from ccp import models, refs, schema
+from ccp.lib import (
     ACTORS,
     RUNNER,
     append_event,
@@ -39,10 +36,6 @@ from lib import (  # noqa: E402
     read_json,
     write_json,
 )
-
-if str(HERE.parents[1]) not in sys.path:
-    sys.path.insert(0, str(HERE.parents[1]))
-from ccp import models, refs  # noqa: E402  (each role's default model and effort; the id shapes, §7)
 
 CATEGORIES = ("holdover", "not-first-class", "duplication", "vocabulary-drift", "dead-surface",
               "incoherence", "unobserved", "cost", "rule-cost")
@@ -66,6 +59,7 @@ class Kind(NamedTuple):
         return re.compile(rf"^(?:{p})-{refs.STAMP_ID}$")
 
 
+TRIAGE_SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "architecture_review_triage.schema.json"
 DISPOSITIONS = ("task", "spec", "defer", "needs_operator", "duplicate", "reject")
 BASE_READ_TOOLS = ["Read", "Grep", "Glob", "Skill",
                    "Bash(git log:*)", "Bash(git show:*)", "Bash(git diff:*)", "Bash(git ls-files:*)",
@@ -83,7 +77,7 @@ def headless_flags(cfg: Any = None) -> list[str]:
 
 
 ARCHITECT_SKILL = ".claude/skills/architect/SKILL.md"  # §19: a product's managed copy, if it keeps one
-PLUGIN_DIR = Path(__file__).resolve().parents[2] / "plugin"
+PLUGIN_DIR = Path(__file__).resolve().parents[1] / "plugin"
 
 
 def architect_skill(product: str | Path) -> str:
@@ -271,21 +265,15 @@ def is_commit_sha(value: Any) -> bool:
 
 
 def validate_triage(t: Any, rid: str) -> list[str]:
-    errs: list[str] = []
+    """A triage against its contract (`TRIAGE_SCHEMA`, by `ccp.schema`'s one checker), then what the contract
+    cannot say: the review id is this review's, a task or ruling has a commit sha, and no secret."""
     if not isinstance(t, dict):
         return ["triage is not an object"]
+    errs = schema.schema_errors(t, json.loads(TRIAGE_SCHEMA.read_text()), at="triage")
     if t.get("review_id") != rid:
         errs.append(f"review_id {t.get('review_id')!r} != {rid}")
-    for k in ("record", "dispositions", "answered_by"):
-        if k not in t:
-            errs.append(f"missing {k}")
-    for d in t.get("dispositions") or []:
-        if not isinstance(d, dict) or d.get("disposition") not in DISPOSITIONS or not d.get("reason"):
-            errs.append(f"bad disposition {d!r}"[:200])
-    if not isinstance(t.get("tasks_created", []), list):
-        errs.append("tasks_created is not a list")
-    if (t.get("tasks_created") or any((d or {}).get("disposition") in ("task", "spec") for d in t.get("dispositions") or [])) \
-            and not is_commit_sha(t.get("commit_sha")):
+    if (t.get("tasks_created") or any((d or {}).get("disposition") in ("task", "spec") for d in t.get("dispositions") or []
+                                      if isinstance(d, dict))) and not is_commit_sha(t.get("commit_sha")):
         errs.append("tasks or rulings without commit_sha")
     if looks_like_secret(json.dumps(t)):
         errs.append("triage contains a secret-like string")

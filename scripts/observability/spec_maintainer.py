@@ -32,9 +32,10 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 
-sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parents[1]))  # the plane root: `ccp` is the package the ledger library lives in
 
-from lib import (  # noqa: E402
+from ccp import refs  # noqa: E402  (the id shapes, §7)
+from ccp.lib import (  # noqa: E402
     ACTORS,
     RUNNER,
     VERIFIER,
@@ -54,10 +55,6 @@ from lib import (  # noqa: E402
     wait_writer_cmd,
     write_json,
 )
-
-if str(HERE.parents[1]) not in sys.path:
-    sys.path.insert(0, str(HERE.parents[1]))
-from ccp import refs  # noqa: E402  (the id shapes, §7)
 
 RAISERS = (RUNNER, VERIFIER)
 

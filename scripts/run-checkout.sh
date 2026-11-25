@@ -44,9 +44,9 @@ clean_on_main() {
 }
 
 # The top-level scalars of a binding (projects/<id>.yaml) as a JSON object: read by the one binding
-# parser (SPEC §8.3, `read_binding` in the run checkout's scripts/observability/lib.py, the version just
+# parser (SPEC §8.3, `read_binding` in the run checkout's ccp/lib.py, the version just
 # moved in), never by a parser of this script's own.
-binding_json() { python3 -I "$RUN/scripts/observability/lib.py" binding "$1"; }
+binding_json() { python3 -I "$RUN/ccp/lib.py" binding "$1"; }
 # One key of that object: its string, or nothing.
 binding_key() {
   python3 -c 'import json, sys; v = json.loads(sys.argv[1]).get(sys.argv[2]); print(v if isinstance(v, str) else "")' "$1" "$2"
@@ -62,7 +62,7 @@ check_products() {
   local before="${1:-}" data bdir="${CCP_BINDINGS_DIR:-$RUN/projects}" ccp="$RUN/bin/ccp" b pid root branch sha ref tmp c out rc stale=0
   [ -d "$bdir" ] || return 0
   if [ ! -x "$ccp" ]; then echo "run-checkout: no $ccp; bound products not checked" >&2; return 0; fi
-  if [ ! -f "$RUN/scripts/observability/lib.py" ]; then echo "run-checkout: no $RUN/scripts/observability/lib.py; bound products not checked" >&2; return 0; fi
+  if [ ! -f "$RUN/ccp/lib.py" ]; then echo "run-checkout: no $RUN/ccp/lib.py; bound products not checked" >&2; return 0; fi
   for b in "$bdir"/*.yaml; do
     [ -f "$b" ] || continue
     if ! data="$(binding_json "$b" 2>/dev/null)"; then

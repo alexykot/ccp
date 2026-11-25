@@ -15,7 +15,7 @@ from tests.helpers import PLANE_ROOT
 
 sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
 
-import lib  # noqa: E402
+from ccp import lib  # noqa: E402
 import spec_maintainer as sm  # noqa: E402
 
 # The pre-rename names, assembled at run time so the tree itself names no person.

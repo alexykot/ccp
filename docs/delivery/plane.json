@@ -17,6 +17,10 @@
         "cmd": "! git grep -nE '= test_[a-z_]+\\.[A-Z][A-Za-z]+\\.[a-z_]+' -- tests && ! git grep -n '\\.plane-runtime' -- 'tests/test_*.py' ':(exclude)tests/test_plane_json_constants.py' && python3 -B scripts/house_checks.py e4-count --max 448 && python3 -B scripts/house_checks.py e4-imports && ! git grep -nF '__file__).resolve().parent' -- 'tests/*.py' ':(exclude)tests/helpers.py' && ! git grep -nw GIT_AUTHOR_NAME -- 'tests/*.py' ':(exclude)tests/helpers.py' && ! git grep -nP '^\\s*[A-Z_]+ = PLANE_ROOT\\s*(#.*)?$' -- 'tests/*.py' && ! git grep -nwP 'PLANE_ROOT as' -- 'tests/*.py'"
       },
       {
+        "id": "E7",
+        "cmd": "! git grep -nP '^\\s*(sys\\.path\\.(insert|append)|(import|from) (lib|architecture_review|spec_maintainer|team)\\b)' -- ccp"
+      },
+      {
         "id": "E13",
         "cmd": "test -z \"$(awk 'length > 600' templates/prompts/*.md)\""
       },
@@ -30,7 +34,7 @@
       },
       {
         "id": "E17",
-        "cmd": "! git grep -nE '_BINDING_LINE|def read_binding' -- ccp scripts ':(exclude)scripts/observability/lib.py'"
+        "cmd": "! git grep -nE '_BINDING_LINE|def read_binding' -- ccp scripts ':(exclude)ccp/lib.py' && ! git grep -nF 'bindings_dir() / f\"{' -- ccp scripts ':(exclude)ccp/lib.py'"
       },
       {
         "id": "E18",
@@ -58,7 +62,7 @@
       },
       {
         "id": "E27",
-        "cmd": "! git grep -nE '\"(design-seat|task-runner|task-verifier)\"' -- ccp scripts tests ':(exclude)ccp/board_page.html' ':(exclude)scripts/observability/lib.py' ':(exclude,glob)scripts/**/*.sh'"
+        "cmd": "! git grep -nE '\"(design-seat|task-runner|task-verifier)\"' -- ccp scripts tests ':(exclude)ccp/board_page.html' ':(exclude)ccp/lib.py' ':(exclude,glob)scripts/**/*.sh'"
       }
     ]
   },

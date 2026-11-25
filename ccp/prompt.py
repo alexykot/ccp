@@ -27,7 +27,7 @@ from typing import Any
 
 from ccp import models, prhost, refs, report, runs, tasklog, verify
 from ccp.config import PREGATE_LANE, Config, lane_for
-from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, actor, git, integration_branch, load_task_state, load_work,
+from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, actor, git, integration_branch, lib, load_task_state, load_work,
                        phase_move, runner_slots,
                        holder_teammate, root, task_meta)
 
@@ -907,7 +907,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     token = prompt_token(run_id, body)  # §13.2: the last line proves the worker got the whole prompt
     body += f"\n{PROMPT_END}{token}\n"
     report.parent.mkdir(parents=True, exist_ok=True)
-    prompt_file.write_text(body)
+    lib.write_atomic(prompt_file, body)
     ref = audit(q, cfg, tid, phase, prompt_file, run_id, meta, worktree if phase in runs.CHANGE_PHASES else own, note)
     prune_audits(q, cfg)
     warnings: list[str] = list(session_warn) + tip_warn + body_warn
@@ -926,7 +926,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         raise QueueError(f"run id moved from {run_id} to {rec['run_id']} while rendering: run ccp prompt again", 1)
     if override:
         from ccp import health  # noqa: PLC0415
-        from ccp.queue import emit, lib  # noqa: PLC0415
+        from ccp.queue import emit  # noqa: PLC0415
         msg = f"allow-unreviewed-fix: {override['reason']} (was: {override['was']})"
         health.add_note(q, msg, tid, os.environ.get("ACTOR") or lib.RUNNER, "allow-unreviewed-fix")
         emit(q, cfg, tid, "note", "set", {"message": msg, "source": "allow-unreviewed-fix", "run_id": run_id, **override})

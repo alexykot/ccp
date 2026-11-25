@@ -526,7 +526,7 @@ def estimate_one(cfg: Config, q: Path, t: dict[str, Any], b: dict[str, Any], poo
         text = _retry_prompt(prompt, raw, errs)
     d = q / DIR
     d.mkdir(parents=True, exist_ok=True)
-    (d / f"{run_id}-{_ids(cfg).task_number(tid)}.failed.txt").write_text(raw[-20000:])
+    lib.write_atomic(d / f"{run_id}-{_ids(cfg).task_number(tid)}.failed.txt", raw[-20000:])
     return {"task_id": tid, "action": "failed", "reason": "; ".join(errs)[:500], "cost_usd": _sum(spent)}
 
 

@@ -60,8 +60,9 @@ class PassIsEnforced(Harness):
         self.assertEqual((code, res["outcome"], res["actions"][0]["action"]), (0, "sent_async", "send_message_to_lead"))
         self.assertIn("SPEC §19.8", res["actions"][0]["message"])
         (self.q / "reviews" / f"{rid}.triage.json").write_text(json.dumps({
-            "schema_version": 1, "review_id": rid, "project_id": "demo", "record": f"docs/delivery/reviews/{rid}.md",
-            "commit_sha": None, "tasks_created": [], "answered_by": "spec_maintainer",
+            "schema_version": 1, "review_id": rid, "project_id": "demo", "triaged_at": "2026-11-01T10:00:00Z",
+            "record": f"docs/delivery/reviews/{rid}.md", "commit_sha": None, "tasks_created": [],
+            "answered_by": "spec_maintainer",
             "dispositions": [{"finding": "F01", "disposition": "reject", "reason": "intentional"}]}))
         code, res, _ = self.dpj("architect", "triage", rid)
         self.assertEqual((code, res["outcome"]), (0, "triaged"), res)
@@ -251,8 +252,9 @@ class RuleCostReachesTheOperator(Harness):
         self.assertEqual(res["outcome"], "reported", res)
         rid = res["review_id"]
         tp = self.q / "reviews" / f"{rid}.triage.json"
-        base = {"schema_version": 1, "review_id": rid, "project_id": "demo", "record": f"docs/delivery/reviews/{rid}.md",
-                "commit_sha": None, "tasks_created": [], "answered_by": "spec_maintainer"}
+        base = {"schema_version": 1, "review_id": rid, "project_id": "demo", "triaged_at": "2026-11-01T10:00:00Z",
+                "record": f"docs/delivery/reviews/{rid}.md", "commit_sha": None, "tasks_created": [],
+                "answered_by": "spec_maintainer"}
         tp.write_text(json.dumps({**base, "dispositions": [{"finding": "F02", "disposition": "reject", "reason": "fine"}]}))
         code, res, _ = self.dpj("architect", "triage", rid)
         self.assertEqual((code, res["outcome"]), (1, "invalid_triage"))
@@ -276,8 +278,8 @@ class RuleChangesAndShape(Harness):
         rid = res["review_id"]
         self.assertIn("| E9 | add | command |", (self.q / "reviews" / f"{rid}.md").read_text())
         tp = self.q / "reviews" / f"{rid}.triage.json"
-        base = {"schema_version": 1, "review_id": rid, "project_id": "demo", "record": "r.md", "tasks_created": [],
-                "answered_by": "spec_maintainer", "dispositions": []}
+        base = {"schema_version": 1, "review_id": rid, "project_id": "demo", "triaged_at": "2026-11-01T10:00:00Z",
+                "record": "r.md", "tasks_created": [], "answered_by": "spec_maintainer", "dispositions": []}
         tp.write_text(json.dumps({**base, "commit_sha": None}))
         self.assertEqual(self.dpj("architect", "triage", rid)[1]["outcome"], "invalid_triage")
         tp.write_text(json.dumps({**base, "commit_sha": None, "rule_changes": [
@@ -295,8 +297,9 @@ class RuleChangesAndShape(Harness):
         rid = res["review_id"]
         tp = self.q / "reviews" / f"{rid}.triage.json"
         change = {"rule": "E9", "action": "add", "disposition": "applied", "reason": "agreed"}
-        base = {"schema_version": 1, "review_id": rid, "project_id": "demo", "record": "r.md", "tasks_created": [],
-                "answered_by": "spec_maintainer", "dispositions": [], "rule_changes": [change]}
+        base = {"schema_version": 1, "review_id": rid, "project_id": "demo", "triaged_at": "2026-11-01T10:00:00Z",
+                "record": "r.md", "tasks_created": [], "answered_by": "spec_maintainer", "dispositions": [],
+                "rule_changes": [change]}
         tp.write_text(json.dumps({**base, "commit_sha": "pending"}))
         code, res, _ = self.dpj("architect", "triage", rid)
         self.assertEqual(res["outcome"], "invalid_triage")
@@ -334,7 +337,7 @@ class RuleChangesAndShape(Harness):
         (self.q / "architect.json").write_text(json.dumps(st))
         sha = "607370975dcdd1883c5e8bf8a9dbaf38c32f111a"
         (self.q / "reviews" / f"{rid}.triage.json").write_text(json.dumps({
-            "schema_version": 1, "review_id": rid, "project_id": "demo",
+            "schema_version": 1, "review_id": rid, "project_id": "demo", "triaged_at": "2026-11-01T10:00:00Z",
             "record": f"docs/delivery/reviews/{rid}.md", "commit_sha": sha,
             "tasks_created": ["0162-build-lists-accepted-adrs"], "answered_by": "spec_maintainer",
             "dispositions": [{"finding": "F01", "disposition": "task", "reason": "grouped with the BUILD rows",

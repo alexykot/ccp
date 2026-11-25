@@ -45,7 +45,8 @@ class OlderAliasRecords(ToolkitFixture, unittest.TestCase):
         (reviews / f"{AR_ID}.json").write_text(json.dumps(REPORT))
         (reviews / f"{AR_ID}.md").write_text("# Architecture review\n")
         (reviews / f"{AR_ID}.triage.json").write_text(json.dumps({
-            "schema_version": 1, "review_id": AR_ID, "record": "r.md", "commit_sha": None, "answered_by": "steerer",
+            "schema_version": 1, "review_id": AR_ID, "project_id": "demo", "triaged_at": "2026-10-01T13:00:00Z",
+            "record": "r.md", "commit_sha": None, "tasks_created": [], "answered_by": "steerer",
             "dispositions": [{"finding": "F01", "disposition": "reject", "reason": "intentional"}]}))
         obs = q / "observability"
         obs.mkdir(exist_ok=True)

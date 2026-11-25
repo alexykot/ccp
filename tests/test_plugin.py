@@ -461,9 +461,7 @@ if __name__ == "__main__":
 
 class ArchitectFromThePlugin(unittest.TestCase):
     def test_skill_triage_doc_and_plugin_dir_follow_the_product(self):
-        import sys
-        sys.path.insert(0, str(PLANE_ROOT / "scripts/observability"))
-        import architecture_review as ar
+        from ccp import architecture_review as ar
         p = Product()
         try:
             self.assertEqual(Path(ar.architect_skill(p.root)), PLUGIN / "skills/architect/SKILL.md")
