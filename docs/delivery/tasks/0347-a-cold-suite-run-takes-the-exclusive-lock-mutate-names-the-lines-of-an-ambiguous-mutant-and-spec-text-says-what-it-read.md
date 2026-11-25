@@ -139,4 +139,14 @@ Measured at `05cb00e2`:
 
 ## Implementation notes
 
+- `ccp/suite.py` `run`: `cold` (from `a.cold`) gates both §16.6 skips: `_green_from` is not called and the cache
+  probe is not run, so a `--cold` run of an exclusive lane takes the lock (or exits 75 with `--wait 0`) and its
+  `started` row has no `lane_skipped`. §16.6 carries the signed sentence.
+- `ccp/mutate.py` `_once`: a count of two or more adds `at lines A and B` (`A, B and C`), each the 1-based line an
+  occurrence's first byte is on in the text as checked (`_lines_of`: lines counted by `\n`, the non-overlapping
+  occurrences `bytes.count` counts, one entry per occurrence, so two on one line list that line twice).
+- `ccp/verify.py` `main`: with no `--head`, the not-found line reads `in the text the working tree changes since its
+  merge base with <base>`; with `--head`, as before. `ccp/cli.py`: the `--head` help as ruled.
+- Tests: the five the task names; the no-merge-base one pins behaviour that predates this task (it passes at the base).
+
 ## Verification notes
