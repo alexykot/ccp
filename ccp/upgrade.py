@@ -79,8 +79,11 @@ def merged_tasks(cfg: Config | None = None) -> list[dict[str, Any]]:
 
 
 def merged_task(task_id: str) -> dict[str, Any] | None:
-    """The plane's merged task `task_id`, or None when there is none."""
-    return next((t for t in merged_tasks() if t.get("task_id") == task_id), None)
+    """The plane's merged task `task_id`, given as its full id or its number (`ids.same_task`), or None when there
+    is none."""
+    pcfg = _plane_cfg()
+    ids = refs.ids(pcfg)
+    return next((t for t in merged_tasks(pcfg) if ids.same_task(t.get("task_id"), task_id)), None)
 
 
 def _git(root: Path, *args: str) -> str | None:

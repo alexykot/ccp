@@ -39,6 +39,14 @@ class Built(UpgradeFixture, unittest.TestCase):
         self.assertEqual([(e["type"], e["op"], e["payload"]["built_task"]) for e in self.events()],
                          [("plane", "built", "0001-cache")])
 
+    def test_a_bare_task_number_names_the_merged_task(self):
+        code, body, err = self.ccp("plane", "built", "pp-p", "--task", "0001")
+        self.assertEqual((code, body["built_task"]), (0, "0001-cache"), err)
+        p = self.listed()["pp-p"]
+        self.assertEqual((p["status"], p["built_task"], p["adopt"]),
+                         ("built", "0001-cache", "plane.json verify.accept_cache"))
+        self.assertEqual([e["payload"]["built_task"] for e in self.events()], ["0001-cache"])
+
     def test_a_task_with_no_adopt_key_gives_none(self):
         self.assertEqual(self.ccp("plane", "built", "pp-p", "--task", "0002-bare")[0], 0)
         self.assertEqual(self.listed()["pp-p"]["adopt"], "none")
