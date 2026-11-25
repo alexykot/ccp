@@ -238,21 +238,14 @@ def run_cache_probe(argv: list[str], lane: str, env: dict[str, str]) -> tuple[bo
     """§16.6: ask a lane's cache probe whether the product's test cache answers every module of the run: (whether it
     said so, by exit 0, and a warning when it timed out or could not start). It runs in the current directory with
     `env` and CCP_SUITE_LANE, stdin from /dev/null, its output discarded, in its own process group, killed whole
-    after CACHE_PROBE_TIMEOUT_S, or when `ccp` itself ends first: on an exception (SIGINT), on a SIGTERM or SIGHUP
-    that would end the process at once (the default handler; main thread only), which exits through Python
-    instead, and, when `ccp` dies outright (SIGKILL, a harness killing its group), through a watchdog (WATCHDOG)
-    in the probe's group."""
+    after CACHE_PROBE_TIMEOUT_S, or when `ccp` itself ends first: on an exception (SIGINT), and through a
+    watchdog (WATCHDOG) in the probe's group when `ccp` dies (SIGTERM, SIGKILL, a harness killing its group)."""
     try:
         proc = subprocess.Popen(argv, env={**env, **for_child({"CCP_SUITE_LANE": lane})}, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_group(0))
     except OSError as e:
         return False, f"lane {lane}: its cache probe could not start ({argv[0]}: {e.strerror or e}): taking the lock"
     dog_w = _start_watchdog(proc.pid)
-    restore: dict[int, Any] = {}
-    if threading.current_thread() is threading.main_thread():
-        for s in (signal.SIGTERM, signal.SIGHUP):
-            if signal.getsignal(s) == signal.SIG_DFL:
-                restore[s] = signal.signal(s, _raise_on)
     try:
         return proc.wait(timeout=CACHE_PROBE_TIMEOUT_S) == 0, None
     except subprocess.TimeoutExpired:
@@ -262,8 +255,6 @@ def run_cache_probe(argv: list[str], lane: str, env: dict[str, str]) -> tuple[bo
         _end_group(proc)  # `ccp` is ending: the probe ends with it
         raise
     finally:
-        for s, h in restore.items():
-            signal.signal(s, h)
         _release_watchdog(dog_w)
 
 
