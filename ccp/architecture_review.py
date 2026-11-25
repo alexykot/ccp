@@ -246,8 +246,8 @@ def validate_report(r: Any, rid: str, pid: str, categories: tuple[str, ...] = CA
             errs.append(f"{x.get('id')}: a rule-cost finding needs a decision (needs_decision: true, fix: decide)")
     rc = r.get("rule_changes")
     for i, c in enumerate(rc if isinstance(rc, list) else []):
-        if isinstance(c, dict) and not ids.is_rule_id(c.get("rule")):
-            errs.append(f"rule_changes[{i}]: rule {c.get('rule')!r} is not a rule id ({ids.rule_shape})")
+        if isinstance(c, dict) and isinstance(c.get("rule"), str) and not ids.is_rule_id(c["rule"]):
+            errs.append(f"rule_changes[{i}]: rule {c['rule']!r} is not a rule id ({ids.rule_shape})")
     if looks_like_secret(json.dumps(r)):
         errs.append("report contains a secret-like string")
     return errs

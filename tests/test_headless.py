@@ -19,6 +19,16 @@ class HeadlessEnv(unittest.TestCase):
             self.assertNotIn(k, env)
 
 
+class ClaudeArgv(unittest.TestCase):
+    def test_the_keys_are_stripped_and_the_seat_s_override_is_the_binary(self):
+        with mock.patch.dict(os.environ, {"CCP_TEST_SEAT_CLAUDE_BIN": "/opt/stub-claude"}):
+            argv = headless.claude_argv("CCP_TEST_SEAT_CLAUDE_BIN", "Do it.", ["--output-format", "json"])
+        self.assertEqual(argv, ["env", "-u", "ANTHROPIC_API_KEY", "-u", "CLAUDE_API_KEY", "-u", "ANTHROPIC_AUTH_TOKEN",
+                                "/opt/stub-claude", "-p", "Do it.", "--output-format", "json"])
+        with mock.patch.dict(os.environ, {"CCP_TEST_SEAT_CLAUDE_BIN": ""}):  # empty counts as unset
+            self.assertEqual(headless.claude_argv("CCP_TEST_SEAT_CLAUDE_BIN", "x", [])[7:], ["claude", "-p", "x"])
+
+
 class ClaudeJson(unittest.TestCase):
     def test_the_result_entry_of_a_list_or_the_last_object_line(self):
         res = {"type": "result", "result": "done"}

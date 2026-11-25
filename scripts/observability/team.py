@@ -16,8 +16,6 @@ import argparse
 import contextlib
 import io
 import json
-import os
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,7 +26,7 @@ sys.path.insert(0, str(HERE.parents[1]))  # the plane root: `ccp` is the package
 
 from ccp.lib import (LEAD, OPEN_GATE_STATUSES, RUNNER, RUNNER_NAME, die, fmt_dt, looks_like_secret,  # noqa: E402
                  read_json, runner_worktree, utcnow, work_lock, write_json)
-from ccp import runnerscope  # noqa: E402
+from ccp import promptaudit, runnerscope  # noqa: E402
 from ccp.queue import QueueError  # noqa: E402
 from ccp.runnerscope import slots_of  # noqa: E402
 import spec_maintainer as sm  # noqa: E402
@@ -347,18 +345,25 @@ def model_arg(root: Path, rc: dict[str, str]) -> dict[str, str]:
     return {"model": alias} if models.pin(alias, runs.expected(cfg, rc["agent_type"].split(":", 1)[-1])[0]) == alias else {}
 
 
-def keep_body(root: Path) -> list[str]:
-    """SPEC §23.8: `--keep-body` for `write-prompt-audit.sh` when the product's plane.json sets
-    `prompts.keep_body`, as `ccp prompt` passes it; nothing when it is off, absent or unreadable."""
+def product_config(root: Path) -> Any:
+    """The product's loaded config, for the prompt audit's `prompts.keep_body` (SPEC §23.8); None when the queue has no
+    product root, the product no plane.json, or the load fails."""
     prod = sm.product_root(root)
     if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
-        return []
+        return None
     from ccp import config as ccp_config  # noqa: PLC0415
     try:
-        on = (ccp_config.load(Path(prod)).prompts or {}).get("keep_body")
+        return ccp_config.load(Path(prod))
     except Exception:  # noqa: BLE001  (an unreadable plane.json: the default, no body)
-        return []
-    return ["--keep-body"] if on else []
+        return None
+
+
+def write_audit(root: Path, **kw: Any) -> str:
+    """One prompt audit under the queue `root`, through `ccp.promptaudit`; the host dies on a writer that fails."""
+    try:
+        return promptaudit.write(root, product_config(root), actor=LEAD, project_id=sm.project_id(root), **kw)
+    except QueueError as exc:
+        die(str(exc))
 
 
 def review_point_scope(root: Path, args: argparse.Namespace, scope: list[str], rp: str | None,
@@ -461,17 +466,11 @@ def _runner_scope(root: Path, rc: dict[str, str], w: dict[str, Any], add: list[s
            + (f" Added: {', '.join(added)}." if added else "")
            + (f" Removed: {', '.join(removed)}." if removed else "")
            + " work.json has it; take the next task with `ccp tasks next --scope` from work.json's scope.")
-    audit = subprocess.run(
-        ["bash", str(HERE / "write-prompt-audit.sh"), "--task-id", RUNNER_AUDIT_TASK, "--phase", "runner-scope",
-         "--prompt-file", "-", "--actor", LEAD, "--project-id", sm.project_id(root),
-         "--argv", json.dumps(["SendMessage", *[f"to={n}" for n in
-                                                  ([str(r.get("bound_name") or k) for k, r in slots_of(w).items()]
-                                                   or [live_name(rc, w)])]]),
-         "--notes", f"scope={','.join(scope)}", *keep_body(root)],
-        input=msg + "\n", capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(root)})
-    if audit.returncode != 0:
-        die(f"write-prompt-audit failed: {audit.stderr.strip()}")
-    prompt_ref = audit.stdout.strip().splitlines()[-1]
+    prompt_ref = write_audit(
+        root, task_id=RUNNER_AUDIT_TASK, phase="runner-scope", prompt=msg + "\n",
+        argv=["SendMessage", *[f"to={n}" for n in ([str(r.get("bound_name") or k) for k, r in slots_of(w).items()]
+                                                   or [live_name(rc, w)])]],
+        notes=f"scope={','.join(scope)}")
     emit(root, "", LEAD, "runner", "scope", {"name": ",".join(sorted(slots_of(w))) or live_name(rc, w),
                                               "scope": scope, "added": added,
                                               "removed": removed, "prompt_ref": prompt_ref})
@@ -556,15 +555,10 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
         actions = []
         for slot in new:
             prompt = prompts[slot]
-            audit = subprocess.run(
-                ["bash", str(HERE / "write-prompt-audit.sh"), "--task-id", RUNNER_AUDIT_TASK, "--phase", "runner-spawn",
-                 "--prompt-file", "-", "--actor", LEAD, "--project-id", sm.project_id(root),
-                 "--argv", json.dumps(["Agent", f"name={slot}", f"subagent_type={rc['agent_type']}"]),
-                 "--notes", f"slot={slot} scope={','.join(scope)}", *keep_body(root)],
-                input=prompt, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(root)})
-            if audit.returncode != 0:
-                die(f"write-prompt-audit failed: {audit.stderr.strip()}")
-            prompt_ref = audit.stdout.strip().splitlines()[-1]
+            prompt_ref = write_audit(
+                root, task_id=RUNNER_AUDIT_TASK, phase="runner-spawn", prompt=prompt,
+                argv=["Agent", f"name={slot}", f"subagent_type={rc['agent_type']}"],
+                notes=f"slot={slot} scope={','.join(scope)}")
             emit(root, "", LEAD, "runner", "spawn", {"name": slot, "scope": scope, "prompt_ref": prompt_ref,
                                                       "review_point": rp, "slot": slot})
             was = slots.get(slot, {})
@@ -699,15 +693,10 @@ def cmd_runner(args: argparse.Namespace) -> int:
                      "prompt": spawn_prompt(root, scope, rp, added), **no_rp_detail(rp)}]})
         made = single_runner_worktree(root, rc)  # after the refusals, before the runtime writes
         prompt = spawn_prompt(root, scope, rp, added)
-        audit = subprocess.run(
-            ["bash", str(HERE / "write-prompt-audit.sh"), "--task-id", RUNNER_AUDIT_TASK, "--phase", "runner-spawn",
-             "--prompt-file", "-", "--actor", LEAD, "--project-id", sm.project_id(root),
-             "--argv", json.dumps(["Agent", f"name={rc['name']}", f"subagent_type={rc['agent_type']}"]),
-             "--notes", f"scope={','.join(scope)}", *keep_body(root)],
-            input=prompt, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(root)})
-        if audit.returncode != 0:
-            die(f"write-prompt-audit failed: {audit.stderr.strip()}")
-        prompt_ref = audit.stdout.strip().splitlines()[-1]
+        prompt_ref = write_audit(
+            root, task_id=RUNNER_AUDIT_TASK, phase="runner-spawn", prompt=prompt,
+            argv=["Agent", f"name={rc['name']}", f"subagent_type={rc['agent_type']}"],
+            notes=f"scope={','.join(scope)}")
         if old:
             emit(root, "", LEAD, "runner", "stop", {"name": old, "reason": "respawn"})
         emit(root, "", LEAD, "runner", "spawn", {"name": rc["name"], "scope": scope, "prompt_ref": prompt_ref,

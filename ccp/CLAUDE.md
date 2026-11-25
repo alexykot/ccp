@@ -25,14 +25,15 @@ normative, and a module that disagrees with it is the bug.
   `runs.py`, `followups.py` (the lead's outcome for each worker follow-up, and the open ones, §13.4),
   `report.py`, `submit.py` (formal-submit, `ccp tasks submit`, §15.1), `verify.py`, `schema.py` (the one schema checker
   for `contracts/`), `suite.py`, `wt.py`,
-  `mutate.py`, `prompt.py`, `plane.py`,
+  `mutate.py`, `prompt.py`, `promptaudit.py` (the one function every prompt audit is written through, §23.8), `plane.py`,
   `gitmerge.py` (the one reading of git's merge analysis, house rule E14),
   `upgrade.py` (what a plane release asks of a product, §29.3),
   `jsonedit.py` (one member of a JSON object edited in its text, every other byte kept: the plane.json records, §29.3),
   `sandbox.py` (a throwaway adopted product for end-to-end checks, §29.3),
   `notify.py` (the operator's notices: fired, rendered, recorded and listed pending, §3.6).
 - **Seats that run headless:** `architect.py` (on the review kit in `architecture_review.py`), `estimator.py`, both launched through `headless.py` (a plane-launched
-  `claude -p`: its environment without the API keys, its JSON and its quota stop, §24.3, house rule E8).
+  `claude -p`: its argv with the API keys stripped and the seat's binary override, its environment, its JSON and its
+  quota stop, §24.3, house rule E8).
 - **Measurement and the board:** `health.py`, `estimate.py`, `calibrate.py`, `forecast.py`,
   `usage.py`, `otel.py`, `seats.py`, `models.py` (each role's default model and effort, and does an observed model id match a pin, §24.5),
   `board.py`, `drill.py`, `plan.py`, `quality.py`, `backfill.py`.

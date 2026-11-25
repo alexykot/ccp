@@ -20,15 +20,14 @@ import json
 import os
 import re
 import shlex
-import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import models, prhost, refs, report, runs, tasklog, verify
+from ccp import models, prhost, promptaudit, refs, report, runs, tasklog, verify
 from ccp.config import PREGATE_LANE, Config, lane_for
-from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, actor, git, integration_branch, lib, load_task_state, load_work,
+from ccp.queue import (CCP_BIN, PLANE, QueueError, actor, git, integration_branch, lib, load_task_state, load_work,
                        phase_move, runner_slots,
                        holder_teammate, root, task_meta)
 
@@ -405,21 +404,10 @@ def base_sha(cfg: Config, q: Path) -> str:
 
 def audit(q: Path, cfg: Config, task_id: str, phase: str, prompt_file: Path, run_id: str, meta: dict[str, Any],
           worktree: str | None, note: str | None) -> str:
-    cmd = [str(OBS / "write-prompt-audit.sh"), "--task-id", task_id, "--phase", phase, "--prompt-file", str(prompt_file),
-           "--actor", actor(), "--session-id", run_id, "--project-id", cfg.project_id,
-           "--argv", json.dumps(["Agent", runs.AGENT_TYPE[phase]]),
-           "--durable-task-path", cfg.rel(meta["_file"]),
-           "--spec-refs", json.dumps(tasklog._as_list(meta.get("spec_refs")))]
-    if worktree:
-        cmd += ["--worktree", worktree]
-    if note:
-        cmd += ["--notes", note]
-    if (cfg.prompts or {}).get("keep_body"):
-        cmd += ["--keep-body"]
-    r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
-    if r.returncode != 0:
-        raise QueueError(f"write-prompt-audit: {(r.stderr or r.stdout).strip()}", 1)
-    return r.stdout.strip().splitlines()[-1].strip() if r.stdout.strip() else ""
+    return promptaudit.write(q, cfg, task_id=task_id, phase=phase, prompt_file=prompt_file,
+                             argv=["Agent", runs.AGENT_TYPE[phase]], actor=actor(), session_id=run_id,
+                             project_id=cfg.project_id, durable_task_path=cfg.rel(meta["_file"]),
+                             spec_refs=json.dumps(tasklog._as_list(meta.get("spec_refs"))), worktree=worktree or None, notes=note or None)
 
 
 def prune_audits(q: Path, cfg: Config, now: datetime | None = None) -> int:
