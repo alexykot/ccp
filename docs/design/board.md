@@ -4,7 +4,7 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
 
 ## Source ages
 
-`work.json` and `runs/*.json` are written only at phase changes, so while a runner runs they are stale past 30 minutes only when no open run shows it is live: an open run's telemetry request (`ccp usage`'s `recent`) or `runs/_suites.jsonl` row (started or ended) within the 30 minutes shows them as `live (telemetry 9s ago, <run>)` instead, and so does a suite of an open run still running (started within 60 minutes, no end yet); past 60 minutes with no end it no longer counts.
+`work.json` and `runs/*.json` are written only at phase changes, so while a runner runs they are stale past 30 minutes only when no open run shows it is live: an open run's telemetry request (`ccp usage`'s `recent`) or `runs/_suites.jsonl` row (started or ended) within the 30 minutes shows them as `live (telemetry 9s ago, <run>)` instead, and so does a suite of an open run still running (one `suite.fold` counts `open`: its recording `ccp` is alive, or, where that cannot be judged, the row is within §14.4's age and run rules).
 
 ## How the board is built
 

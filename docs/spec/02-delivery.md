@@ -787,7 +787,9 @@ the output mode (`output`), the command's basename and argument count; the `ende
 them (§14.3; on the row only, never the event), and
 `proven_skips` when a prover skipped a stage (§14.2: the prover's name, exit code and the run id, never
 its command). A staged
-lane's `started` row has `cmd` `stages` and its stage count as `argc`. A run from a git checkout with
+lane's `started` row has `cmd` `stages` and its stage count as `argc`. A recorded run's `started` row
+adds `pid`, `host` and `pstart`: the recording `ccp`'s process id, host name and process start time
+(*Totals*, below). A run from a git checkout with
 nothing to commit adds `tree`, the `HEAD^{tree}` it ran (§16.6), and `head`, the `HEAD` it ran (§10.2), and a run that skipped an exclusive
 lane's lock adds `lane_skipped` and `green_from`. Never the command's arguments,
 never its output; the event carries the numbers, `cold` and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
@@ -809,9 +811,16 @@ never its output; the event carries the numbers, `cold` and the stages, not the 
 - **Logs are pruned.** A recording `ccp suite run` removes suite-run logs
   (`runs/<task>/*-suite-st-*.log`, `runs/_suite-logs/st-*.log`) older than 14 days: no other file, no symlink, nothing outside `runs/`, at most 5,000 looked at, a failure
   ignored.
-- **Totals.** A `started` row with no end is `open` while the run may still be going and `killed`
-  once its run has stopped, reported or been abandoned since, or after 30 minutes (its time runs to
-  that stop or report when known). Totals count killed runs (`suite_killed`). `ccp suite list [--task
+- **Totals.** A `started` row with no end, read on the host it names, is `open` while its recording
+  `ccp` is alive (it exists, its start time matches, and its command line is a `ccp suite run`) and
+  `killed` once it is not, whatever its age. A row with no `pid` or `pstart`, a row read on another
+  host, and a row whose process the host's `ps` cannot answer for are `open` while the run may still
+  be going and `killed` once its run has stopped, reported or been abandoned since, or after 30
+  minutes. A killed run's time runs to its run's stop or report when known. When a worker run
+  reports or is abandoned, `ccp` sends SIGTERM to the recording `ccp` of each of its suite runs it
+  judges alive, which ends the command's whole process group and records the run interrupted, so
+  nothing it started keeps holding the lane's resources; a run it cannot judge is never signalled,
+  and a worker run that only stops ends none. Totals count killed runs (`suite_killed`). `ccp suite list [--task
   ID]` prints rows and totals; `ccp usage` gives each run its `suite` totals and `ccp usage --task`
   the task's per phase; each board task row carries `suite_s`, `suite_runs`, `suite_killed` and
   `suite_phases`. A damaged suites file empties these totals and never breaks the board or `ccp

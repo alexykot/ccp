@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
-from ccp import board, usage
+from ccp import board, suite, usage
 from tests.report_helpers import done_report
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -78,18 +78,27 @@ class Staleness(ToolkitFixture, unittest.TestCase):
         self.assertFalse({"work", "runs"} & set(b["health"]["stale_sources"]))
         self.assertIn("live (suite 2 min ago", b["health"]["sources"]["work"]["live"])
 
-    def test_a_suite_still_running_of_the_open_run_says_live_for_an_hour(self):
-        self.suite_row(50)  # started 50 minutes ago, no end yet
+    def test_a_suite_fold_counts_open_says_live(self):
+        self.suite_row(20)  # started 20 minutes ago, no end yet, no pid: §14.4's age rule counts it open
         b = self.build()
         self.assertFalse({"work", "runs"} & set(b["health"]["stale_sources"]))
-        since = (datetime.now(timezone.utc) - timedelta(minutes=50)).strftime("%H:%M")
+        since = (datetime.now(timezone.utc) - timedelta(minutes=20)).strftime("%H:%M")
         self.assertEqual(b["health"]["sources"]["work"]["live"],
                          f"live (suite running since {since}, 0002-second/implement)")
 
-    def test_a_suite_started_over_an_hour_ago_with_no_end_does_not_count(self):
-        self.suite_row(65)
+    def test_a_suite_fold_counts_killed_does_not_count(self):
+        self.suite_row(35)  # no pid, past §14.4's 30 minutes: killed
         b = self.build()
         self.assertEqual(sorted(set(b["health"]["stale_sources"]) & {"work", "runs"}), ["runs", "work"])
+
+    def test_a_live_suite_past_an_hour_still_says_live(self):
+        self.suite_row(90)
+        with mock.patch.object(suite, "_alive", return_value=suite.ALIVE):  # its recording ccp is alive
+            b = self.build()
+        self.assertFalse({"work", "runs"} & set(b["health"]["stale_sources"]))
+        since = (datetime.now(timezone.utc) - timedelta(minutes=90)).strftime("%H:%M")
+        self.assertEqual(b["health"]["sources"]["work"]["live"],
+                         f"live (suite running since {since}, 0002-second/implement)")
 
     def test_old_telemetry_and_suite_rows_are_still_stale(self):
         self.suite_row(45, ended=44)

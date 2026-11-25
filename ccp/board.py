@@ -36,7 +36,6 @@ from ccp.queue import (PLANE, durable_statuses, iso, launchd_bootout, launchd_re
 
 PAGE = Path(__file__).resolve().parent / "board_page.html"
 STALE_MINUTES = 30
-SUITE_LIVE_MINUTES = 60  # a suite started this recently with no end yet shows its run is live (a gate typically runs minutes)
 LOCK = ".build.lock"    # held (flock) by the one draining build; the kernel drops it if that build dies
 DIRTY = ".build.dirty"  # "the state changed since the last build started"
 FAILED = ".build.failed"  # the latest build's error, if it failed; cleared by the next build that writes
@@ -82,8 +81,8 @@ def _sources(q: Path) -> dict[str, Any]:
 def _live(q: Path, report: dict[str, Any], open_ids: set[str]) -> dict[str, Any] | None:
     """§28: the newest sign that an open run is working, which work.json and runs/*.json (written
     only at phase changes) do not show: its latest telemetry request (`ccp usage`'s `recent`) or its
-    latest suite row (`runs/_suites.jsonl`, started or ended), or a suite of it still running (started
-    within SUITE_LIVE_MINUTES, no end yet), which counts as now. None when no open run has any."""
+    latest suite row (`runs/_suites.jsonl`, started or ended), or a suite of it still running (one
+    `suite.fold` counts `open`), which counts as now. None when no open run has any."""
     now = datetime.now(timezone.utc).timestamp()
     best: tuple[float, str, str] | None = None
     running: tuple[float, str] | None = None  # the latest still-running suite: (started, run)
@@ -103,8 +102,7 @@ def _live(q: Path, report: dict[str, Any], open_ids: set[str]) -> dict[str, Any]
                 if t is not None and (best is None or t > best[0]):
                     best = (t, "suite", str(row["run_id"]))
             t = _ts(row.get("started_at"))
-            if t is not None and not row.get("ended_at") and now - t <= SUITE_LIVE_MINUTES * 60 \
-                    and (running is None or t > running[0]):
+            if t is not None and row.get("state") == "open" and (running is None or t > running[0]):
                 running = (t, str(row["run_id"]))
     if running is not None:
         since = datetime.fromtimestamp(running[0], timezone.utc).strftime("%H:%M")

@@ -21,6 +21,7 @@ import secrets
 import shlex
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -1208,6 +1209,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                           {"cmd": Path(argv[0]).name[:64], "argc": len(argv) - 1}), "output": mode, **bound}
             # §14.4: the tree and the commit a clean checkout ran (the working directory's)
             started.update(checkout_ids(Path(".")))
+            started.update(_identity())  # §14.4: the recording ccp, which lives exactly as long as the run
     except ClosedRun as e:  # §14.2: a stale --run stops the worker before anything runs or is recorded
         print(f"ccp suite: {e}", file=sys.stderr)
         return e.code
@@ -1637,6 +1639,98 @@ def main_run(a: Any, command: list[str] | None) -> int:
 
 
 KILLED_AFTER_S = 30 * 60  # an open row this old, or whose run has since stopped or reported, was killed
+#                            (a row whose recording ccp is judged alive or dead goes by that instead, §14.4)
+PS = "ps"  # §14.4: the host's ps, which names a process's start time and command line
+PS_TIMEOUT_S = 5.0  # a ps that takes longer cannot answer
+ALIVE, DEAD, UNKNOWN = "alive", "dead", "unknown"  # `_alive`'s three answers
+KILLED_GONE = "its recording ccp is gone"
+KILLED_RUN = "its run stopped, reported or was abandoned"
+KILLED_AGE = f"it started over {KILLED_AFTER_S // 60} min ago"
+
+
+def _ps(pid: int, field: str) -> str | None:
+    """`ps -o <field>= -p <pid>`'s output, stripped, run with TZ=UTC0 LC_ALL=C so a process prints the same start
+    time whatever the caller's time zone or locale; None when ps is missing, fails, takes over PS_TIMEOUT_S or prints
+    nothing."""
+    try:
+        r = subprocess.run([PS, "-o", f"{field}=", "-p", str(pid)], capture_output=True, text=True, errors="replace",
+                           stdin=subprocess.DEVNULL, timeout=PS_TIMEOUT_S, env={**os.environ, "TZ": "UTC0", "LC_ALL": "C"})
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    out = r.stdout.strip()
+    return out if r.returncode == 0 and out else None
+
+
+def _identity() -> dict[str, Any]:
+    """§14.4: the `started` row's `pid`, `host` and `pstart`, the recording ccp's (`pstart` left out when ps gives
+    nothing, `host` when the host has no name)."""
+    out: dict[str, Any] = {"pid": os.getpid()}
+    try:
+        out["host"] = socket.gethostname()
+    except OSError:
+        pass
+    pstart = _ps(os.getpid(), "lstart")
+    if pstart:
+        out["pstart"] = pstart
+    return out
+
+
+def _exists(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:  # another user's process: it exists
+        return True
+    return True
+
+
+def _alive(row: dict[str, Any]) -> str:
+    """§14.4: whether a `started` row's recording ccp is alive (it exists, its start time is the row's `pstart` and
+    its command line has the tokens `suite` then `run`), dead (no such process, or one whose start time or command
+    line differs: a reused process id is not the run), or unknown (the row lacks `pid`, `host` or `pstart`, names
+    another host, or ps cannot answer for a process that exists)."""
+    pid, host, pstart = row.get("pid"), row.get("host"), row.get("pstart")
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0 or not isinstance(host, str) \
+            or not isinstance(pstart, str) or not pstart:
+        return UNKNOWN
+    try:
+        if host != socket.gethostname():
+            return UNKNOWN
+    except OSError:
+        return UNKNOWN
+    if not _exists(pid):
+        return DEAD
+    lstart = _ps(pid, "lstart")
+    command = _ps(pid, "command") if lstart is not None else None
+    if lstart is None or command is None:
+        return UNKNOWN if _exists(pid) else DEAD  # gone while ps ran: dead
+    if lstart != pstart:
+        return DEAD
+    toks = command.split()
+    return ALIVE if any(a == "suite" and b == "run" for a, b in zip(toks, toks[1:])) else DEAD
+
+
+def _ends(t0: float | None, rec: dict[str, Any] | None) -> list[float]:
+    """The times the row's worker run stopped, reported or was abandoned since the row started, earliest first."""
+    return sorted(e for e in (_epoch((rec or {}).get(k)) for k in ("stopped_at", "reported_at", "abandoned_at"))
+                  if e is not None and t0 is not None and e >= t0)
+
+
+def _why_killed(row: dict[str, Any], t0: float | None, rec: dict[str, Any] | None, now: float) -> str | None:
+    """§14.4: why a `started` row with no end is killed, or None while it is open. A row `_alive` judges is open
+    while its recording ccp is alive and killed once it is dead, whatever its age or its run did; one it cannot judge
+    is killed once its run has stopped, reported or been abandoned since it started, or after KILLED_AFTER_S."""
+    alive = _alive(row)
+    if alive == ALIVE:
+        return None
+    if alive == DEAD:
+        return KILLED_GONE
+    if _ends(t0, rec):
+        return KILLED_RUN
+    if t0 is not None and now - t0 > KILLED_AFTER_S:
+        return KILLED_AGE
+    return None
 
 
 def _epoch(at: Any) -> float | None:
@@ -1649,9 +1743,8 @@ def _epoch(at: Any) -> float | None:
 
 def fold(q: Path, now: float | None = None) -> list[dict[str, Any]]:
     """Every suite run, oldest first: its started row with its end. One with no end is `open` while
-    it may still be going, and `killed` once its run has stopped or reported since it started, or
-    it is older than KILLED_AFTER_S. A killed run's seconds run to its run's stop or report when
-    that is known (`seconds_estimated`), else they are unknown (None)."""
+    it may still be going and `killed` once it is not (`_why_killed`). A killed run's seconds run to
+    its run's stop or report when that is known (`seconds_estimated`), else they are unknown (None)."""
     out: dict[str, dict[str, Any]] = {}
     p = path(q)
     for line in p.read_text(errors="replace").splitlines() if p.is_file() else []:
@@ -1687,9 +1780,8 @@ def fold(q: Path, now: float | None = None) -> list[dict[str, Any]]:
             except Exception:  # noqa: BLE001
                 recs[rid] = None
         rec = recs.get(rid) if rid else None
-        ends = sorted(e for e in (_epoch((rec or {}).get(k)) for k in ("stopped_at", "reported_at", "abandoned_at"))
-                      if e is not None and t0 is not None and e >= t0)
-        if ends or (t0 is not None and now - t0 > KILLED_AFTER_S):
+        if _why_killed(st, t0, rec, now):
+            ends = _ends(t0, rec)
             st["state"] = "killed"
             st["seconds"] = round(ends[0] - t0, 3) if ends else None
             st["seconds_estimated"] = True
@@ -1806,12 +1898,35 @@ def _rows(q: Path, suite_id: str) -> tuple[dict[str, Any] | None, dict[str, Any]
     return started, ended
 
 
-def _killed(q: Path, suite_id: str) -> bool:
-    """Whether §14.4's totals count this open run as killed: it will never get an `ended` row."""
+def _killed(q: Path, started: dict[str, Any]) -> str | None:
+    """Why §14.4's totals count this open run as killed (it will never get an `ended` row), or None while it is
+    open: `fold`'s rule, read on its `started` row."""
     try:
-        return any(s.get("suite_id") == suite_id and s.get("state") == "killed" for s in fold(q))
-    except Exception:  # noqa: BLE001  (a damaged suites file: keep waiting on the row itself)
-        return False
+        rec = None
+        if started.get("run_id"):
+            try:
+                rec = runs.load(q, str(started["run_id"]))
+            except Exception:  # noqa: BLE001  (no run record: the age rule alone)
+                rec = None
+        return _why_killed(started, _epoch(started.get("at")), rec, time.time())
+    except Exception:  # noqa: BLE001  (a damaged row: keep waiting on the row itself)
+        return None
+
+
+def end_bound_runs(q: Path, run_id: str) -> list[str]:
+    """§14.4: SIGTERM to the recording ccp of each open suite run bound to `run_id` that `_alive` judges alive, which
+    ends the command's whole process group and records the run interrupted; a dead or unknown one is never signalled.
+    Called when the worker run reports or is abandoned, never when it only stops. The suite ids signalled."""
+    out = []
+    for st in fold(q):
+        if st.get("run_id") != run_id or st.get("state") != "open" or _alive(st) != ALIVE:
+            continue
+        try:
+            os.kill(int(st["pid"]), signal.SIGTERM)
+        except (OSError, TypeError, ValueError):
+            continue
+        out.append(str(st["suite_id"]))
+    return out
 
 
 def ended_summary(cfg: Config | None, started: dict[str, Any] | None, ended: dict[str, Any]) -> str:
@@ -1869,9 +1984,10 @@ def wait(cfg: Config | None, q: Path, suite_id: str, timeout: float) -> int:
             return 2
         t0 = _epoch(started.get("at"))
         elapsed = f"{time.time() - t0:.0f} s" if t0 is not None else "an unknown time"
-        if _killed(q, suite_id):
-            _say(f"ccp suite: {suite_id}: killed: it has no end recorded and never will (its run stopped or "
-                 f"reported, or it started over {KILLED_AFTER_S // 60} min ago); started {elapsed} ago\n")
+        why = _killed(q, started)
+        if why:
+            _say(f"ccp suite: {suite_id}: killed: it has no end recorded and never will ({why}); "
+                 f"started {elapsed} ago\n")
             return 1
         left = deadline - time.monotonic()
         if left <= 0:
