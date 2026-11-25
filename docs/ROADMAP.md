@@ -56,9 +56,6 @@ All reshape phases have landed.
     modules as affected, so `ccp suite affected` says to run the full lane. Trigger: a cli or config task's part run
     taking longer than the gate lane; then the lead chooses between each command module registering its own parser
     and handler (cli.py only dispatches) and a language-pack rule for a declared hub module.
-  - `ar-20261122T055103Z-11aa` F08: a render-only `ccp prompt` (no audit, no run), so a template refactor proves
-    "rendered prompt unchanged" with one command at base and head. Trigger: the next task that refactors a prompt
-    template builds it, as its first check.
   - `ar-20261122T162238Z-9098` F09 and F11: left after 0324 and 0329, the fixture-class git runners and inline git
     calls. The language pack selecting only a changed name's importers is not taken: a test reaches a changed helper
     through another helper of the same module, so it would miss tests.
@@ -84,10 +81,21 @@ All reshape phases have landed.
       seconds are a new record field, so that part is its own task.
     - `PLANE_PROJECT_YAML`, read beside `PROJECT_YAML` by the queue and project-id resolvers and named by no § (0331).
       Trigger: no binding script or product environment sets it; then a task drops it from both.
-  - `ar-20261125T184522Z-c248` F01 (`scripts/observability/team.py` holds the runner's scope, respawn, refactor-scope,
-    slot and readiness decisions, against E7) and F02 (§29.3's fix-up commands have no stated end, so
-    `ccp adr migrate --markers` and `ccp review-points migrate` stay): questions 1 and 2 of that triage. Trigger: the
-    operator's answers; the next triage tasks them, with the E7 and E9 rule changes they carry.
+  - Fix-up commands and their ends (§29.3, E9; the operator's answer to `ar-20261125T184522Z-c248` question 2): each
+    is retired by a signed task, with any compatibility reading it serves, once its trigger holds.
+    - `ccp adr migrate --markers`, with §6.3's reading of the non-canonical decision styles. Trigger: every bound
+      product's `ccp adr migrate --markers --dry-run` changes nothing.
+    - `ccp review-points migrate` (§22.7). Trigger: every bound product's `--dry-run` changes nothing (no point
+      outside the register is left to rename).
+  - `ar-20261125T202431Z-1a86` F04: §29.3 keeps a constant key's non-default value applying with no end, so
+    `prompts.keep_body` and `prompts.audit_keep_days` contradict §23.8 and §23.9. Trigger: the operator's answer to
+    question 1 of that triage; the next triage tasks it.
+  - `ar-20261125T202431Z-1a86` F06, its second half: `ccp mutate`'s refusal of a test that fails with no mutant could
+    name the test ids its module holds (a language-pack reader). Trigger: a second friction note on building a test
+    id by hand.
+  - `ar-20261125T202431Z-1a86` F07, its second half: whether a mutant killed only by erroring tests counts as
+    `killed` (§20.6). Trigger: a review or verify that judges such a kill false, read from the kinds 0354 records;
+    then a signed task rules it.
   - `ar-20261125T184522Z-c248` F11, its second half: a mutant anchored to a line (`<file>:<line>:<old>=><new>`)
     changes §20.6's signed mutant grammar. Trigger: a friction note on placing a mutant after 0347's refusal names
     the lines; then a signed task adds the form.
