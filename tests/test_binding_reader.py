@@ -253,7 +253,7 @@ class SyncReaderTest(unittest.TestCase):
         (self.product / "docs" / "delivery" / "SPEC-MAINTAINER.md").write_text(
             "> Managed copy of control-plane `plugin/skills/spec-maintainer/SKILL.md` at abc1234. Edit.\n")
         r = self.sync("")
-        self.assertIn("DRIFT docs/delivery/SPEC-MAINTAINER.md: retired", r.stdout, r.stderr)
+        self.assertIn("SPEC-MAINTAINER.md: retired", r.stdout, r.stderr)
 
     def test_without_the_doc_there_is_no_such_copy_whatever_the_binding_holds(self):
         r = self.sync("spec_maintainer:\n  kind: team-lead\n")

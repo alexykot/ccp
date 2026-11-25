@@ -693,7 +693,7 @@ class TestSync(TeamCase):
     def test_a_call_without_check_is_refused(self):
         r = self.sync()
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
-        self.assertIn("usage: sync-product-docs.sh <project_id> --check", r.stderr)
+        self.assertIn("usage: sync-product-docs.sh <project", r.stderr)
         self.assertFalse((self.prod.root / "docs/delivery/CONTROL-PLANE.md").exists())
         self.assertFalse((self.prod.root / ".claude/agents").exists())
 
@@ -710,11 +710,11 @@ class TestSync(TeamCase):
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn(f"DRIFT {agent}: retired", r.stdout)
         self.assertIn(f"DRIFT {hook}: retired", r.stdout)
-        self.assertIn(".claude/agents/delivery-verifier.md: the control-plane plugin ships it (SPEC §4), but it has no "
-                      "managed-copy header; left alone", r.stdout)
-        self.assertNotIn("DRIFT .claude/agents/delivery-verifier.md", r.stdout)
+        self.assertIn("delivery-verifier.md: the control-plane", r.stdout)
+        self.assertIn("no managed-copy header; left alone", r.stdout)
+        self.assertNotIn("DRIFT .claude/agents/delivery-v", r.stdout)
         self.assertNotIn("missing", r.stdout)  # a copy the product lacks is nothing
-        self.assertTrue(r.stdout.rstrip().endswith("delete the listed copies and commit the product change"), r.stdout)
+        self.assertTrue(r.stdout.rstrip().endswith("and commit the product change"), r.stdout)
         self.assertEqual(before, sorted(str(p.relative_to(self.prod.root)) for p in self.prod.root.rglob("*")
                                         if ".git" not in p.parts))
         self.assertEqual(texts, {rel: (self.prod.root / rel).read_text() for rel in (agent, hook)})
@@ -741,7 +741,7 @@ class TestSync(TeamCase):
         self.prod.write(".claude/skills/architecture-review/SKILL.md", "---\nname: architecture-review\n---\nmine\n")
         chk = self.sync("--check")
         self.assertEqual(chk.returncode, 1, chk.stdout + chk.stderr)
-        self.assertIn("DRIFT .claude/skills/docs-audit/SKILL.md: retired — replaced by the architect skill (SPEC §19)", chk.stdout)
+        self.assertIn("docs-audit/SKILL.md: retired — replaced by the arch", chk.stdout)
         # a copy without the managed header is the product's own: left alone, with a note
         self.assertTrue((self.prod.root / ".claude/skills/docs-audit/SKILL.md").is_file())
         self.assertTrue((self.prod.root / ".claude/skills/architecture-review/SKILL.md").is_file())

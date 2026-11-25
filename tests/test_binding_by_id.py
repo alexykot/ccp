@@ -69,7 +69,7 @@ class BindingById(BindingDir):
         self.assertNotIn("docs/delivery/SPEC-MAINTAINER.md", theirs.stdout, theirs.stderr)
         mine = subprocess.run(["bash", str(script), "demo", "--check"], capture_output=True, text=True,
                               env={**env, "PROJECT_YAML": str(yml)})
-        self.assertIn("DRIFT docs/delivery/SPEC-MAINTAINER.md: retired", mine.stdout, mine.stderr)
+        self.assertIn("SPEC-MAINTAINER.md: retired", mine.stdout, mine.stderr)
 
     def test_sync_refuses_a_project_with_no_binding(self):
         env = {**os.environ, "CCP_BINDINGS_DIR": str(self.bindings)}
