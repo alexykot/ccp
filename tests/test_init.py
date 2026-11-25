@@ -6,7 +6,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,11 +16,9 @@ from tests.init_fixture import CCP, InitCase
 
 TEAM = PLANE_ROOT / "scripts" / "team.sh"
 HOOK = PLANE_ROOT / "plugin" / "hooks" / "runner-idle.sh"
-sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
-import lib  # noqa: E402
-
 from ccp import config  # noqa: E402
 from ccp import init as ccp_init  # noqa: E402
+from ccp import lib  # noqa: E402
 
 FOOTPRINT = ("docs/PROJECT.md", "docs/SPEC.md", "docs/delivery/plane.json", "docs/delivery/TEMPLATE-task.md",
              "docs/delivery/WRITING-tasks.md", "docs/delivery/standing-dod.md", "docs/delivery/INDEX.yaml")

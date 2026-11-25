@@ -29,7 +29,8 @@ command follows are in the SPEC, not here.
 | `ccp health record --task <id> --metric <name>=<n>` | Record a product metric (the runner; §27.1) |
 | `ccp health note --text TEXT` | Record a friction note (the runner; §19.6) |
 
-Scripts kept as wrappers over `ccp`: `scripts/observability/emit-event.sh`, `heartbeat.sh`,
-`write-prompt-audit.sh`, `prune-prompts.sh`. `scripts/observability/set-waiting-on.sh` is waiting_on's
+Scripts kept as single writers built on `ccp/lib.py`, the ledger library `ccp` itself imports (§10.6):
+`scripts/observability/emit-event.sh`, `heartbeat.sh`, `write-prompt-audit.sh`; `prune-prompts.sh` prunes the audit files.
+`scripts/observability/set-waiting-on.sh` is waiting_on's
 single writer, which `ccp tasks wait|resume` call (§10.1). `status.sh` and `rebuild-now.sh` are
 retired: the status is `ccp board status` (§23.4).

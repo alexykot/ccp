@@ -22,8 +22,7 @@ from tests.helpers import PLANE_ROOT
 from tests.git_helpers import git
 from tests.toolkit_fixture import ToolkitFixture
 
-sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
-import lib  # noqa: E402
+from ccp import lib  # noqa: E402
 
 CALC = "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n\n\ndef unused(a):\n    return a * 2\n"
 TESTS = """import unittest

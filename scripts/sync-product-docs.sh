@@ -40,7 +40,8 @@
 #   templates/docs-project/ENGINEERING.md; it is product-owned, never a managed copy).
 # Exit 2: usage / config error (unknown project, no product_root, product_root missing).
 #
-# Defaults: --project-yaml = <the bindings directory>/<project_id>.yaml (CCP_BINDINGS_DIR, else
+# Defaults: --project-yaml = the one resolver's file for the project id (`lib.binding_for_id`: the file PROJECT_YAML
+# names when it binds that id, else <the bindings directory>/<project_id>.yaml, CCP_BINDINGS_DIR else
 # <plane>/projects); --product-root = its product_root.
 # No secrets are read or written.
 set -euo pipefail
@@ -51,8 +52,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 plane = Path(sys.argv[1]); args = sys.argv[2:]
-sys.path.insert(0, str(plane / "scripts" / "observability"))
-import lib  # the one binding parser (SPEC §8.3)
+sys.path.insert(0, str(plane))
+from ccp import lib  # the one binding parser and resolver (SPEC §8.3)
 IMPORT_LINE = "@docs/delivery/CONTROL-PLANE.md"
 SECTION = ("## Control plane\n\n" + IMPORT_LINE + "\n\n"
            "That file is the control plane's orientation for this repo: how work flows, which seats "
@@ -106,8 +107,8 @@ if stamp:
               f"({prev.get('checked_at')}, drift={prev.get('drift')}); daily cadence (SPEC §9.5)")
         sys.exit(0)
 
-yml = Path(project_yaml) if project_yaml else lib.bindings_dir() / f"{project}.yaml"
-if not yml.is_file(): fail(f"no project binding {yml}")
+yml = Path(project_yaml) if project_yaml else lib.binding_for_id(project)
+if yml is None or not yml.is_file(): fail(f"no project binding {yml or lib.bindings_dir() / f'{project}.yaml'}")
 binding = lib.read_binding(yml.read_text())
 if lib.binding_str(binding, "project_id") and lib.binding_str(binding, "project_id") != project:
     fail(f"{yml} is project_id {lib.binding_str(binding, 'project_id')}, not {project}")

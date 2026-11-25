@@ -73,7 +73,7 @@ QUEUE_ROOT="${QUEUE_ROOT:?set QUEUE_ROOT to live queue dir outside product git}"
 command -v python3 >/dev/null || { echo "heartbeat: python3 required" >&2; exit 1; }
 
 export QUEUE_ROOT SEAT_ID WAKE_KIND ACTION TASK_ID ACTOR_IN PROJECT_IN
-export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$HERE/../..${PYTHONPATH:+:$PYTHONPATH}"
 
 python3 <<'PY'
 import json, os, sys
@@ -81,7 +81,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get("PYTHONPATH", ".").split(":")[0])
-from lib import append_event, die, fmt_dt, validate_event, write_json
+from ccp.lib import append_event, die, fmt_dt, validate_event, write_json
 
 root = Path(os.environ["QUEUE_ROOT"]).expanduser()
 seat_id = os.environ["SEAT_ID"]

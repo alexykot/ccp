@@ -9,19 +9,15 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import queue
+from ccp import lib, queue
 from tests.helpers import PLANE_ROOT
 
 OBS = PLANE_ROOT / "scripts" / "observability"
-sys.path.insert(0, str(OBS))
-
-import lib  # noqa: E402
 
 RETIRED = "delivery-watchdog"
 WAKE = "2026-10-01T10:00:00Z"

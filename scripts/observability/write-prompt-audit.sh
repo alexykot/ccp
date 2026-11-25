@@ -106,7 +106,7 @@ fi
 
 export QUEUE_ROOT TASK_ID PHASE PROMPT_FILE SESSION_ID RESUME KEEP_BODY ARGV ACTOR_IN PROJECT_IN
 export GIT_HEAD WORKTREE DURABLE SPEC_REFS NOTES
-export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$HERE/../..${PYTHONPATH:+:$PYTHONPATH}"
 
 cleanup() {
   if [[ -n "${PROMPT_TMP:-}" && -f "${PROMPT_TMP:-}" ]]; then
@@ -121,7 +121,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get("PYTHONPATH", ".").split(":")[0])
-from lib import ACTORS, RUNNER, die, fmt_dt, looks_like_secret, write_json
+from ccp.lib import ACTORS, RUNNER, die, fmt_dt, looks_like_secret, write_json
 
 actor = os.environ.get("ACTOR_IN") or RUNNER
 if actor not in ACTORS:

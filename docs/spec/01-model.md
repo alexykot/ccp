@@ -842,7 +842,9 @@ queue_root: /path/to/.delivery-queue/example-product
   binding to its queue (§9.2).
 - The binding is the one source of truth. Every reader (`ccp`, the team scripts, the hooks) resolves
   it through one resolver, so an edit to it reaches them all. For a queue, the resolver takes
-  `PROJECT_YAML` when it names a file, else the binding whose `queue_root` is that queue. The queue
+  `PROJECT_YAML` when it names a file, else the binding whose `queue_root` is that queue; for a project id, it
+  takes the file `PROJECT_YAML` names when that file binds the id, else `<project_id>.yaml` in the bindings
+  directory. The queue
   holds no copy: a `QUEUE_ROOT/project.yaml` left from before is read only when no binding names the
   queue. `ccp where` names the binding it resolved.
 - `ccp init` writes the binding and creates its queue (default `~/.delivery-queue/<project_id>/`),

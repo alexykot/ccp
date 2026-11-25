@@ -1,4 +1,4 @@
-"""The ledger's event types and ops are written once, in `scripts/observability/lib.py`; this is the one test that
+"""The ledger's event types and ops are written once, in `ccp/lib.py`; this is the one test that
 holds `contracts/observability_event.schema.json` to them: the schema's type enum is the types ccp writes plus the
 read-only legacy ones, its op enum is the ops, and every required payload names a type and an op that exist. It holds
 that schema's and `contracts/prompt_audit.schema.json`'s actor enums to the actors written plus the legacy ones."""

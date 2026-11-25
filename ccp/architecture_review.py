@@ -17,16 +17,13 @@ import os
 import re
 import socket
 import subprocess
-import sys
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, NamedTuple
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-
-from lib import (  # noqa: E402
+from ccp import models, refs, schema
+from ccp.lib import (
     ACTORS,
     RUNNER,
     append_event,
@@ -39,10 +36,6 @@ from lib import (  # noqa: E402
     read_json,
     write_json,
 )
-
-if str(HERE.parents[1]) not in sys.path:
-    sys.path.insert(0, str(HERE.parents[1]))
-from ccp import models, refs  # noqa: E402  (each role's default model and effort; the id shapes, §7)
 
 CATEGORIES = ("holdover", "not-first-class", "duplication", "vocabulary-drift", "dead-surface",
               "incoherence", "unobserved", "cost", "rule-cost")
@@ -66,6 +59,7 @@ class Kind(NamedTuple):
         return re.compile(rf"^(?:{p})-{refs.STAMP_ID}$")
 
 
+TRIAGE_SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "architecture_review_triage.schema.json"
 DISPOSITIONS = ("task", "spec", "defer", "needs_operator", "duplicate", "reject")
 BASE_READ_TOOLS = ["Read", "Grep", "Glob", "Skill",
                    "Bash(git log:*)", "Bash(git show:*)", "Bash(git diff:*)", "Bash(git ls-files:*)",
@@ -83,7 +77,7 @@ def headless_flags(cfg: Any = None) -> list[str]:
 
 
 ARCHITECT_SKILL = ".claude/skills/architect/SKILL.md"  # §19: a product's managed copy, if it keeps one
-PLUGIN_DIR = Path(__file__).resolve().parents[2] / "plugin"
+PLUGIN_DIR = Path(__file__).resolve().parents[1] / "plugin"
 
 
 def architect_skill(product: str | Path) -> str:
@@ -270,22 +264,35 @@ def is_commit_sha(value: Any) -> bool:
     return isinstance(value, str) and bool(COMMIT_SHA_RE.fullmatch(value))
 
 
-def validate_triage(t: Any, rid: str) -> list[str]:
-    errs: list[str] = []
+def _triage_contract(ids: refs.Ids) -> dict[str, Any]:
+    """The triage contract without the two id patterns SPEC §7.1 makes product knobs (`ids.task.width`,
+    `ids.rule.pattern`): the contract's are the defaults, and `validate_triage` checks those two values by `ids`."""
+    contract = json.loads(TRIAGE_SCHEMA.read_text())
+    props = contract["properties"]
+    props["tasks_created"]["items"].pop("pattern", None)
+    props["rule_changes"]["items"]["properties"]["rule"].pop("pattern", None)
+    return contract
+
+
+def validate_triage(t: Any, rid: str, ids: refs.Ids = refs.DEFAULT) -> list[str]:
+    """A triage against its contract (`TRIAGE_SCHEMA`, by `ccp.schema`'s one checker), then what the contract
+    cannot say: a task id and a rule id have the product's shapes (`ids`; the contract's patterns are the
+    defaults), the review id is this review's, a task or ruling has a commit sha, and no secret."""
     if not isinstance(t, dict):
         return ["triage is not an object"]
+    errs = schema.schema_errors(t, _triage_contract(ids), at="triage")
+    created = t.get("tasks_created")
+    for i, tid in enumerate(created if isinstance(created, list) else []):
+        if isinstance(tid, str) and not ids.task_id_re.match(tid):
+            errs.append(f"triage.tasks_created[{i}]: {tid!r} is not a task id (ids.task.width {ids.task_width})")
+    changes = t.get("rule_changes")
+    for i, c in enumerate(changes if isinstance(changes, list) else []):
+        if isinstance(c, dict) and isinstance(c.get("rule"), str) and not ids.is_rule_id(c["rule"]):
+            errs.append(f"triage.rule_changes[{i}].rule: {c['rule']!r} is not a rule id ({ids.rule_shape})")
     if t.get("review_id") != rid:
         errs.append(f"review_id {t.get('review_id')!r} != {rid}")
-    for k in ("record", "dispositions", "answered_by"):
-        if k not in t:
-            errs.append(f"missing {k}")
-    for d in t.get("dispositions") or []:
-        if not isinstance(d, dict) or d.get("disposition") not in DISPOSITIONS or not d.get("reason"):
-            errs.append(f"bad disposition {d!r}"[:200])
-    if not isinstance(t.get("tasks_created", []), list):
-        errs.append("tasks_created is not a list")
-    if (t.get("tasks_created") or any((d or {}).get("disposition") in ("task", "spec") for d in t.get("dispositions") or [])) \
-            and not is_commit_sha(t.get("commit_sha")):
+    if (t.get("tasks_created") or any((d or {}).get("disposition") in ("task", "spec") for d in t.get("dispositions") or []
+                                      if isinstance(d, dict))) and not is_commit_sha(t.get("commit_sha")):
         errs.append("tasks or rulings without commit_sha")
     if looks_like_secret(json.dumps(t)):
         errs.append("triage contains a secret-like string")
@@ -398,12 +405,12 @@ def _checkout(named: str, product_dir: str | None) -> str:
 
 
 def triage(root: Path, rid: str, actor: str, kind: Kind, max_new: int, prompt_extra: str = "",
-           extra_check: Any = None, product_dir: str | None = None) -> int:
+           extra_check: Any = None, product_dir: str | None = None, ids: refs.Ids = refs.DEFAULT) -> int:
     """Hand one report of this kind to the task-log owner, or apply its triage file (§19.8).
 
     The architect (§19) passes `max_new` (its `max_new_tasks`), `prompt_extra` for §19.8's steps,
     `extra_check(triage, report) -> errors`, and `product_dir` for a queue whose binding (§8.3) names
-    no product_root."""
+    no product_root; `ids` is the product's id shapes (§7.1)."""
     if not kind.rid_re.match(rid):
         die(f"bad review id {rid!r}", 2)
     rp, tp = report_path(root, rid), triage_path(root, rid)
@@ -415,7 +422,7 @@ def triage(root: Path, rid: str, actor: str, kind: Kind, max_new: int, prompt_ex
         return out({"outcome": "already_triaged", "review_id": rid})
     # A triage file already present (async owner, earlier call, or written by hand in the session)?
     def check(t: Any) -> list[str]:
-        errs = validate_triage(t, rid)
+        errs = validate_triage(t, rid, ids)
         if not errs and extra_check is not None:
             errs = extra_check(t, read_json(rp))
         return errs

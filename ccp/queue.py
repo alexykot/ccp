@@ -21,13 +21,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ccp.envvars import envvar
-from ccp import refs, tasklog
+from ccp import lib, refs, tasklog
 from ccp.config import Config
 
 PLANE = Path(__file__).resolve().parents[1]
 OBS = PLANE / "scripts" / "observability"
-sys.path.insert(0, str(OBS))
-import lib  # noqa: E402
 
 CCP_BIN = PLANE / "bin" / "ccp"
 def _main_worktree(repo: Path) -> Path:

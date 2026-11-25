@@ -125,6 +125,12 @@ def bindings_dir() -> Path:
     return lib.bindings_dir()
 
 
+def binding_for_id(project_id: str) -> Path | None:
+    """The project's binding by the one resolver (`lib.binding_for_id`, SPEC §8.3), or None."""
+    from ccp.queue import lib  # noqa: PLC0415
+    return lib.binding_for_id(project_id)
+
+
 def claude_projects_dir() -> Path:
     """Claude Code's transcripts, one folder per cwd (`CCP_CLAUDE_PROJECTS_DIR` for tests)."""
     return Path(envvar("CCP_CLAUDE_PROJECTS_DIR") or Path.home() / ".claude" / "projects")
@@ -153,8 +159,8 @@ def queue_for(project_id: Any, cache: dict[str, Path | None]) -> Path | None:
         return cache[pid]
     q = None
     if PROJECT_RE.match(pid):
-        b = bindings_dir() / f"{pid}.yaml"
-        if b.is_file():
+        b = binding_for_id(pid)
+        if b is not None:
             raw = _bound(b.read_text(), "queue_root")
             path = Path(raw) if raw else None
             q = path if path and path.is_dir() else None
@@ -635,8 +641,8 @@ def env_off(project_id: str | None = None) -> dict[str, Any]:
     that bound product's; raises ValueError for an unbound id."""
     root = None
     if project_id:
-        b = bindings_dir() / f"{project_id}.yaml"
-        if not b.is_file():
+        b = binding_for_id(project_id)
+        if b is None:
             raise ValueError(f"{project_id!r} is not a bound project ({bindings_dir()}/<id>.yaml)")
         root = _bound(b.read_text(), "product_root")
     return {"project": {"path": f"{root or '<product>'}/.claude/settings.json", "env": off_block()},
@@ -654,8 +660,8 @@ def project_env(project_id: str) -> dict[str, str]:
 def env_for_project(project_id: str, port: int) -> dict[str, Any]:
     """`ccp otel env --project ID`: which block goes where. Raises ValueError for an unbound id."""
     from ccp.config import PROJECT_ID_RE  # noqa: PLC0415
-    b = bindings_dir() / f"{project_id}.yaml"
-    if not PROJECT_ID_RE.match(project_id) or not b.is_file():
+    b = binding_for_id(project_id) if PROJECT_ID_RE.match(project_id) else None
+    if b is None:
         raise ValueError(f"{project_id!r} is not a bound project ({bindings_dir()}/<id>.yaml)")
     root = _bound(b.read_text(), "product_root")
     return {

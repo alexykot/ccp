@@ -69,7 +69,7 @@ Text an agent reads carries instructions, and the agent acts on them with the op
   the reviewer unless SPEC §15.2 skips its review; neither seat has read its session. They may still
   read the same issue or pull-request text.
 - **Guard:** the architect runs headless with a read-only tool list and `DENY_TOOLS` disallowed
-  (`scripts/observability/architecture_review.py`, launched by `ccp/architect.py`, SPEC §19.7). Its
+  (`ccp/architecture_review.py`, launched by `ccp/architect.py`, SPEC §19.7). Its
   allowed `Bash` commands and the product's probes are prefix-matched, so it is not a boundary.
 - **Boundary:** the estimator runs with no tools, in an empty temporary directory
   (`ccp/estimator.py`, SPEC §26.3): an injection in its prompt cannot read or write anything.
@@ -128,7 +128,7 @@ A seat writes a verdict, a test result or a report that no seat produced, or edi
 A seat sends code, records or secrets to a host it should not reach.
 
 - **Guard:** workers have no `WebFetch` or `WebSearch` (SPEC §2.4), and the architect has them
-  disallowed (`scripts/observability/architecture_review.py`).
+  disallowed (`ccp/architecture_review.py`).
 - **Guard:** no product API key is ambient (SPEC §30.3), so a seat's environment holds less to send.
 - **Gap:** the network is unrestricted: `Bash` can reach any host, and git and `gh` push with the
   operator's token to any remote it reaches.
