@@ -263,7 +263,8 @@ def is_commit_sha(value: Any) -> bool:
 
 def validate_triage(t: Any, rid: str, ids: refs.Ids = refs.DEFAULT) -> list[str]:
     """A triage against its contract (`TRIAGE_SCHEMA`, by `ccp.schema`'s one checker), then what the contract
-    cannot say: a task id and a rule id have the product's shapes (`ids`, SPEC §7.1), the review id is this review's, a task or ruling has a commit sha, and no secret."""
+    cannot say: a task id and a rule id have the product's shapes (`ids`, SPEC §7.1), the review id is this review's,
+    a task or ruling has a commit sha, and no secret."""
     if not isinstance(t, dict):
         return ["triage is not an object"]
     errs = schema.schema_errors(t, json.loads(TRIAGE_SCHEMA.read_text()), at="triage")

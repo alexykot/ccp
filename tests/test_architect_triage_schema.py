@@ -97,8 +97,10 @@ class ReportContract(unittest.TestCase):
         ids = refs.Ids(rule_pattern="HR-[0-9]+")
         report = self.report(rule_changes=[{"rule": "HR-1", "action": "add", "text": "One registry.", "check": "pass"}])
         self.assertEqual(architecture_review.validate_report(report, self.RID, "demo", ids=ids), [])
-        plane_json = {"project_id": "demo", "language": "python", "ids": {"rule": {"pattern": "HR-[0-9]+"}},
-                      "architect": {"checks": [{"id": "HR-1", "cmd": "true"}]}}
+        plane_json = {"project_id": "demo", "language": "python",
+                      "ids": {"task": {"width": 5}, "rule": {"pattern": "HR-[0-9]+"}},
+                      "architect": {"checks": [{"id": "HR-1", "cmd": "true"}], "shape_from_task": "00042",
+                                    "budgets": [{"id": "HR-2", "glob": "src/**/*.py", "max_lines": 400}]}}
         self.assertEqual(schema_errors(plane_json, contract("plane_config.schema.json")), [])
 
     def test_a_rule_id_outside_the_products_pattern_is_refused(self):
