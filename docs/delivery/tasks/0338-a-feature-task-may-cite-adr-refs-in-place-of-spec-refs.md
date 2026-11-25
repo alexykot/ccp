@@ -170,5 +170,15 @@ runner passed it:
 - Skill: besides the row, the checks paragraph's sentence on a task citing nothing now mirrors the §5 list item.
 - Ruling r1 (lead, 2026-11-25): `adr_refs: ["0043 D9"]` removed from the front matter and the ruling quoted in
   Context; `ccp adr decide 43 D9 built` not run (D9 stays `not_built` until 0191).
+- Fix round 1 (review MINOR, NIT), notes only, no code change:
+  - Consequence for configured kinds: `kind_forbids` (unchanged) forbids, for a kind with its own `refs_any`,
+    every task-log `refs_any` list the kind does not name. With `adr_refs` now in the default, a product that
+    sets `task_log.kinds` with such a kind (say a `chore` with `refs_any: ["review_refs"]`, or a `feature` with
+    `refs_any: ["spec_refs"]`) now refuses a task of that kind citing `adr_refs` ("a chore cites no adr_refs"),
+    where the base passed it. The default kinds are unaffected: `feature: {}` has no own `refs_any`, and
+    `refactor` already forbade both lists. `kind_forbids` is left as is, since the task puts `task_log.kinds`
+    out of scope; whether to keep this is the lead's call (Follow-ups in the fix report).
+  - `ccp tasks next` prints one line per task-log `refs_any` list, so a feature task now also shows an
+    `adr_refs:` line (`-` when empty). No test pins that output; left as is.
 
 ## Verification notes
