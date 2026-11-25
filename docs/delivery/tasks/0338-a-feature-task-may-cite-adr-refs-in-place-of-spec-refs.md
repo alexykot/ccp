@@ -1,7 +1,7 @@
 ---
 task_id: 0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs
 title: A feature task may cite the accepted ADR decisions it builds in adr_refs in place of spec_refs, and a task citing neither is told both lists
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S21", "S29"]
@@ -182,3 +182,5 @@ runner passed it:
     `adr_refs:` line (`-` when empty). No test pins that output; left as is.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #415 head `5f9fb43` (squash `8913c61`): APPROVE. Passed: cmd-01, cmd-02, code-01, doc-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs.json.
+

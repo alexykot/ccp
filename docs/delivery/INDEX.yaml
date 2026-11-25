@@ -1663,7 +1663,7 @@ tasks:
     depends_on: []
     path: tasks/0337-five-constants-become-plane-json-settings-again.md
   - id: 0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs
-    status: pending
+    status: done
     title: A feature task may cite the accepted ADR decisions it builds in adr_refs in place of spec_refs, and a task citing neither is told both lists
     depends_on: []
     path: tasks/0338-a-feature-task-may-cite-adr-refs-in-place-of-spec-refs.md
