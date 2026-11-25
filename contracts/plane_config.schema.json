@@ -1128,6 +1128,12 @@
           "additionalProperties": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
           "description": "SPEC §14.7: a glob of root-relative paths (matched with fnmatch, so `*` crosses `/`) to the test ids the part lane runs for a path it matches; `ccp suite affected` adds them to what the language pack reads, and the pack no longer matches tests by that path's name; a pack with no test reader uses them alone. Default: none."
         },
+        "affected_exclude": {
+          "type": "array",
+          "default": [],
+          "items": {"type": "string", "minLength": 1},
+          "description": "SPEC §14.7: globs of root-relative paths (matched with fnmatch, so `*` crosses `/`) the product's lanes do not run; `ccp suite affected` and `ccp suite run --affected` walk the product's files without them, so a test module a glob matches is never listed, run or counted in the suite. A changed path a glob matches is still part of the change. Default: none."
+        },
         "log_keep_days": {
           "type": "integer",
           "minimum": 1,

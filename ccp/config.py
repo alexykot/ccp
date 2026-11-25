@@ -259,6 +259,9 @@ SUITE_DEFAULTS: dict[str, Any] = {"lanes": {}, "count_re": None, "summary": None
                                   # §14.7 `ccp suite affected`: a glob of root-relative paths to the test ids
                                   # its part lane runs, added to what the language pack reads ({} = none)
                                   "affected_map": {},
+                                  # §14.7: globs of root-relative paths the product's lanes do not run; the
+                                  # pack walks the product's files without them ([] = none)
+                                  "affected_exclude": [],
                                   # SPEC §16.6: lanes that run one at a time in a queue (a run with no lane
                                   # is the `full` role's lane)
                                   "exclusive_lanes": [],
@@ -1619,6 +1622,8 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     am = out["suite"]["affected_map"]
     if not isinstance(am, dict) or not all(k.strip() and _str_list(v) and v for k, v in am.items()):
         bad.append("suite.affected_map must map a path glob to a list of test ids (§14.7)")
+    if not _str_list(out["suite"]["affected_exclude"]):
+        bad.append("suite.affected_exclude must be a list of path globs (§14.7)")
     kd = out["suite"]["log_keep_days"]
     if isinstance(kd, bool) or not isinstance(kd, int) or kd < 1:
         bad.append("suite.log_keep_days must be an integer >= 1 (days a suite-run log is kept)")
