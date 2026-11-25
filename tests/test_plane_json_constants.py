@@ -51,8 +51,9 @@ CONSTANTS = {
 # moves the value into code and must not change it.
 WAS = {
     "task_log.dir": "docs/delivery",
-    "task_log.required": ["task_id", "title", "status", "depends_on", "spec_refs", "created", "updated"],
-    "task_log.refs_any": ["spec_refs"],
+    # 0338: a feature task cites spec_refs or adr_refs, so neither key is required (operator, 2026-11-24)
+    "task_log.required": ["task_id", "title", "status", "depends_on", "created", "updated"],
+    "task_log.refs_any": ["spec_refs", "adr_refs"],  # 0338: was ["spec_refs"] (operator, 2026-11-24)
     "task_log.sections": ["Intent", "Context (not checked)", "Scope", "dod_checks", "Implementation notes",
                           "Verification notes"],
     "task_log.kinds": {"feature": {}, "refactor": {"refs_any": ["rule_refs", "review_refs"],

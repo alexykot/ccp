@@ -130,13 +130,14 @@ class EmptySpecRefs(unittest.TestCase):
         front(self.p, "0001-a", 'spec_refs: ["S1"]', "kind: feature\nspec_refs: []")
         e = self.errs()
         self.assertIn("0001-a.md: cites none of spec_refs", e)
-        self.assertIn("list the SPEC sections this task answers to in `spec_refs` and cite them", e)
+        self.assertIn("in `spec_refs`, or the ADR decisions", e)
+        self.assertIn("in `adr_refs`, and cite them", e)
 
     def test_with_the_architect_block_a_feature_gets_the_same_hint(self):
         self.p = Product({"task_log": {"refs_any": ["spec_refs", "adr_refs"]}, "architect": {"shape_from_task": "0001"}})
         self.p.task("0001-a")
         front(self.p, "0001-a", 'spec_refs: ["S1"]', "kind: feature\nspec_refs: []")
-        self.assertIn("in `spec_refs` and cite them", self.errs())
+        self.assertIn("in `adr_refs`, and cite them", self.errs())
 
     def test_a_kind_with_its_own_refs_naming_spec_refs_gets_the_hint(self):
         self.p = Product({"task_log": {"kinds": {"feature": {"refs_any": ["spec_refs"], "forbid": []},
@@ -144,7 +145,9 @@ class EmptySpecRefs(unittest.TestCase):
                           "architect": {"shape_from_task": "0001"}})
         self.p.task("0001-a")
         front(self.p, "0001-a", 'spec_refs: ["S1"]', "spec_refs: []")
-        self.assertIn("0001-a.md: a feature cites spec_refs — list the SPEC sections", self.errs())
+        e = self.errs()
+        self.assertIn("0001-a.md: a feature cites spec_refs — list the SPEC sections", e)
+        self.assertIn("in `spec_refs` and cite them", e)  # today's hint: the kind's own refs name no adr_refs
 
     def test_a_refactor_is_not_told_to_cite_the_spec(self):
         self.p = Product({"architect": {"shape_from_task": "0001"}})

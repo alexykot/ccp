@@ -68,12 +68,11 @@
             "title",
             "status",
             "depends_on",
-            "spec_refs",
             "created",
             "updated"
           ],
           "deprecated": true,
-          "description": "Constant, the default below (SPEC §29.3): Frontmatter keys every task carries. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Constant, the default below (SPEC §29.3): Frontmatter keys every task carries; neither spec_refs nor adr_refs is required on its own (refs_any). A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "refs_any": {
           "type": "array",
@@ -81,10 +80,11 @@
             "type": "string"
           },
           "default": [
-            "spec_refs"
+            "spec_refs",
+            "adr_refs"
           ],
           "deprecated": true,
-          "description": "Constant, [\"spec_refs\"] (SPEC §29.3): At least one of these frontmatter lists is non-empty. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Constant, [\"spec_refs\", \"adr_refs\"] (SPEC §29.3): At least one of these frontmatter lists is non-empty. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "sections": {
           "type": "array",
