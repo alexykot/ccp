@@ -151,4 +151,26 @@ Measured at `1a575497`:
 
 ## Implementation notes
 
+- Every docs/cli part's tables are headed `| Command | Who | SPEC |`. The old What it does column split into Who (its
+  seat) and the SPEC cell's one clause in parentheses; `03-quality`'s Cost column and closing exit-code paragraph went;
+  `04-observability` gained a SPEC cell, the § its row named, else the § that states the command (`board task` §28.3,
+  `board install|uninstall|timer` §28.2, `otel install|uninstall|status` §24.1, §24.2, `allowance continue` §25.3,
+  `tasks estimate --all` §26.3, `tasks estimate show` §26.2, `estimate accuracy` §26.3). `05-operations`' four fenced
+  blocks became tables under their headings, the `scripts/` lines included; the `plane check` block's "not listed"
+  line (a §31.3 rule) went. Who cells the SPEC names no caller for are inferred from §29.2 and §31.5 (the plane
+  session runs the release, triages and closes proposals as built), ADR-0041 (the lead declines or takes a step) and
+  E21 (workers build a sandbox in a dod_check).
+- A command is listed once: `ccp auth check` only in `05-operations`, as ruled; and, on the same reading of the
+  title, `ccp tasks index` only in `01-model` (§5.7, its § part), `ccp health note` only in `03-quality` (§19.6) and
+  `ccp health record` only in `04-observability` (§27.1), and `ccp notify fire` only in `01-model`, where each was
+  listed twice. `ccp tasks check --lease` (`02-delivery`) and `ccp tasks check` (`03-quality`) stay: two call forms.
+- The Pull requests preface keeps its first sentence; its exit-code sentence went.
+- `04-observability`'s closing paragraph on the observability scripts stays as 0331 left it: the ruling names no change
+  to it.
+- `tests/test_cli_reference.py`: `problems_of(docs, parser=None)`; the seven checker tests run on `small_parser()` and
+  `SMALL_DOCS` (two parts) written to a temporary directory by `Checker.docs_with`, which asserts the text it replaces
+  is there; one more test holds the small docs clean against the small parser, so each case's exact problem list
+  stands for the change alone.
+- E25's text and `architect.checks` `E25` are the ruled ones; `docs/ENGINEERING.md` is at 150 lines.
+
 ## Verification notes
