@@ -1727,3 +1727,28 @@ tasks:
     title: The architect's claude override is CCP_ARCHITECT_CLAUDE_BIN, fenced in the tests like the estimator's; ccp architect checks a report's shape only through its contract, as §19.7 item 3 says (§31.1); envvars.py drops for_child and says what envvar does; the architect design note and docs/adr/README.md describe what is there
     depends_on: []
     path: tasks/0350-the-architect-stub-is-ccp-named-and-fenced-the-report-is-checked-once-by-its-contract-and-the-envvars-and-adr-docs-say-what-is-there.md
+  - id: 0351-the-runner-s-scope-slot-and-readiness-decisions-move-into-a-ccp-module-tested-on-plain-values
+    status: pending
+    title: The runner seat's scope, slot and readiness decisions move out of scripts/observability/team.py into ccp/runnerscope.py as functions on plain values, which team.py imports, and their branches are tested there on plain values
+    depends_on: []
+    path: tasks/0351-the-runner-s-scope-slot-and-readiness-decisions-move-into-a-ccp-module-tested-on-plain-values.md
+  - id: 0352-a-fix-up-names-its-end-and-the-docs-sync-only-reports-leftover-managed-copies
+    status: pending
+    title: A release's fix-up command names its end in the plane's roadmap, with its signed §29.3 sentence; scripts/sync-product-docs.sh only checks, reporting a product's leftover managed copies as §9.5 says, its install mode, daily stamp and --allow-dirty gone, and the plugin skills and scripts doc stop saying it installs copies
+    depends_on: []
+    path: tasks/0352-a-fix-up-names-its-end-and-the-docs-sync-only-reports-leftover-managed-copies.md
+  - id: 0353-prompt-tests-pin-rendered-values-ccp-prompt-render-prints-a-template-and-the-lanes-line-names-the-module-form
+    status: pending
+    title: The prompt tests stop asserting removed sentences are absent and find an instruction by the value it renders, not a sentence around it; ccp prompt render prints a phase's prompt with placeholder values, writing nothing, so a template change is compared by two renders (§31.1); the Lanes line names the language pack's test-module form
+    depends_on: []
+    path: tasks/0353-prompt-tests-pin-rendered-values-ccp-prompt-render-prints-a-template-and-the-lanes-line-names-the-module-form.md
+  - id: 0354-mutate-names-each-failing-test-s-kind-and-caps-its-line-list-and-the-cold-run-tests-assert-what-they-mean
+    status: pending
+    title: ccp mutate keeps each failing test's kind (a failure or an error) in its row and on its stderr line, with its signed §20.6 passage; its refusal of an old text found many times lists at most ten lines; the two cold-run lock tests stop asserting on another run's started row
+    depends_on: []
+    path: tasks/0354-mutate-names-each-failing-test-s-kind-and-caps-its-line-list-and-the-cold-run-tests-assert-what-they-mean.md
+  - id: 0355-headless-launches-build-their-argv-in-one-place-prompt-audits-are-written-through-one-function-and-a-rule-change-with-no-rule-is-reported-once
+    status: pending
+    title: The architect and estimator seats build their claude -p argv through one headless function that owns the key strip and the seat's binary override; every prompt audit is written through one ccp function its four callers share; an architect report's rule change with no rule is reported once
+    depends_on: []
+    path: tasks/0355-headless-launches-build-their-argv-in-one-place-prompt-audits-are-written-through-one-function-and-a-rule-change-with-no-rule-is-reported-once.md

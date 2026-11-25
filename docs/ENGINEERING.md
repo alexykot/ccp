@@ -13,12 +13,13 @@ reads (SPEC §20.1). A command check runs in `architect.checks` (§19.11), in th
   end-to-end tests use the local PR host; no test leaves a `state/*` branch behind.
   check: command — scripts/gate.sh fails on a leftover `state/*` branch; fencing in tests/__init__.py
 - **E4** A test checks behaviour, not wording: no assertion on prose, help text or prompt text beyond the token it
-  pins. A test names a plane constant or shared fixture fact (the worktrees directory, a binding) through the code or
-  a fixture helper, never as a copied literal. A fixture or helper other modules reuse lives in a module that holds no
-  tests; no module imports a test module or binds another module's test-class methods. A retirement deletes the
-  code and its tests; no test asserts that a retired name is absent (a reader refusing old data is behaviour).
+  pins, and a test finds a rendered instruction by the value it renders, never by a sentence around it. A test names a
+  plane constant or shared fixture fact (the worktrees directory, a binding) through the code or a fixture helper, never
+  as a copied literal. A fixture or helper other modules reuse lives in a module that holds no tests; no module imports
+  a test module or binds another module's test-class methods. A retirement deletes the code and its tests; no test
+  asserts that a retired name or a removed sentence is absent (a reader refusing old data is behaviour).
   check: command — architect.checks `E4`: greps and scripts/house_checks.py `e4-imports`, each printing its hits, and its
-  `e4-count` of assert calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over; pass — the architect reads the tests each retirement since the last pass touched for an `assertNotIn` of the retired name
+  `e4-count` of assert calls with a string argument of 40+ characters (plain, f-string or concatenated), naming count and figure when over, the figure set at each triage to the count at its head; pass — the architect reads the tests each retirement or template change since the last pass touched for an `assertNotIn` of removed text
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch: a change that gives a branch a
   plain-value test cuts that branch's end-to-end test in the same change.
@@ -52,15 +53,18 @@ reads (SPEC §20.1). A command check runs in `architect.checks` (§19.11), in th
   JSON. An action the plane needs from a product is a hook, never an instruction in prompt prose.
   check: pass
 - **E7** Every queue write goes through `ccp` and records its own event, and `ccp` imports nothing from scripts/. A
-  script a seat or product calls only wraps `ccp` or Git, or is a single writer built on ccp/lib.py; a plane-development
-  script (the gate's, the house checks') may hold its own program and writes no queue state.
-  check: command — architect.checks `E7` (no sys.path edit or scripts/ import in ccp); pass — the architect lists the scripts/ files that write the queue or that a seat calls, and compares them with ccp
+  script a seat or product calls only wraps `ccp` or Git, or is a single writer built on ccp/lib.py; it may import other
+  ccp modules, but a decision it needs (a scope, a slot, readiness) is a ccp function's, tested on plain values (E15). A
+  plane-development script (the gate's, the house checks') may hold its own program and writes no queue state.
+  check: command — architect.checks `E7` (no sys.path edit or scripts/ import in ccp); pass — the architect lists the scripts/ files that write the queue or that a seat calls, compares them with ccp and looks for a decision held in them
 - **E8** Headless children strip `ANTHROPIC_API_KEY`, `CLAUDE_API_KEY` and `ANTHROPIC_AUTH_TOKEN`.
   check: pass
 - **E9** Readers accept every value a live queue may hold; writers emit only the current one. A renamed value stays as
   a deprecated alias in code and schema until the managed products have rewritten their data; then the alias is
-  removed. A contract no code writes or reads is removed, not kept.
-  check: pass — the architect lists contracts with no writer or reader
+  removed. A fix-up command a release ships for a breaking change (§29.3) names its end in docs/ROADMAP.md: it is
+  retired, with any compatibility reading it serves, once no bound product's dry run changes anything. A contract no
+  code writes or reads is removed, not kept.
+  check: pass — the architect lists contracts with no writer or reader, and the migrate and backfill commands with their roadmap triggers
 - **E27** A seat's actor id (the lead's, the runner's, the verifier's) is named once, in the seat table, and code and tests
   read it by name. A command the SPEC gives to one seat refuses, through one shared guard, every ACTOR that does not name
   that seat (unset or unknown included), and a reader counts only that seat's records.
@@ -135,16 +139,10 @@ reads (SPEC §20.1). A command check runs in `architect.checks` (§19.11), in th
 
 ## Known intentional
 
-- Line grammars that are not references stay with their reader (E23): ccp/adr.py's `DECISION_RE` (a decision's
-  state line) and `_DEC_HEAD` and `_DEC_MARK` (the line grammar of a decision's heading and mark; its other decision
-  patterns derive from them).
-- The gate's test cache keys every module on all the inputs it shares (every tracked and untracked file but the
-  test modules), not on what it imports: one source edit reruns every module (scripts/gate_parallel.py).
-- Health's before-review conflict catch-up figures (`ccp/health.py` `conflict_catch_ups`) are the
-  whole implement or fix rounds' wall time and tokens, as §27.1 says and the text line labels them:
-  no round records a merge step's own cost (ar-20261121T174754Z-7df5 F12).
-- The architect's prompt lists every friction note since the last pass, the runner's `allow-overdue` override
-  rows included (§19.6: all the notes go to the pass); only the due trigger leaves overrides out (ar-20261123T230912Z-197a F09).
+- Line grammars that are not references stay with their reader (E23): ccp/adr.py's `DECISION_RE` (a decision's state line) and `_DEC_HEAD` and `_DEC_MARK` (the line grammar of a decision's heading and mark; its other decision patterns derive from them).
+- The gate's test cache keys every module on all the inputs it shares (every tracked and untracked file but the test modules), not on what it imports: one source edit reruns every module (scripts/gate_parallel.py).
+- Health's before-review conflict catch-up figures (`ccp/health.py` `conflict_catch_ups`) are the whole implement or fix rounds' wall time and tokens, as §27.1 says and the text line labels them: no round records a merge step's own cost (ar-20261121T174754Z-7df5 F12).
+- The architect's prompt lists every friction note since the last pass, the runner's `allow-overdue` override rows included (§19.6: all the notes go to the pass); only the due trigger leaves overrides out (ar-20261123T230912Z-197a F09).
 - Close's overlap refusal keeps its end-to-end test: it alone kills a mutant that drops the tip's files from the catch-up's (b) call (E15; ar-20261124T034246Z-e089 F11).
 - Dry-run's placeholder pattern also lists a redirection such as `sort <in >out` or `<<EOF >f` as not run: safe, as it runs nothing (0320; ar-20261124T034246Z-e089).
 - The worker definitions state §13.1's four generic rules, the evidence rule among them, which `_common.md` also gives as rendered commands: §13.1 puts them in the definitions (ar-20261124T205520Z-4ce8 F04).
