@@ -660,8 +660,8 @@ In priority order:
 3. **Plane health.** The age of every source. `work.json` and `runs/*.json` are written only at
    phase changes, so while a runner runs they are **stale past 30 minutes** unless an open run shows
    it is live: a telemetry request or a `runs/_suites.jsonl` row (started or ended) of an open run
-   within the 30 minutes, or a suite of an open run still running (started within 60 minutes, no end
-   yet; past 60 minutes with no end it no longer counts). A stale source is a blocker for
+   within the 30 minutes, or a suite of an open run still running (a `started` row with no end that
+   §14.4 counts as `open`). A stale source is a blocker for
    `ccp board status` (§23.4); coverage (merged tasks without runs, unattributed usage, runs
    without usage); runtime against durable divergence and queue against log divergence (§23.5); queue
    scripts (`QUEUE_ROOT/scripts/`) that differ from the plane's copy; open tool proposals (§31);

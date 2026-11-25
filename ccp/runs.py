@@ -101,6 +101,11 @@ def abandon(q: Path, cfg: Config, rec: dict[str, Any], reason: str) -> dict[str,
     rec.update(abandoned_at=iso(), abandoned_reason=reason, abandoned_by=actor())
     save(q, rec)
     emit(q, cfg, rec["task_id"], "run", "abandoned", {"run_id": rec["run_id"], "reason": reason})
+    try:  # §14.4: a suite run of it still going is ended, so nothing it started holds the lane's resources
+        from ccp import suite  # noqa: PLC0415  (suite imports runs)
+        suite.end_bound_runs(q, str(rec["run_id"]))
+    except Exception:  # noqa: BLE001  (ending them never stands in the way of the abandonment)
+        pass
     return rec
 
 

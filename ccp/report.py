@@ -707,6 +707,11 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
         pass
     if not correcting:  # a correction keeps the time the run closed: its figures change, not its timing
         rec["reported_at"] = iso()
+        try:  # §14.4: a suite run of it still going is ended, so nothing it started holds the lane's resources
+            from ccp import suite  # noqa: PLC0415
+            suite.end_bound_runs(q, run_id)
+        except Exception:  # noqa: BLE001  (ending them never refuses a report)
+            pass
     if rec["phase"] in FIELD_PHASES and parsed.get("outcome") == "done" and parsed.get("head"):
         rec["before_review"] = before_review(runs.all_runs(q, tid), rec)  # §11.1, §27.1
         try:  # a failed measurement records none: health counts the round unmeasured, the report is not refused
