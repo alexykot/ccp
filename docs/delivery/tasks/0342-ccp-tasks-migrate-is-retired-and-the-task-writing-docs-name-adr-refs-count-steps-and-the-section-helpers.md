@@ -1,7 +1,7 @@
 ---
 task_id: 0342-ccp-tasks-migrate-is-retired-and-the-task-writing-docs-name-adr-refs-count-steps-and-the-section-helpers
 title: ccp tasks migrate is retired with its §5.3 paragraph, tasks check's pointer to it in §21.1 and its tests; the managed task template and README name adr_refs beside spec_refs; the writing-tasks skill says a count step names the exit it accepts; ccp/CLAUDE.md maps mdsection.py and spec.py
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S21"]
@@ -174,4 +174,15 @@ Measured at `704ca8de`:
 
 ## Implementation notes
 
+- 2026-11-25: the premises re-measured at `17ac20b1` held: 36 lines in 13 files, and 0 for the F08, F11 and
+  template greps. `ccp/taskmigrate.py` and `tests/test_tasks_migrate.py` are deleted; `ccp tasks migrate` now
+  exits 2 as an unknown subcommand. `_restore` no longer reads the gone file's last text: a gone file is told its
+  restore and the `done`/`dropped` line. `load` and `check` drop `texts` (no other caller passed it). The
+  init warning's comment and the `EarlierTaskFiles` docstring cite §5.2, not the retired §5.3 paragraph.
+- `tests.test_mdsection`'s migration-table test held only the two `taskmigrate` asserts, so it is removed whole.
+  `docs/ROADMAP.md` still names `ccp tasks migrate` in the 3c95 F09 entry, as the record of the ruling; it is out
+  of this task's paths.
+
 ## Verification notes
+- 2026-11-25 — verifier, PR #422 head `ae11967` (squash `8ec56e5`): APPROVE. Passed: cmd-01, code-01, spec-01, doc-01, doc-02, doc-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0342-ccp-tasks-migrate-is-retired-and-the-task-writing-docs-name-adr-refs-count-steps-and-the-section-helpers.json.
+
