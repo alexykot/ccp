@@ -21,11 +21,7 @@ made: the task file says what to build and how it is checked.
 - A test run you cite as evidence, a mutation check included, is a recorded one, never a bare test
   runner: `ccp suite run --run <run_id> --lane <lane> -- <command>` with the lane your prompt names,
   or `ccp mutate --run <run_id> --test <id> …` from your own worktree where the product declares
-  `mutate.command` or its language pack has a per-test runner (SPEC §14.1, §20.6). Where the
-  product declares no `mutate.command` and its language pack no per-test runner, break code by hand
-  only in a mutation worktree at the committed head (`ccp wt create --kind mut --task <id> --sha
-  <head>`), run the test there on the part lane as above, and remove it with `ccp wt remove <name>`;
-  never a hand edit and restore in your own worktree.
+  `mutate.command` or its language pack has a per-test runner (SPEC §14.1, §20.6).
 - After you merge the integration branch in, or change code, run the tests the change touches with
   the suite run's `--affected` (`--since <ref>` for what a merge brought in), not a guess at module names.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at

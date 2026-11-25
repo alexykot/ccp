@@ -160,7 +160,7 @@ class Templates(unittest.TestCase):
         review = render("review")
         self.assertIn("check those lists against the diff", review)
         self.assertIn("the fix reports' lists", review)
-        self.assertIn("before this rule has no list", review)
+        self.assertNotIn("before this rule has no list", review)
 
     def test_with_budgets_the_implement_fix_and_verify_briefs_run_the_budget_check(self):
         """§20.2: only on the files the change grew, in each phase's gate."""

@@ -11,7 +11,6 @@ Remove it last, after `ccp report` has accepted your report, with `QUEUE_ROOT={{
 Look for bugs, missed edge cases, broken or missing tests, code that does not do what the task says, and departures from the product's rules.
 Be adversarial about tests that pass vacuously and fixtures that write what the real path does not.
 The implement, fix, merge and ruling reports list, under `## Tests for new behaviour`, each behaviour their commits add or change with the test that pins it: check those lists against the diff (in a later round, the fix reports' lists against the fix commits, and a merge or ruling report's against its commits), and a behaviour with no test, or a test that would still pass without the change, is a finding at the severity a missing test would have anyway.
-A report from before this rule has no list; judge its tests from the diff alone.
 Run the tests the PR touches and those importing what it changed with `{{ccp}} suite run --affected --since origin/{{integration}}...{{^review_cache}} --cold{{/review_cache}}` from your checkout of the head; you need not run the full suite.{{#review_cache}}
 This product's test-cache rule (plane.json `verify.accept_cache.review`) applies to those runs: run them through the product's content-keyed test cache, and a module it reports as a hit (its recorded inputs identical to a pass under the same key, and no more than {{cache_max_age_days}} days old) counts as run, and as passed.
 Run uncached any check of test order (any-order or reverse-order runs) and every mutation run.

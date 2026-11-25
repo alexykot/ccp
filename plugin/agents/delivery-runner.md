@@ -138,18 +138,12 @@ ids), tell the lead in one line: the run and how many. The lead decides each one
    no implementer context. It refuses (exit 2) a PR whose body does not contain the task id: repair the
    body first (`ccp pr edit <n> --body-file <file>`), then ask again. It also refuses (exit 4) a head whose merge of the tip would conflict (SPEC §15.2): `ccp prompt merge` first, then review the new head. When it finds a BLOCKER or MAJOR, `ccp prompt fix <task_id> --pr <n> --head <sha>`
    launches the implementer on the findings. After a fix round, run `ccp tasks submit <task_id>` (below), then `ccp
-   prompt verify <task_id> --pr <n> --head <new sha>`: it opens the verify when the fix needs no new review (a clean review's MINOR and NIT fix
-   under `verify.skip_review_after_clean`, or a fix `verify.skip_review` or a review prover proves), and
+   prompt verify <task_id> --pr <n> --head <new sha>`: it opens the verify when the fix needs no new review (SPEC §15.2) and
    refuses (exit 4), naming why, when it needs one: then run `ccp prompt review` on the new head. Two rounds of the implementer have their
    own kind, never an `implement-N` with a note: `ccp prompt merge <task_id> --pr <n> --head <sha>` only
    merges the integration tip into the task branch, and `ccp prompt ruling <task_id> --pr <n> --head <sha>
    --note-file <the lead's ruling>` only applies a lead's ruling (before review too). Review and verify treat
-   their heads as a fix round's (SPEC §13.2). `ccp` enforces it: `ccp prompt verify`
-   refuses (exit 4) while a fix, merge or ruling round is newer than the last review (a merge round that
-   left the reviewed change unchanged aside), or the head is not the one that review judged, and `ccp verify record` refuses the approve (it refuses first a verdict whose head is not the open verify run's, SPEC §15.4), unless the product's `verify.skip_review`
-   proves the fix (only declared paths touched, its proof command passing), or a prover it declares of the review
-   (`verify.provers`, `skips: review`) exits 0 on the fix diff, or its `verify.skip_review_after_clean`
-   takes it as the fix of a clean review's MINOR and NIT findings (a verify reject since sends it back to review). Only on the lead's or the operator's word:
+   their heads as a fix round's (SPEC §13.2). Only on the lead's or the operator's word:
    `ccp prompt verify … --allow-unreviewed-fix --reason "<their words>"`, recorded as a friction note; with
    it, no proof runs.
    Before every `ccp prompt verify`, after the review that clears the head or after a fix round, run `ccp tasks
@@ -244,9 +238,7 @@ runners, each holding one task. Otherwise ignore this section.
 4. **Merge only from the tip.** Before you ask for a verify, have the implementer merge `origin/<integration>`
    into the task branch with a merge round (`ccp prompt merge`; a plain push, never a rebase, which needs a
    force-push) and resolve any conflict.
-   `ccp prompt verify` refuses (exit 4, `behind_tip`, nothing opened) a head that lacks a tip commit changing
-   more than the task log and the product's `merge.behind_tip_ignore` paths: the head is stale, so merge the
-   tip in and verify the new head. A verified head that lacks code another task merged since is caught up by
+   A verified head that lacks code another task merged since is caught up by
    `ccp tasks close` itself when SPEC §16.5 rule 4 allows (close's refusal names the condition that
    failed): close merges the tip in, runs the gate lane on it as a recorded run, pushes it and merges it, with no new review or verify
    (SPEC §16.5 rule 4). That gate run may take minutes and repeat up to 3 times: give close the longest

@@ -1,7 +1,7 @@
 ---
 task_id: 0348-the-runner-and-verifier-briefs-leave-refusal-conditions-to-their-commands-and-the-mutation-fallback-is-written-once
 title: The runner brief leaves the review-skip conditions and the second behind_tip refusal to the commands and the SPEC; the verifier definition leaves verify record's refusals and §15.6 rule 3 to them; the hand-mutation fallback is written once, in _common.md; the review prompt drops its pre-rule line; the verify prompt carries the two sentences 0343 cut
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S15"]
@@ -138,4 +138,16 @@ Measured at `05cb00e2`:
 
 ## Implementation notes
 
+- Edits as ruled: runner step 7 and *Several runners* item 4; verifier first two bullets and evidence bullet; reviewer and
+  implementer evidence bullets; `verify.md` fallback sentence cut, its preceding bullet now ends with `;` where the
+  fallback's `;` ended the item; `review.md` pre-rule line cut; `verify.md` gains the two 0343 sentences.
+- `tests/test_prompt_tools.py`: the two verify-only assertions and the definitions loop dropped as ruled; a new test pins the
+  two restored `verify.md` sentences.
+- Two other test modules the cuts necessarily break are updated in the same PR: `tests/test_worker_efficiency.py`
+  (its `assertIn("before this rule has no list", review)` is now `assertNotIn`) and `tests/test_suite.py`
+  (`test_the_mutation_runs_name_the_part_roles_lane` looked for `--lane subset` in `verify.md`'s fallback item; it now takes
+  the item holding "is a recorded one", where `_common.md` carries the fallback and its `--lane {{part_lane}}`).
+
 ## Verification notes
+- 2026-11-25 — verifier, PR #425 head `1774194` (squash `5f64382`): APPROVE. Passed: doc-01, doc-02, doc-03, doc-04, doc-05. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0348-the-runner-and-verifier-briefs-leave-refusal-conditions-to-their-commands-and-the-mutation-fallback-is-written-once.json.
+
