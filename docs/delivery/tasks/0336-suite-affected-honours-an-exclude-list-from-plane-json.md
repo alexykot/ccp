@@ -44,8 +44,8 @@ Measured at `41cabf26`:
   An unknown `suite.affected_exclude` loads with the warning `unknown key(s) suite.affected_exclude ignored` and is
   read by nothing.
 - The scratch product of cmd-01 (a changed `src/core.py` imported by `tests/test_core.py`,
-  `legacy/tests/test_x.py` and `ops/test_tool.py`, plus three filler modules) lists all three modules and prints
-  `ccp suite affected: 3 of 6 test modules: skip the pre-gate and run the full lane: ccp suite run --lane gate`.
+  `legacy/tests/test_x.py` and `ops/test_tool.py`, plus four filler modules) lists all three modules and prints
+  `ccp suite affected: 3 of 7 test modules: skip the pre-gate and run the full lane: ccp suite run --lane gate`.
 
 **Ruled.**
 
@@ -83,8 +83,17 @@ Measured at `41cabf26`:
 
 - **In:** `ccp/suite.py` (the filter), `ccp/config.py` (the default and the validation),
   `contracts/plane_config.schema.json` (`suite.affected_exclude`), `tests/test_suite_affected.py` (class `Exclude`),
-  `README.md` (one adoption-checklist row); the SPEC, describing this task's own feature (§31.1): the new bullet only
-  describes the key and what `ccp suite affected` does with it, and changes no other §14.7 sentence.
+  `README.md` (one adoption-checklist row); the SPEC, describing this task's own feature (§31.1): one clause in the Python
+  bullet and one new bullet, which only describe the key and what `ccp suite affected` does with it; no other §14.7
+  sentence changes.
+
+  CURRENT (`docs/spec/02-delivery.md` at `41cabf26`), §14.7, the Python bullet's first sentence (the rest of the bullet
+  unchanged):
+  > - **Python.** A test module is a `test*.py` file git tracks or does not ignore, named by its dotted
+  >   path from the root (`tests/test_a.py` is `tests.test_a`).
+
+  PROPOSED:
+  > - **Python.** A test module is a `test*.py` file git tracks or does not ignore and no `suite.affected_exclude` glob matches (below), named by its dotted path from the root (`tests/test_a.py` is `tests.test_a`).
 
   CURRENT (`docs/spec/02-delivery.md` at `41cabf26`), §14.7, the bullet the new one follows, unchanged (the new
   bullet goes after it and retires no sentence):
@@ -105,16 +114,16 @@ Measured at `41cabf26`:
   story: As a product's worker, the tests my lanes do not run are never listed as touched, and they leave the suite count.
   setup: A checkout of the PR head (any seat); the step builds its scratch product.
   steps:
-    1. Run `D=$(mktemp -d) && CCP_DEV=1 ./bin/ccp sandbox create "$D" >/dev/null 2>&1 && P="$D/product" && mkdir -p "$P/src" "$P/tests" "$P/legacy/tests" "$P/ops" && printf 'X = 1\n' > "$P/src/core.py" && printf 'import unittest\nfrom src import core\n\n\nclass T(unittest.TestCase):\n    def test_x(self):\n        self.assertEqual(core.X, 1)\n' > "$P/tests/test_core.py" && for n in a b c; do printf 'import unittest\n' > "$P/tests/test_$n.py"; done && for f in legacy/tests/test_x.py ops/test_tool.py; do printf 'from src import core\nraise SystemExit("the lanes do not run this")\n' > "$P/$f"; done && python3 -c 'import json, sys; p = sys.argv[1] + "/docs/delivery/plane.json"; c = json.load(open(p)); c["language"] = "python"; c["suite"] = {"lanes": {"gate": ["python3", "-m", "unittest"]}}; json.dump(c, open(p, "w"))' "$P" && env -u QUEUE_ROOT -u PROJECT_YAML CCP_DEV=1 ./bin/ccp --root "$P" suite affected --paths src/core.py 2>/dev/null | grep -c . && python3 -c 'import json, sys; p = sys.argv[1] + "/docs/delivery/plane.json"; c = json.load(open(p)); c["suite"]["affected_exclude"] = ["legacy/*", "ops/test_tool.py"]; json.dump(c, open(p, "w"))' "$P" && env -u QUEUE_ROOT -u PROJECT_YAML CCP_DEV=1 ./bin/ccp --root "$P" suite affected --paths src/core.py 2>&1`.
-  expect: exactly three lines, in this order: `3` (without the key, the three modules that import `src/core.py`), `tests.test_core`, and `ccp suite affected: run them with: ccp suite run --lane part -- python3 -m unittest tests.test_core`.
-  dry run (`41cabf26`): printed `3`, then the warning `unknown key(s) suite.affected_exclude ignored`, `legacy.tests.test_x`, `ops.test_tool`, `tests.test_core` and `ccp suite affected: 3 of 6 test modules: skip the pre-gate and run the full lane: ccp suite run --lane gate`, exit 0.
+    1. Run `D=$(mktemp -d) && CCP_DEV=1 ./bin/ccp sandbox create "$D" >/dev/null 2>&1 && P="$D/product" && mkdir -p "$P/src" "$P/tests" "$P/legacy/tests" "$P/ops" && printf 'X = 1\n' > "$P/src/core.py" && printf 'import unittest\nfrom src import core\n\n\nclass T(unittest.TestCase):\n    def test_x(self):\n        self.assertEqual(core.X, 1)\n' > "$P/tests/test_core.py" && for n in a b c d; do printf 'import unittest\n' > "$P/tests/test_$n.py"; done && for f in legacy/tests/test_x.py ops/test_tool.py; do printf 'from src import core\nraise SystemExit("the lanes do not run this")\n' > "$P/$f"; done && python3 -c 'import json, sys; p = sys.argv[1] + "/docs/delivery/plane.json"; c = json.load(open(p)); c["language"] = "python"; c["suite"] = {"lanes": {"gate": ["python3", "-m", "unittest"]}}; json.dump(c, open(p, "w"))' "$P" && env -u QUEUE_ROOT -u PROJECT_YAML CCP_DEV=1 ./bin/ccp --root "$P" suite affected --paths src/core.py 2>/dev/null | grep -c . && python3 -c 'import json, sys; p = sys.argv[1] + "/docs/delivery/plane.json"; c = json.load(open(p)); c["suite"]["affected_exclude"] = ["legacy/*", "ops/test_tool.py"]; json.dump(c, open(p, "w"))' "$P" && env -u QUEUE_ROOT -u PROJECT_YAML CCP_DEV=1 ./bin/ccp --root "$P" suite affected --paths src/core.py 2>&1 && env -u QUEUE_ROOT -u PROJECT_YAML CCP_DEV=1 ./bin/ccp --root "$P" suite affected --paths src/core.py tests/test_a.py 2>&1 | tail -1`.
+  expect: exactly four lines, in this order: `3` (without the key, the three modules that import `src/core.py`), `tests.test_core`, `ccp suite affected: run them with: ccp suite run --lane part -- python3 -m unittest tests.test_core` (1 of the 5 kept modules), and, for the change to `src/core.py` and `tests/test_a.py`, `ccp suite affected: 2 of 5 test modules: skip the pre-gate and run the full lane: ccp suite run --lane gate` (the two excluded modules neither listed nor counted; a build that counts them prints `2 of 7`).
+  dry run (`41cabf26`): printed `3`, then the warning `unknown key(s) suite.affected_exclude ignored`, `legacy.tests.test_x`, `ops.test_tool`, `tests.test_core`, `ccp suite affected: 3 of 7 test modules: skip the pre-gate and run the full lane: ccp suite run --lane gate`, and `ccp suite affected: 4 of 7 test modules: skip the pre-gate and run the full lane: ccp suite run --lane gate`, exit 0.
 - id: `cmd-02`
   story: As a product's worker, the pre-gate's suite run --affected runs the kept module alone and passes, not the modules my lanes refuse.
   setup: A checkout of the PR head (any seat); the step builds its scratch product, commits it, changes `src/core.py` and runs from the product's root (a suite run runs its command in the current directory).
   steps:
-    1. Run `D=$(mktemp -d) && CCP_DEV=1 ./bin/ccp sandbox create "$D" >/dev/null 2>&1 && P="$D/product" && mkdir -p "$P/src" "$P/tests" "$P/legacy/tests" "$P/ops" && printf 'X = 1\n' > "$P/src/core.py" && printf 'import unittest\nfrom src import core\n\n\nclass T(unittest.TestCase):\n    def test_x(self):\n        self.assertEqual(core.X, 1)\n' > "$P/tests/test_core.py" && for n in a b c; do printf 'import unittest\n' > "$P/tests/test_$n.py"; done && for f in legacy/tests/test_x.py ops/test_tool.py; do printf 'from src import core\nraise SystemExit("the lanes do not run this")\n' > "$P/$f"; done && python3 -c 'import json, sys; p = sys.argv[1] + "/docs/delivery/plane.json"; c = json.load(open(p)); c["language"] = "python"; c["suite"] = {"lanes": {"gate": ["python3", "-m", "unittest"]}, "affected_exclude": ["legacy/*", "ops/test_tool.py"]}; json.dump(c, open(p, "w"))' "$P" && git -C "$P" add -A && git -C "$P" -c user.name=t -c user.email=t@example.invalid commit -qm fixture && printf 'X = 1\nY = 2\n' > "$P/src/core.py" && C="$PWD/bin/ccp" && cd "$P" && env -u QUEUE_ROOT -u PROJECT_YAML CCP_DEV=1 "$C" --root "$P" suite run --affected 2>&1 | grep -E '^ccp suite run --affected: |: (passed|FAILED), exit'; echo "exit ${PIPESTATUS[0]}"`.
+    1. Run `D=$(mktemp -d) && CCP_DEV=1 ./bin/ccp sandbox create "$D" >/dev/null 2>&1 && P="$D/product" && mkdir -p "$P/src" "$P/tests" "$P/legacy/tests" "$P/ops" && printf 'X = 1\n' > "$P/src/core.py" && printf 'import unittest\nfrom src import core\n\n\nclass T(unittest.TestCase):\n    def test_x(self):\n        self.assertEqual(core.X, 1)\n' > "$P/tests/test_core.py" && for n in a b c d; do printf 'import unittest\n' > "$P/tests/test_$n.py"; done && for f in legacy/tests/test_x.py ops/test_tool.py; do printf 'from src import core\nraise SystemExit("the lanes do not run this")\n' > "$P/$f"; done && python3 -c 'import json, sys; p = sys.argv[1] + "/docs/delivery/plane.json"; c = json.load(open(p)); c["language"] = "python"; c["suite"] = {"lanes": {"gate": ["python3", "-m", "unittest"]}, "affected_exclude": ["legacy/*", "ops/test_tool.py"]}; json.dump(c, open(p, "w"))' "$P" && git -C "$P" add -A && git -C "$P" -c user.name=t -c user.email=t@example.invalid commit -qm fixture && printf 'X = 1\nY = 2\n' > "$P/src/core.py" && C="$PWD/bin/ccp" && cd "$P" && env -u QUEUE_ROOT -u PROJECT_YAML CCP_DEV=1 "$C" --root "$P" suite run --affected 2>&1 | grep -E '^ccp suite run --affected: |: (passed|FAILED), exit'; echo "exit ${PIPESTATUS[0]}"`.
   expect: the first line is `ccp suite run --affected: 1 test module(s): running ccp suite run --lane part -- python3 -m unittest tests.test_core`; the run's summary line says `passed, exit 0`; the last line is `exit 0`.
-  dry run (`41cabf26`): printed `ccp suite run --affected: 3 test module(s): running ccp suite run --lane gate, the full lane (3 of 6 test modules)`, the summary line `FAILED, exit 5, lane gate`, and `exit 5`.
+  dry run (`41cabf26`): printed `ccp suite run --affected: 3 test module(s): running ccp suite run --lane gate, the full lane (3 of 7 test modules)`, the summary line `FAILED, exit 5, lane gate`, and `exit 5`.
 - id: `cmd-03`
   story: As a product's lead, a malformed exclude list is refused when plane.json is read, not silently ignored.
   setup: A checkout of the PR head (any seat); the step builds its scratch product.
@@ -138,12 +147,12 @@ Measured at `41cabf26`:
   expect: step 1 prints `[]`; step 2 prints `1`.
   dry run (`41cabf26`): step 1 exit 1 (`KeyError: 'affected_exclude'`); step 2 printed `0`, exit 1.
 - id: `spec-01`
-  story: As the operator, §14.7 describes the key and what the affected selection does with it.
+  story: As the operator, §14.7 describes the key, in the Python bullet and its own, and what the affected selection does with it.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0336`.
-  expect: exit 0, the PROPOSED passage found.
-  dry run (`41cabf26`, with this brief): exit 1, the PROPOSED passage `not found in the SPEC`.
+  expect: exit 0, both PROPOSED passages found.
+  dry run (`41cabf26`, with this brief): exit 1, both PROPOSED passages `not found in the SPEC`.
 
 ## Implementation notes
 
