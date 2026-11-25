@@ -125,5 +125,10 @@ Measured at `b6c2bc17`:
 - `Kind` and `ARCH` are gone: the kit's constants are `EVENT`, `LABEL`, `PREFIXES`, `STATE`, `LOCK`, `AUDIT_TASK`,
   `TRIAGE_CMD`, `RID_RE`, `LENSES`, `CATEGORIES` and `STRUCTURE_CATEGORIES`. `render_md` takes a `label` (default
   `LABEL`), since a shape renders as `Architect shape`.
+- Fix round 1 (review MINOR 1, NIT 1): the plane.json in
+  `test_a_report_and_a_plane_json_in_the_products_rule_ids_pass` now also carries `ids.task.width: 5` with
+  `architect.shape_from_task: "00042"` and an `architect.budgets` entry with id `HR-2`, so a pattern re-added to either
+  of those two contract members fails the test, not only data-01's literal grep. The `validate_triage` docstring is
+  rewrapped at about 120 characters.
 
 ## Verification notes
