@@ -111,4 +111,19 @@ Measured at `b6c2bc17`:
   dry run (`b6c2bc17`): printed 16 lines, exit 0.
 ## Implementation notes
 
+- The six `pattern` members are gone; each id's `description` names its knob (`ids.rule.pattern`, `ids.task.width`,
+  SPEC §7.1). `_triage_contract` is gone: `validate_triage` reads the contract as it is.
+- `validate_report(r, rid, pid, categories=CATEGORIES, max_findings=25, ids=refs.DEFAULT)` runs
+  `schema.schema_errors` on the report against `contracts/architect_report.schema.json`, then keeps the review id, the
+  category within the lenses, low confidence, a rule-cost finding's decision, a rule change's rule id by `ids` and
+  secrets. The rule-id check moved there from `architect.validate`, which no longer repeats it.
+- The contract describes the report as written (it requires `schema_version`, `review_id`, `head`, `mode`, `lenses`,
+  `rule_changes`, which the plane sets over the model's object). So `architect.validate` holds the report as written to
+  it: a new `architect.as_written` builds that record, and `_run_one` writes the same record after validation. The
+  model's own claims (its `review_id`, `mode`, `lenses`) are still checked on its object, so the review-id claim
+  check moved from `validate_report` into `architect.validate` beside `mode`.
+- `Kind` and `ARCH` are gone: the kit's constants are `EVENT`, `LABEL`, `PREFIXES`, `STATE`, `LOCK`, `AUDIT_TASK`,
+  `TRIAGE_CMD`, `RID_RE`, `LENSES`, `CATEGORIES` and `STRUCTURE_CATEGORIES`. `render_md` takes a `label` (default
+  `LABEL`), since a shape renders as `Architect shape`.
+
 ## Verification notes
