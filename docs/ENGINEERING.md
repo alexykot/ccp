@@ -40,10 +40,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E3** No managed product's names, ids, paths, data or rulings in tracked files, commit messages or
   PR titles. Rules are written generically, with knobs that have neutral defaults.
   check: command — scripts/leak-check.sh (architect.checks `E3`), patterns in a local denylist: `CCP_LEAK_DENYLIST`, else `leak-denylist.txt` in the bindings directory (`CCP_BINDINGS_DIR`, else beside the binding `ccp where` names)
-- **E5** Telemetry carries numbers and ids only: never prompt, response, command or file content, and
-  the receiver keeps a field whitelist. A queue record may hold a worker's own short statement lines
-  (friction, follow-ups, a proposal's need), each refused when it looks like a secret; such text never
-  goes to the telemetry receiver.
+- **E5** Telemetry carries numbers and ids only: never prompt, response, command or file content, and the receiver keeps
+  a field whitelist. A queue record may hold a worker's own short statement lines (friction, follow-ups, a proposal's
+  need), each refused when it looks like a secret; such text never goes to the telemetry receiver.
   check: pass — the architect looks for text fields on queue records without a secret refusal, and for
   text in the receiver's whitelist
 
@@ -87,10 +86,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   not build or import, the command that runs named tests or one test, and import reading) live in its language
   pack (ccp/doclang); plane.json may override them. Core code names no language and no test runner.
   check: command — architect.checks `E18`
-- **E19** Only the PR-host module (ccp/prhost.py) reaches a PR host: a forge's CLI or API, its ref
-  layout (refs/pull/…), or the local PR record. Other code sees a PR as the normalised facts it returns
-  (number, state, head, branch, merge commit, merge time, body), never a host's field names; prompts
-  and briefs name `ccp pr`, never a forge's CLI.
+- **E19** Only the PR-host module (ccp/prhost.py) reaches a PR host: a forge's CLI or API, its ref layout (refs/pull/…),
+  or the local PR record. Other code sees a PR as the normalised facts it returns (number, state, head, branch, merge
+  commit, merge time, body), never a host's field names; prompts and briefs name `ccp pr`, never a forge's CLI.
   check: command — architect.checks `E19`
 - **E20** One function judges whether a verdict lets a head merge: `ccp verify merge-ok`, `ccp verify
   check` and `ccp tasks close` call it, and `ccp verify record` refuses every approve it would refuse.
@@ -115,9 +113,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass
 - **E11** Durable knowledge from a change lands in the SPEC, the docs or an ADR in the same PR.
   check: pass
-- **E26** A house rule is stated once, in this doc. The standing DoD and the package docs name its id;
-  they never restate its text, a prohibition included. The root CLAUDE.md, the session's own instructions,
-  is exempt.
+- **E26** A house rule is stated once, in this doc. The standing DoD and the package docs name its id; they never
+  restate its text, a prohibition included. The root CLAUDE.md, the session's own instructions, is exempt.
   check: pass — the architect greps each package doc for a rule's distinctive clause (`git grep -n 'only wrap\|imports another\|copied literal\|names no language' -- '*/CLAUDE.md'`)
 - **E13** Briefs and prompt templates name the command and the § that decides; they never restate a rule's conditions,
   a tool's quirk a `ccp` command can absorb, or a sample record (a sample lives in contracts/ as `*.example.json`, and
