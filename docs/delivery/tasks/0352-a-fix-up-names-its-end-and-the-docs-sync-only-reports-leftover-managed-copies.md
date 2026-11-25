@@ -1,7 +1,7 @@
 ---
 task_id: 0352-a-fix-up-names-its-end-and-the-docs-sync-only-reports-leftover-managed-copies
 title: A release's fix-up command names its end in the plane's roadmap, with its signed §29.3 sentence; scripts/sync-product-docs.sh only checks, reporting a product's leftover managed copies as §9.5 says, its install mode, daily stamp and --allow-dirty gone, and the plugin skills and scripts doc stop saying it installs copies
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S9", "S29", "S31"]
@@ -156,3 +156,5 @@ Measured at `becb6417`:
 - No test of the removed options by name: `code-02`'s grep forbids their names in tests; the bare call is the refusal test.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #430 head `6d17b09` (squash `6623be7`): APPROVE. Passed: spec-01, code-01, code-02, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0352-a-fix-up-names-its-end-and-the-docs-sync-only-reports-leftover-managed-copies.json.
+
