@@ -135,4 +135,11 @@ Measured at `1a575497`:
 
 ## Implementation notes
 
+- Measured premises re-run at `12e99dd8`: the three greps (9 / 2 and 2 / 2) and `PREMISE_DOCS` (`3 16`) matched the task's figures; the only commit since `1a575497` is the triage one the task names.
+- `delivery-implementer.md` keeps its opening, §13.1's four rules, the `--affected` bullet, the catch-up merge bullet, the interrupted-command bullet and the questions bullet's first three sentences; the rest goes. The reviewer and verifier lose their foreground bullet (with its "Running the tests is fine." tail) and their script bullet.
+- `implement.md` loses its closing "Questions: an implementation choice ..." line; the "Where the task leaves something open" line stays.
+- `suite_lanes` renders both part-lane clauses with `ccp_command(cfg)`. `test_a_declared_part_argv_takes_the_module_names_after_it` pinned the literal `ccp suite run --affected` in the declared-argv clause; it now builds the same text from `ccp_command(c)` (same expectation, rendered as the prompt renders it).
+- `PREMISE_DOCS` pins the writing-tasks skill by `premise that sets scope`, not the bare `sets scope` the task names: the skill carries `sets scope` twice in one bullet ("A premise that sets scope ...", "A premise sets scope when ..."), so the bare token cannot be asserted once. The longer phrase holds once and still contains it. Narrowest reading; flagged for the lead.
+- E13 is the task's text verbatim.
+
 ## Verification notes
