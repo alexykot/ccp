@@ -129,6 +129,9 @@ class PhaseFlow(ReviewFlow):
             patch = mock.patch(where, side_effect=lambda: next(clock))
             patch.start()
             self.addCleanup(patch.stop)
+        patch = mock.patch("ccp.runs.PENDING_EXPIRY_S", float("inf"))  # §11.1: the clock's past day expires no run
+        patch.start()
+        self.addCleanup(patch.stop)
         self.ccp("tasks", "claim", "0002")
 
     def bind(self, agent_type: str, agent: str, session: str) -> None:
