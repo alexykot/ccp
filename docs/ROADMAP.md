@@ -64,8 +64,10 @@ All reshape phases have landed.
     through another helper of the same module, so it would miss tests.
   - `ar-20261124T234643Z-3c95` F09: `ccp tasks migrate` (an earlier plane generation's task files) and `ccp tasks
     backfill-review-points` (tasks closed before close stamped a review point) have no stated end. At triage no bound
-    product held an earlier generation's task file; done tasks with no review point remain. Trigger: the operator's
-    answer to that triage's question 2; the next triage tasks the retirement it rules, with its § text.
+    product held an earlier generation's task file; done tasks with no review point remain. The operator chose (a)
+    on 2026-11-25: retire `migrate`, with its §5.3 and §22.6 text, `tasks check`'s pointer and its tests, in a signed
+    task; keep `backfill-review-points`. Triggers: retiring `migrate` is a task of the next triage; retiring
+    `backfill-review-points` waits until every bound product's `--dry-run` stamps nothing.
   - T102 at triage `ar-20261124T205520Z-4ce8`: init's starter `citations` rule covers `docs/*.md`, so a product
     doc that names its own stages `S1`, `S2` reads as SPEC citations. A product fixes it with
     `package_docs.rules.citations.ignore` (§21.6). Trigger: a second product hits it; then the starter globs leave
