@@ -107,5 +107,9 @@ Measured at `1a575497`:
   sentence.
 - Tests: the named `test_a_task_log_holding_only_an_ignored_file_gets_a_gitkeep`, plus a test of the non-git fallback
   (`test_outside_a_git_work_tree_every_file_in_the_task_log_counts`), which the brief did not name.
+- Fix round 1 (review MINOR-1, NIT-1, NIT-2): new test `test_a_task_log_holding_only_a_tracked_file_an_ignore_rule_covers_gets_no_gitkeep`
+  (a `git add -f` file an ignore rule covers: git keeps what it tracks, so init writes no `.gitkeep`), which pins
+  `--cached` on its own; the non-git fallback test now patches `ccp.init.subprocess.run` to a non-zero result, so
+  it tests the fallback whatever `TMPDIR` sits in; the skill paragraph re-wrapped to the paragraph's width.
 
 ## Verification notes
