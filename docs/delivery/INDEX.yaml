@@ -1748,7 +1748,7 @@ tasks:
     depends_on: []
     path: tasks/0354-mutate-names-each-failing-test-s-kind-and-caps-its-line-list-and-the-cold-run-tests-assert-what-they-mean.md
   - id: 0355-headless-launches-build-their-argv-in-one-place-prompt-audits-are-written-through-one-function-and-a-rule-change-with-no-rule-is-reported-once
-    status: pending
+    status: done
     title: The architect and estimator seats build their claude -p argv through one headless function that owns the key strip and the seat's binary override; every prompt audit is written through one ccp function its four callers share; an architect report's rule change with no rule is reported once
     depends_on: []
     path: tasks/0355-headless-launches-build-their-argv-in-one-place-prompt-audits-are-written-through-one-function-and-a-rule-change-with-no-rule-is-reported-once.md

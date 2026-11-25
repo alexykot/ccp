@@ -1,7 +1,7 @@
 ---
 task_id: 0355-headless-launches-build-their-argv-in-one-place-prompt-audits-are-written-through-one-function-and-a-rule-change-with-no-rule-is-reported-once
 title: The architect and estimator seats build their claude -p argv through one headless function that owns the key strip and the seat's binary override; every prompt audit is written through one ccp function its four callers share; an architect report's rule change with no rule is reported once
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S19", "S23", "S24"]
@@ -119,3 +119,5 @@ Measured at `becb6417`:
 - `validate_report`'s rule-change check now matches `validate_triage`'s: it runs only when `rule` is a string.
 
 ## Verification notes
+- 2026-11-25 — verifier, PR #433 head `296a77d` (squash `e2d9243`): APPROVE. Passed: code-01, code-02, code-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0355-headless-launches-build-their-argv-in-one-place-prompt-audits-are-written-through-one-function-and-a-rule-change-with-no-rule-is-reported-once.json.
+
