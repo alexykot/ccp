@@ -3,9 +3,8 @@ name: review-triage
 description: The control plane's review triage protocol (SPEC §19, §19.8): how the task-log owner triages an architect or review report into tasks, house-rule changes, waivers and questions for the operator. Use it when asked to triage an architect report or a review in a control-plane project.
 ---
 <!--
-  Control-plane review triage protocol (SPEC §19; architect §19.8). Installed in every product repo
-  at docs/delivery/REVIEW-TRIAGE.md by scripts/sync-product-docs.sh (SPEC §9.5). Read by the
-  owner of the task log, the team lead (the spec maintainer). Sync drops this comment.
+  Control-plane review triage protocol (SPEC §19; architect §19.8). Delivered by the control-plane
+  plugin (SPEC §4). Read by the owner of the task log, the team lead (the spec maintainer).
   Source: control-plane plugin/skills/review-triage/SKILL.md.
 -->
 # Review triage

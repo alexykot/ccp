@@ -60,7 +60,8 @@ class BindingById(BindingDir):
         yml = self.sandbox()
         sandbox_root = Path(self._d.name) / "sandbox-product"
         (sandbox_root / "docs" / "delivery").mkdir(parents=True)
-        (sandbox_root / "docs" / "delivery" / "SPEC-MAINTAINER.md").write_text("old\n")
+        (sandbox_root / "docs" / "delivery" / "SPEC-MAINTAINER.md").write_text(
+            "> Managed copy of control-plane `plugin/skills/spec-maintainer/SKILL.md` at abc1234. Edit.\n")
         script = PLANE_ROOT / "scripts" / "sync-product-docs.sh"
         env = {**os.environ, "CCP_BINDINGS_DIR": str(self.bindings)}
         env.pop("PROJECT_YAML", None)
@@ -68,7 +69,7 @@ class BindingById(BindingDir):
         self.assertNotIn("docs/delivery/SPEC-MAINTAINER.md", theirs.stdout, theirs.stderr)
         mine = subprocess.run(["bash", str(script), "demo", "--check"], capture_output=True, text=True,
                               env={**env, "PROJECT_YAML": str(yml)})
-        self.assertIn("docs/delivery/SPEC-MAINTAINER.md", mine.stdout, mine.stderr)
+        self.assertIn("DRIFT docs/delivery/SPEC-MAINTAINER.md: retired", mine.stdout, mine.stderr)
 
     def test_sync_refuses_a_project_with_no_binding(self):
         env = {**os.environ, "CCP_BINDINGS_DIR": str(self.bindings)}

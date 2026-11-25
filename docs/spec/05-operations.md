@@ -51,8 +51,9 @@ A release can land while a task is in flight, so:
   prompts render per launch while the runner's brief loads at spawn.
 - A plane change that would make a conforming product fail a check (a renamed generator, a tightened
   check) ships its own fix-up (a migrate or regenerate command) and names that command in its pull
-  request, which is the release's note. The pull request template asks whether the change breaks
-  conforming products.
+  request, which is the release's note. The fix-up names its end in the plane's roadmap: it is retired,
+  with any compatibility reading it serves, once no bound product's dry run changes anything. The pull
+  request template asks whether the change breaks conforming products.
 - Every release checks the bound products: `scripts/run-checkout.sh update` runs the new
   `ccp docs check`, `ccp tasks check` and, when the product's `plane.json` has an `adr` block,
   `ccp adr check` on each binding's integration branch (`origin/<branch>` as the product last

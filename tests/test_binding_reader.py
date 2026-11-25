@@ -248,11 +248,12 @@ class SyncReaderTest(unittest.TestCase):
         return subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo",
                                "--project-yaml", str(self.yml), "--check"], capture_output=True, text=True)
 
-    def test_a_product_that_has_the_maintainer_doc_gets_its_managed_copy(self):
+    def test_a_product_that_has_the_maintainer_doc_copy_has_it_reported(self):
         (self.product / "docs" / "delivery").mkdir(parents=True)
-        (self.product / "docs" / "delivery" / "SPEC-MAINTAINER.md").write_text("old\n")
+        (self.product / "docs" / "delivery" / "SPEC-MAINTAINER.md").write_text(
+            "> Managed copy of control-plane `plugin/skills/spec-maintainer/SKILL.md` at abc1234. Edit.\n")
         r = self.sync("")
-        self.assertIn("docs/delivery/SPEC-MAINTAINER.md", r.stdout, r.stderr)
+        self.assertIn("DRIFT docs/delivery/SPEC-MAINTAINER.md: retired", r.stdout, r.stderr)
 
     def test_without_the_doc_there_is_no_such_copy_whatever_the_binding_holds(self):
         r = self.sync("spec_maintainer:\n  kind: team-lead\n")
@@ -267,11 +268,14 @@ class SyncReaderTest(unittest.TestCase):
 
     def test_without_a_project_yaml_the_binding_is_found_in_the_bindings_directory(self):
         self.yml.write_text(f"project_id: demo\nproduct_root: {self.product}\n")
+        (self.product / "docs" / "delivery").mkdir(parents=True)
+        (self.product / "docs" / "delivery" / "CONTROL-PLANE.md").write_text(
+            "> Managed copy of control-plane `plugin/orientation.md` at abc1234. Edit.\n")
         env = {**os.environ, "CCP_BINDINGS_DIR": self._d.name}
         r = subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo", "--check"],
                            capture_output=True, text=True, env=env)
         self.assertNotIn("no project binding", r.stderr)
-        self.assertIn("DRIFT docs/delivery/CONTROL-PLANE.md: missing", r.stdout, r.stderr)
+        self.assertIn("DRIFT docs/delivery/CONTROL-PLANE.md: retired", r.stdout, r.stderr)
         self.assertEqual(r.returncode, 1, r.stderr)
 
 

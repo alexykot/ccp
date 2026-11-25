@@ -36,7 +36,7 @@ Before the plugin, the orientation (`CONTROL-PLANE.md`) and the spec maintainer'
 
 The plugin replaced all of it: the orientation is injected by its SessionStart hook and the
 protocols are its skills, so a release reaches every product with no product commit. The sync now
-only reports and removes leftover copies.
+only reports a product's leftover copies; it installs and removes nothing.
 
 ## How the orientation was accepted
 
