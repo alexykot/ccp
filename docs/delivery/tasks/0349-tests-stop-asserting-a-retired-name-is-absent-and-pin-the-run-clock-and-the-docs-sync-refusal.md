@@ -129,4 +129,19 @@ Measured at `05cb00e2`:
 
 ## Implementation notes
 
+- Premises re-measured at `a467a261`: unchanged (`tests/test_init.py:2`, `tests/test_tasklog.py:5`; six `OLD_` lines at
+  57 and 59 to 63; `sort -c` disorder at `itertools`). `git grep -n 'no project binding' -- tests` now finds
+  `tests/test_binding_reader.py:273`, an `assertNotIn` in a test that finds the binding; no test held the refusal.
+- The seven `tasks migrate` and six `OLD_` assertions are deleted and the two named tests renamed, their other lines
+  as they were. `test_docs_audit_is_no_longer_a_command` is deleted with the imports only it used (`io`,
+  `contextlib`, `ccp.cli`); the module docstring's clause that `ccp docs audit` is no longer a command goes with it.
+- `tests/test_queue_markers_gone.py`: the three no-marker tests and their imports (`json`, `TASK`) are deleted, the
+  class renamed `AnOldMarkerDirectoryIsArchived`, and the docstring says the module holds the archive and the
+  leftover listing.
+- New tests: `RunClock.test_one_clock_runs_across_every_name_it_patches` (`runs.iso` and `report.iso` alternated,
+  each stamp 60 s after the last), `RunClock.test_start_sets_the_first_stamp`, and
+  `BindingById.test_sync_refuses_a_project_with_no_binding` (id `no-binding`: a hyphen no temp directory name holds,
+  so the stderr token cannot match the bindings path by chance).
+- `tests/helpers.py`: `import itertools` moved before `import json`.
+
 ## Verification notes
