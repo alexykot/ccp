@@ -1,7 +1,7 @@
 ---
 task_id: 0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps
 title: The writing-tasks skill tells an absence check on a code form to allow leading whitespace; this repo's task rules point at house rules E2 and E21 instead of the test helpers; ccp init counts only the files git keeps when it decides whether the task log needs its .gitkeep
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4"]
@@ -99,4 +99,19 @@ Measured at `1a575497`:
 
 ## Implementation notes
 
+- `ccp/init.py`: new `_task_log_files(root, tasks_dir)`. Inside a git work tree it returns what `git ls-files
+  --cached --others --exclude-standard -z -- docs/delivery/tasks` lists (recursive, so a tracked or unignored file in
+  a subdirectory also counts, as git keeps it); when git fails (not a work tree) it falls back to the top-level files
+  of the directory, exactly the old test.
+- Skill, WRITING-tasks and SPEC §4.5 edited as the brief gives them; the skill bullet re-wrapped around the added
+  sentence.
+- Tests: the named `test_a_task_log_holding_only_an_ignored_file_gets_a_gitkeep`, plus a test of the non-git fallback
+  (`test_outside_a_git_work_tree_every_file_in_the_task_log_counts`), which the brief did not name.
+- Fix round 1 (review MINOR-1, NIT-1, NIT-2): new test `test_a_task_log_holding_only_a_tracked_file_an_ignore_rule_covers_gets_no_gitkeep`
+  (a `git add -f` file an ignore rule covers: git keeps what it tracks, so init writes no `.gitkeep`), which pins
+  `--cached` on its own; the non-git fallback test now patches `ccp.init.subprocess.run` to a non-zero result, so
+  it tests the fallback whatever `TMPDIR` sits in; the skill paragraph re-wrapped to the paragraph's width.
+
 ## Verification notes
+- 2026-11-25 — verifier, PR #411 head `78bcc2c` (squash `4d0e9c8`): APPROVE. Passed: doc-01, doc-02, code-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0335-absence-checks-allow-indented-forms-the-repo-s-task-rules-point-at-e21-and-init-counts-only-files-git-keeps.json.
+

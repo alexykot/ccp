@@ -123,8 +123,9 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   or at a named commit, never "at the merge base".
 - **An absence check first shows its pattern finding a known positive**, names its pathspec
   explicitly, excludes the code whose job is the removal, and covers only the Scope's paths (or the
-  Scope names every path it reaches). Use `git grep -nwP`; macOS `git grep -E` ignores `\b`. A check
-  that text was removed uses a pattern that the text replacing it does not match.
+  Scope names every path it reaches). Use `git grep -nwP`; macOS `git grep -E` ignores `\b`. A
+  pattern for a code form allows leading whitespace (`^\s*`), unless the brief rules out nested
+  forms. A check that text was removed uses a pattern that the text replacing it does not match.
 - **A check that a branch leaves paths unchanged reads the branch's own diff**
   (`git diff origin/<integration>...HEAD -- <paths>` prints nothing), never a diff from a fixed commit.
 - **A behaviour-preserving change** (move, rename, split) is checked by the tests that already hold
