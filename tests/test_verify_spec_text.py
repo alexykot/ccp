@@ -324,7 +324,7 @@ class SpecText(unittest.TestCase):
         self.assertEqual((code, body["head"]), (0, a), err)
         self.assertEqual([r["found_in"] for r in body["passages"]], [["docs/spec/x.md"]])
         code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^")
-        self.assertEqual((code, body["head"]), (1, "HEAD"), err)
+        self.assertEqual((code, body["head"]), (1, "working tree"), err)
         self.assertIn(PASSAGE, err)
         code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^", "--head", "no-such-ref")
         self.assertEqual(code, 2)
@@ -338,6 +338,36 @@ class SpecText(unittest.TestCase):
         self.assertEqual(self.run_cmd("0001-signed", "--base", f"{a}^")[0], 1)
         code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^", "--head", a)
         self.assertEqual(code, 0, err)
+
+    def test_with_no_head_an_uncommitted_spec_edit_is_found(self):
+        x = self.p.root / "docs/spec/x.md"
+        x.write_text(x.read_text() + "\n" + PASSAGE + "\n")  # written, not committed
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual((code, body["head"]), (0, "working tree"), err)
+        self.assertEqual([r["found_in"] for r in body["passages"]], [["docs/spec/x.md"]])
+        git(self.p.root, "checkout", "-q", "--", "docs/spec/x.md")
+        self.p.write("docs/spec/y.md", "# More\n\n" + PASSAGE + "\n")  # a file git does not track is not read
+        self.assertEqual(self.run_cmd("0001-signed", "--base", "main")[0], 1)
+        git(self.p.root, "add", "docs/spec/y.md")  # staged, not committed: tracked, so read from disk
+        self.assertEqual(self.run_cmd("0001-signed", "--base", "main")[0], 0)
+        git(self.p.root, "rm", "-q", "--cached", "docs/spec/y.md")
+        (self.p.root / "docs/spec/y.md").unlink()
+        self.scope(contract_scope("`contracts/x.schema.json`, the top-level `description`."))
+        self.p.write("contracts/x.schema.json", CONTRACT.replace("An older description.", PASSAGE))  # not committed
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 0, err)
+        self.assertEqual([r["found_in"] for r in body["passages"]], [["contracts/x.schema.json"]])
+
+    def test_with_head_given_an_uncommitted_spec_edit_is_not_read(self):
+        x = self.p.root / "docs/spec/x.md"
+        x.write_text(x.read_text() + "\n" + PASSAGE + "\n")  # written, not committed
+        code, body, err = self.run_cmd("0001-signed", "--base", "main", "--head", "HEAD")
+        self.assertEqual((code, body["head"]), (1, "HEAD"), err)
+        self.assertIn(PASSAGE, err)
+        git(self.p.root, "checkout", "-q", "--", "docs/spec/x.md")
+        self.scope(contract_scope("`contracts/x.schema.json`, the top-level `description`."))
+        self.p.write("contracts/x.schema.json", CONTRACT.replace("An older description.", PASSAGE))  # not committed
+        self.assertEqual(self.run_cmd("0001-signed", "--base", "main", "--head", "HEAD")[0], 1)
 
     def scope(self, scope: str) -> None:
         """The task carries `scope` as its Scope, committed on the branch."""

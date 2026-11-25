@@ -65,7 +65,6 @@ def max_in_flight(root: Path) -> int:
     """SPEC §16.2: the product's parallel.max_in_flight as ccp loads it, defaults included (1 when the
     configuration does not load). The load's warnings are not printed."""
     prod = sm.product_root(root)
-    sys.path.insert(0, str(HERE.parents[1]))
     from ccp import config as ccp_config, parallel  # noqa: PLC0415
     try:
         with contextlib.redirect_stderr(io.StringIO()):
@@ -185,7 +184,6 @@ def refactor_log(root: Path, quiet: bool = False) -> tuple[Any, list[dict[str, A
     prod = sm.product_root(root)
     if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
         return None
-    sys.path.insert(0, str(HERE.parents[1]))
     from ccp import config as ccp_config, tasklog  # noqa: PLC0415
     try:
         cfg = ccp_config.load(Path(prod))
@@ -207,7 +205,6 @@ def product_log(root: Path, quiet: bool = False) -> tuple[Any, list[dict[str, An
     prod = sm.product_root(root)
     if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
         return None
-    sys.path.insert(0, str(HERE.parents[1]))
     from ccp import config as ccp_config, reviewpoints, tasklog  # noqa: PLC0415
     try:
         cfg = ccp_config.load(Path(prod))
@@ -233,7 +230,6 @@ def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | N
     prod = sm.product_root(root)
     if not rc.get("worktree") or not prod:
         return None
-    sys.path.insert(0, str(HERE.parents[1]))
     from ccp import wt  # noqa: PLC0415
     from ccp.queue import QueueError, integration_branch  # noqa: PLC0415
     try:
@@ -254,8 +250,6 @@ def refuse_without_integration_ref(root: Path, paths: list[str | None]) -> None:
     prod = sm.product_root(root)
     if not prod or not any(paths):
         return
-    if str(HERE.parents[1]) not in sys.path:
-        sys.path.insert(0, str(HERE.parents[1]))
     from ccp import wt  # noqa: PLC0415
     from ccp.queue import integration_branch  # noqa: PLC0415
     main = wt.main_of(Path(prod))
@@ -281,8 +275,6 @@ def readiness(root: Path, rc: dict[str, str], scope: list[str], single: bool) ->
     (§22.2), and (one runner) the runner worktree is a
     working tree or can be made (a missing `origin/<integration_branch>` has refused the spawn before
     this). Reads only: it makes no worktree and fetches nothing."""
-    if str(HERE.parents[1]) not in sys.path:
-        sys.path.insert(0, str(HERE.parents[1]))
     checks: list[dict[str, Any]] = []
     log = product_log(root, quiet=True)
     if not log:
@@ -352,8 +344,6 @@ def model_arg(root: Path, rc: dict[str, str]) -> dict[str, str]:
     prod = sm.product_root(root)
     if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
         return {}
-    if str(HERE.parents[1]) not in sys.path:
-        sys.path.insert(0, str(HERE.parents[1]))
     from ccp import config as ccp_config, models, runs  # noqa: PLC0415
     try:
         cfg = ccp_config.load(Path(prod))
@@ -371,8 +361,6 @@ def keep_body(root: Path) -> list[str]:
     prod = sm.product_root(root)
     if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
         return []
-    if str(HERE.parents[1]) not in sys.path:  # once: it runs on every audit write
-        sys.path.insert(0, str(HERE.parents[1]))
     from ccp import config as ccp_config  # noqa: PLC0415
     try:
         on = (ccp_config.load(Path(prod)).prompts or {}).get("keep_body")
@@ -392,7 +380,6 @@ def review_point_scope(root: Path, args: argparse.Namespace, scope: list[str], r
     prod = sm.product_root(root)
     reg_file = None
     if prod and (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
-        sys.path.insert(0, str(HERE.parents[1]))
         from ccp import config as ccp_config, reviewpoints as _rp  # noqa: PLC0415
         try:
             reg_file = _rp.path(ccp_config.load(Path(prod))).is_file()
@@ -826,7 +813,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
                        "takes one out.")
         if not rp:
             detail += " " + NO_REVIEW_POINT
-        if made and made.get("kept"):  # §12.1: single_runner_worktree put the plane on sys.path
+        if made and made.get("kept"):  # §12.1: the plane is on sys.path from import
             from ccp.wt import kept_warning  # noqa: PLC0415
             rp_warnings.append(kept_warning(made["path"], made["kept"]))
         if made and made.get("error"):

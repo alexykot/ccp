@@ -1029,7 +1029,9 @@ result.
   the task's Scope, or a section of the task whose heading begins `Rule changes`, carries for the operator's sign-off (§3.5: a `PROPOSED:` marker followed by `> `
   blockquote lines)
   and looks for it, whitespace-normalised, in each hunk the branch's diff makes to files under `spec_paths`, read with the unchanged lines around it up to the nearest blank line on each side, where it covers at least one line the hunk adds
-  (`git diff <base>...<head>`, each SPEC file read as it is at `<head>`, which defaults to `HEAD`; the base defaults to `origin/<integration branch>`,
+  (`git diff <base>...<head>`, each SPEC file read as it is at `<head>`; with no `--head`, the diff runs from the
+  merge base of `<base>` and `HEAD` to the working tree, each file read as it is there, so an edit not yet committed
+  counts; the base defaults to `origin/<integration branch>`,
   and nothing is fetched). A passage not found there is looked for in the same way in the hunks the diff makes
   to the one file its own block names, in its `(<path> at <commit>)` locator or opening the line just above it,
   such as a contract whose text the operator signed; a path inside quoted text names nothing, and a file under

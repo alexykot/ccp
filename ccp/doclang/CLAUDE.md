@@ -12,5 +12,5 @@ test's section, the `test_glob` of a test module, the reader `affected` of the m
 touches, the counter `suite_size`, the `test_command` that runs named modules or one test, and the
 `unbuilt_re` lines that say the code did not build or import; plane.json may override them (`ccp mutate`
 runs `mutate.command` and reads `mutate.unbuilt_re` when set). `for_tests(cfg)` is
-the one lookup `ccp suite` and `ccp mutate` use; core code stays language-neutral (E18). All of them follow `language`; with none set
+the one lookup `ccp suite` and `ccp mutate` use; house rule E18. All of them follow `language`; with none set
 (the grace release) they are the Python pack's, as before the key was required.

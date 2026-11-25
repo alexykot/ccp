@@ -152,12 +152,13 @@ def built(cfg: Config, a: Any) -> dict[str, Any]:
     if task is None:
         raise QueueError(f"--task {a.task}: no merged plane task by that id (a `done` task in the plane's "
                          "task log)", 2)
+    tid = str(task["task_id"])  # the full id, whatever `--task` gave: `upgrade`'s proposals are keyed by it
     step = tasklog.adopt_step(task)
-    _append(q, {"op": "built", "id": a.id, "at": iso(), "by": actor("plane-session"), "built_task": a.task,
+    _append(q, {"op": "built", "id": a.id, "at": iso(), "by": actor("plane-session"), "built_task": tid,
                 "adopt": step})
-    emit(q, cfg, cur.get("task_id") or "", "plane", "built", {"proposal_id": a.id, "built_task": a.task},
+    emit(q, cfg, cur.get("task_id") or "", "plane", "built", {"proposal_id": a.id, "built_task": tid},
          actor("plane-session"))
-    return {"ok": True, "id": a.id, "status": "built", "built_task": a.task, "adopt": step}
+    return {"ok": True, "id": a.id, "status": "built", "built_task": tid, "adopt": step}
 
 
 def listing(_cfg: Config, a: Any) -> dict[str, Any]:

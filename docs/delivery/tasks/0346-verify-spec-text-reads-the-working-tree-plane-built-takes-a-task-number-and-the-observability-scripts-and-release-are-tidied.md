@@ -147,4 +147,19 @@ Measured at `b6c2bc17`:
 
 ## Implementation notes
 
+- **F06.** `verify._hunks` takes `head` None for the working tree: it runs `git merge-base <base> HEAD`, then
+  `git diff <merge base> --` (working tree), and reads each file from disk (`_on_disk`, decoded as
+  `tasklog.text_at` decodes). An untracked file is in no such diff, so it is not read; a staged one is. A base with
+  no merge base exits 2 as a base that does not resolve does, its message naming the merge base. `spec_text`
+  passes `rev` (the given `--head`, or None) to `spec_hunks` and `named_hunks`; the body's `head` is
+  `"working tree"` with no `--head`, and the `--head` commit check runs only when one is given.
+- **plane built.** `upgrade.merged_task` matches through `ids.same_task` on the plane's own config;
+  `plane.built` records, emits and returns the merged task's full id.
+- **team.py.** The two module-level inserts stay; the nine in functions and their four `not in sys.path` guards
+  are gone, and the comment that said `single_runner_worktree` put the plane on `sys.path` now says it is there
+  from import.
+- **release.sh.** The ruled line is kept as written and followed by `|| die …`: under `set -e` a failure before
+  the last command of an `&&` list does not stop the script, so a failed fetch would otherwise go on to release
+  from an unmoved dev checkout.
+
 ## Verification notes

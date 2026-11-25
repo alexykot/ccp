@@ -1296,17 +1296,28 @@ def searchable(cfg: Config, path: str) -> bool:
             and not tasklog._names_spec(p, spec_paths_of(cfg)))
 
 
-def _hunks(cfg: Config, base: str, head: str, keep: Callable[[str], bool]) -> dict[str, list[tuple[str, str]]] | None:
+def _hunks(cfg: Config, base: str, head: str | None,
+           keep: Callable[[str], bool]) -> dict[str, list[tuple[str, str]]] | None:
     """§15.2: per file whose path `keep` accepts, one text per hunk `git diff <base>...<head>` makes to it:
     the hunk's lines in the file as it is at `head`, extended with the unchanged lines before and after it up to the
     nearest blank line on each side (a hunk's own blank first or last line is that line), joined and
     whitespace-normalised, as (text, mask), the mask `+` under each character of a line the hunk adds and
-    `.` elsewhere. A hunk that adds nothing has no text. None when the diff cannot be read (`base` resolves
-    to nothing). A file's `+++ ` header is read only between its `diff --git` line and its first `@@` line."""
+    `.` elsewhere. A hunk that adds nothing has no text. With `head` None, the diff runs from the merge base of
+    `base` and `HEAD` to the working tree and each file is read as it is on disk; a file git does not track is in
+    no such diff, so it is not read. None when the diff cannot be read (`base` resolves to nothing, or shares no
+    merge base with `HEAD`). A file's `+++ ` header is read only between its `diff --git` line and its first `@@`
+    line."""
     from ccp import tasklog  # noqa: PLC0415
 
+    if head is None:
+        mb = subprocess.run(["git", "-C", str(cfg.root), "merge-base", base, "HEAD"], capture_output=True, text=True)
+        if mb.returncode != 0 or not mb.stdout.strip():
+            return None
+        span = [mb.stdout.strip()]
+    else:
+        span = [f"{base}...{head}"]
     r = subprocess.run(["git", "-C", str(cfg.root), "-c", "core.quotePath=false", "diff", "--no-color",
-                        "--no-ext-diff", "--unified=0", f"{base}...{head}"], capture_output=True, text=True)
+                        "--no-ext-diff", "--unified=0", *span, "--"], capture_output=True, text=True)
     if r.returncode != 0:
         return None
     ranges: dict[str, list[tuple[int, int]]] = {}
@@ -1327,7 +1338,7 @@ def _hunks(cfg: Config, base: str, head: str, keep: Callable[[str], bool]) -> di
                 ranges.setdefault(cur, []).append((int(m.group(1)) - 1, n))
     out: dict[str, list[tuple[str, str]]] = {}
     for f, hunks in ranges.items():
-        shown = tasklog.text_at(cfg, head, f)
+        shown = tasklog.text_at(cfg, head, f) if head is not None else _on_disk(cfg, f)
         if shown is None:
             continue
         lines = shown.splitlines()
@@ -1345,15 +1356,26 @@ def _hunks(cfg: Config, base: str, head: str, keep: Callable[[str], bool]) -> di
     return out
 
 
-def spec_hunks(cfg: Config, base: str, head: str = "HEAD") -> dict[str, list[tuple[str, str]]] | None:
-    """§15.2: `_hunks` of the SPEC files (`spec_paths`)."""
+def _on_disk(cfg: Config, rel: str) -> str | None:
+    """The text of the file `rel` in the working tree, decoded as `tasklog.text_at` decodes; None when it is not
+    there."""
+    try:
+        return (cfg.root / rel).read_bytes().decode("utf-8", errors="replace")
+    except OSError:
+        return None
+
+
+def spec_hunks(cfg: Config, base: str, head: str | None = "HEAD") -> dict[str, list[tuple[str, str]]] | None:
+    """§15.2: `_hunks` of the SPEC files (`spec_paths`); `head` None reads the working tree."""
     from ccp import tasklog  # noqa: PLC0415
     spec_paths = spec_paths_of(cfg)
     return _hunks(cfg, base, head, lambda p: tasklog._names_spec(p, spec_paths))
 
 
-def named_hunks(cfg: Config, base: str, head: str, paths: set[str]) -> dict[str, list[tuple[str, str]]] | None:
-    """§15.2: `_hunks` of the given paths, the files signed blocks name, never one `searchable` refuses."""
+def named_hunks(cfg: Config, base: str, head: str | None,
+                paths: set[str]) -> dict[str, list[tuple[str, str]]] | None:
+    """§15.2: `_hunks` of the given paths, the files signed blocks name, never one `searchable` refuses; `head` None
+    reads the working tree, as `spec_hunks`."""
     return _hunks(cfg, base, head, lambda p: p in paths and searchable(cfg, p))
 
 
@@ -1371,8 +1393,10 @@ def _found(passage: str, hunk: tuple[str, str]) -> bool:
 
 def spec_text(cfg: Config, task: str, base: str | None = None, head: str | None = None) -> tuple[int, dict[str, Any]]:
     """§15.2 `ccp verify spec-text`: whether each passage the task carries for the operator's sign-off
-    (`tasklog.signed_blocks`, read from the task file in the checkout) is in the SPEC text `head` (default `HEAD`)
-    changes since `base` (`spec_hunks`), or else in the text it changes in the one file the passage's own
+    (`tasklog.signed_blocks`, read from the task file in the checkout) is in the SPEC text `head` changes since
+    `base`, or with no `head` the text the working tree changes since the merge base of `base` and `HEAD`, each
+    file read as it is on disk, so an edit not yet committed counts (`spec_hunks`; the body's `head` is then
+    `"working tree"`), or else in the text it changes in the one file the passage's own
     block names (`named_hunks`), each hunk read with the
     unchanged lines around it up to the nearest blank line: a passage is found when it lies within one hunk's
     text and covers a character of a line that hunk adds (`_found`), so one wholly inside unchanged lines is
@@ -1388,27 +1412,29 @@ def spec_text(cfg: Config, task: str, base: str | None = None, head: str | None 
     if base is None:
         q = os.environ.get("QUEUE_ROOT")
         base = f"origin/{integration_branch(Path(q)) if q and Path(q).is_dir() else 'main'}"
-    head = head or "HEAD"
+    rev = head or None
+    head = rev or "working tree"
     from ccp import tasklog  # noqa: PLC0415
     passages = tasklog.signed_blocks(meta["_text"])
     if not passages:
         return 2, {"ok": False, "task_id": tid, "base": base, "head": head,
                    "error": f"{cfg.rel(meta['_file'])} carries no PROPOSED: block (a `PROPOSED:` marker followed by "
                             "`> ` blockquote lines) in its Scope or in a section whose heading begins `Rule changes`"}
-    if subprocess.run(["git", "-C", str(cfg.root), "rev-parse", "--verify", "--quiet", f"{head}^{{commit}}"],
-                      capture_output=True, text=True).returncode != 0:
+    if rev is not None and subprocess.run(["git", "-C", str(cfg.root), "rev-parse", "--verify", "--quiet",
+                                           f"{rev}^{{commit}}"], capture_output=True, text=True).returncode != 0:
         return 2, {"ok": False, "task_id": tid, "base": base, "head": head,
                    "error": f"--head {head} names no commit in {cfg.root}"}
-    added = spec_hunks(cfg, base, head)
+    added = spec_hunks(cfg, base, rev)
     if added is None:
+        span = f"{base}...{rev}" if rev is not None else f"from the merge base of {base} and HEAD"
         return 2, {"ok": False, "task_id": tid, "base": base, "head": head,
-                   "error": f"git diff {base}...{head} failed: is {base} a ref in {cfg.root}?"}
+                   "error": f"git diff {span} failed: is {base} a ref in {cfg.root}?"}
     rel = cfg.rel(meta["_file"])
     rows = [{"line": f"{rel}:{n}", "passage": text,
              "found_in": [f for f, hunks in sorted(added.items()) if any(_found(text, h) for h in hunks)]}
             for n, text, _ in passages]
     named = {names for (_, _, names), r in zip(passages, rows) if names and not r["found_in"]}
-    elsewhere = (named_hunks(cfg, base, head, named) or {}) if named else {}
+    elsewhere = (named_hunks(cfg, base, rev, named) or {}) if named else {}
     for (_, text, names), r in zip(passages, rows):
         if not r["found_in"] and names in elsewhere and any(_found(text, h) for h in elsewhere[names]):
             r["found_in"] = [names]

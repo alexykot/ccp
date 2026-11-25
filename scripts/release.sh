@@ -11,11 +11,13 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 MAIN="$(git -C "$HERE" worktree list --porcelain | awk 'NR==1 {print $2}')"
 RUN="${CCP_RUN_CHECKOUT:-$(dirname "$MAIN")/control-plane-run}"
 die() { echo "release: $*" >&2; exit "${2:-1}"; }
-# From the run checkout, the pull below would be a plain merge with nothing keeping its local
+# From the run checkout, the update below would be a plain merge with nothing keeping its local
 # projects/: run this from the dev checkout or one of its worktrees.
 [ "$(cd "$MAIN" && pwd -P)" != "$(cd "$RUN" 2>/dev/null && pwd -P)" ] || die "run this from the dev checkout or a worktree of it, not from the run checkout"
 
-git -C "$MAIN" pull -q --ff-only
+# set -e skips a failure before the last command of an && list: the || stops the release on either.
+git -C "$MAIN" fetch -q origin && git -C "$MAIN" merge -q --ff-only "origin/$(git -C "$MAIN" symbolic-ref --short HEAD)" \
+  || die "the dev checkout did not fast-forward to origin"
 echo "release: dev checkout at $(git -C "$MAIN" rev-parse --short HEAD)"
 CCP_RUN_CHECKOUT="$RUN" "$MAIN/scripts/run-checkout.sh" update
 
