@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import contextlib
 import io
+import subprocess
+import sys
 import unittest
 
 from ccp import adr, estimator, mdsection, report, spec, taskmigrate, tasklog
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 
 FENCE = "```"
 PREFIX = "S"
@@ -109,6 +111,17 @@ class Show(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("`S99`", err)
         self.assertIn("## 14.", out)
+
+    def test_a_reader_that_stops_early_ends_the_output_quietly(self):
+        p = Product({"spec_paths": ["docs/SPEC.md"]})
+        self.addCleanup(p.cleanup)
+        p.write("docs/SPEC.md", SPEC_TEXT)
+        proc = subprocess.Popen([sys.executable, str(PLANE_ROOT / "bin" / "ccp"), "--root", str(p.root), "spec", "show",
+                                 "S13", "S14"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc.stdout.close()
+        err = proc.stderr.read().decode()
+        self.assertEqual((proc.wait(), err), (0, ""))
+        proc.stderr.close()
 
 
 if __name__ == "__main__":

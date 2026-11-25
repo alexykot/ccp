@@ -140,4 +140,18 @@ Measured at `1a575497`:
 
 ## Implementation notes
 
+- `ccp/mdsection.py` holds `FENCE_RE`, `blank` and `unfence` (moved from `ccp/tasklog.py`), `section_end` (the next
+  heading of a level or higher outside a fence), `heading_span` (offsets: heading start, end of the pattern's match,
+  section end) and `heading_block`, its slice. A heading is `#` run, blanks, then the text `pattern` matches; a
+  section ends at a heading line of its level or higher, `#` run then a blank or the line's end. `section_span`,
+  `report.friction`/`follow_ups` and `taskmigrate.table` need the body's offset, so they call `heading_span`.
+- `tasklog.section_span` now ends a task file's section at a `# ` heading too (level 2 or higher), as every other
+  reader does; before, only `## ` ended it. `_signed_sections` ends a `## Rule changes` section the same way.
+- `ccp/spec.py`: `files` (moved from `estimator._spec_files`; `tests/test_short_plane_json.py` calls it there),
+  `resolve(texts, ref, prefix)`, the one resolver, and `show`. A ref drops a leading `§`, else `ids.spec.prefix`.
+  `show` writes the blocks once, a blank line between, and ends quietly when its reader stops early (`| head`).
+- `report.py`: the section headings are heading-text patterns (`FRICTION_HEAD`, `FOLLOW_UPS_HEAD`, `BEYOND_HEAD`,
+  `TESTS_HEAD`); `FOLLOW_UPS_RE` stays for the near-miss heading warning. `taskmigrate.heading` reads outside fences.
+- `adr.py`: `_DEC_HEAD` is built from `_DEC_HEAD_TEXT`, the heading text `decision_block` passes to `heading_block`.
+
 ## Verification notes
