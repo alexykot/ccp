@@ -145,7 +145,7 @@ class TeamLessons(unittest.TestCase):
 # and stops with a scope question when a figure changed materially. Each doc that holds a half of the rule is
 # pinned by the one token only it uses, present once; the worker definitions leave it to the prompt (E13).
 PREMISE_DOCS = {
-    PLUGIN / "skills" / "writing-tasks" / "SKILL.md": ("sets scope",),
+    PLUGIN / "skills" / "writing-tasks" / "SKILL.md": ("premise that sets scope",),
     PLANE_ROOT / "templates" / "prompts" / "implement.md": ("Before you build, re-run at {{base}}",),
 }
 

@@ -28,6 +28,8 @@ made: the task file says what to build and how it is checked.
   never a hand edit and restore in your own worktree.
 - After you merge the integration branch in, or change code, run the tests the change touches with
   the suite run's `--affected` (`--since <ref>` for what a merge brought in), not a guess at module names.
+- Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
+  the merge base and go by what it says, not by the number.
 - The last step before you push the head you report from an implement or fix round is the catch-up merge
   of the integration tip into your branch, conflicts resolved and your tests run on the merged code (SPEC
   §13.2); never a rebase.
