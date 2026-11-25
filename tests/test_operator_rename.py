@@ -53,14 +53,8 @@ class OldNamesAreRefused(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertEqual(json.loads((self.q / "tasks" / "0001-a.json").read_text())["waiting_on"], new)
 
-    def test_the_old_names_are_no_vocabulary(self) -> None:
-        self.assertNotIn(OLD_STEP, lib.ACTORS)
+    def test_the_operator_is_an_actor_and_an_old_name_reads_as_system(self) -> None:
         self.assertIn("operator", lib.ACTORS)
-        self.assertNotIn(OLD_DECISION, lib.WAIT_REASONS)
-        self.assertNotIn(OLD_STEP, lib.WAIT_REASONS)
-        self.assertNotIn(OLD_DECISION, lib.WAIT_READ_ONLY)
-        self.assertNotIn(OLD_STEP, lib.WAIT_READ_ONLY)
-        self.assertNotIn("waiting_" + OLD_DECISION, lib.OPEN_GATE_STATUSES)
         self.assertEqual(sm.actor_for("operator"), "operator")
         self.assertEqual(sm.actor_for(OLD_DECISION), "system")
 

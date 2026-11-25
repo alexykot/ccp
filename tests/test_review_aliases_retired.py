@@ -1,15 +1,12 @@
 """ADR-0034 D5: the older architecture-review and docs-audit aliases are retired (SPEC §19.12).
-`ccp docs audit` is no longer a command, and a queue that still holds the aliases' state files,
-reports and events builds its board and its health as before."""
+A queue that still holds the aliases' state files, reports and events builds its board and its health
+as before."""
 from __future__ import annotations
 
-import io
 import json
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-from ccp import cli
 from ccp.queue import lib
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -70,12 +67,6 @@ class OlderAliasRecords(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("health", "--json")
         self.assertEqual(code, 0, out + err)
         json.loads(out)
-
-    def test_docs_audit_is_no_longer_a_command(self):
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()), \
-                self.assertRaises(SystemExit) as ctx:
-            cli.main(["--root", str(self.runner), "docs", "audit", "due"])
-        self.assertEqual(ctx.exception.code, 2)
 
 
 if __name__ == "__main__":

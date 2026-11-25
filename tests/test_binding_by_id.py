@@ -70,6 +70,14 @@ class BindingById(BindingDir):
                               env={**env, "PROJECT_YAML": str(yml)})
         self.assertIn("docs/delivery/SPEC-MAINTAINER.md", mine.stdout, mine.stderr)
 
+    def test_sync_refuses_a_project_with_no_binding(self):
+        env = {**os.environ, "CCP_BINDINGS_DIR": str(self.bindings)}
+        env.pop("PROJECT_YAML", None)
+        r = subprocess.run(["bash", str(PLANE_ROOT / "scripts" / "sync-product-docs.sh"), "no-binding", "--check"],
+                           capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("no-binding", r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
