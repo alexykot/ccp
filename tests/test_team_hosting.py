@@ -614,6 +614,11 @@ class TestKeepBodyImport(unittest.TestCase):
                 self.assertTrue(team.product_config(Path(q.name)).prompts["keep_body"])
             self.assertEqual(sys.path, after_one)
             self.assertIn(str(PLANE_ROOT), sys.path)
+            bare = tempfile.TemporaryDirectory()
+            self.addCleanup(bare.cleanup)
+            self.assertIsNone(team.product_config(Path(bare.name)))  # no product root: no config
+            (Path(prod.root) / "docs/delivery/plane.json").write_text("{")
+            self.assertIsNone(team.product_config(Path(q.name)))  # a load that fails: no config
 
 
 class TestAgentModels(unittest.TestCase):
