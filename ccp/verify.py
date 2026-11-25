@@ -1637,10 +1637,12 @@ def main(cfg: Config, a: Any) -> int:
         code, body = spec_text(cfg, a.target, a.base, a.head)
         if body.get("error"):
             print(f"ccp verify spec-text: {body['error']}", file=sys.stderr)
+        read = f"{body.get('head')} changes since {body.get('base')}" if a.head else \
+            f"the working tree changes since its merge base with {body.get('base')}"
         for r in body.get("passages") or []:
             if not r["found_in"]:
-                print(f"ccp verify spec-text: not found in the SPEC or the file its block names, in the text {body['head']} "
-                      f"changes since {body['base']}: the passage at {r['line']}: {r['passage']}", file=sys.stderr)
+                print(f"ccp verify spec-text: not found in the SPEC or the file its block names, in the text {read}: "
+                      f"the passage at {r['line']}: {r['passage']}", file=sys.stderr)
         print(json.dumps(body, indent=2, ensure_ascii=False))
         return code
     queue = _queue()

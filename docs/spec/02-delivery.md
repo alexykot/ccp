@@ -1438,7 +1438,7 @@ wait (`--wait SECONDS` or `--wait auto`'s bound, and `wait_s`). Exit 0 says the 
 answers every module of the run: the run does not take the lock and is recorded
 `lane_skipped: "cache_probe"`. Any other exit, a timeout, or a probe that cannot start leaves the run
 taking the lock as before, and a run bound to a task whose gate is cold takes the lock whatever the
-probe says. The verifier still runs its gate (§15.3). Busy exits are recorded on the run (`lane_busy`). A run that has started
+probe says. A run given `--cold` takes the lock as any other. The verifier still runs its gate (§15.3). Busy exits are recorded on the run (`lane_busy`). A run that has started
 and outlasts its caller's command limit is waited on by its suite id with `ccp suite wait` (§14.2).
 
 ### 16.7 Records, forecast, usage and the board

@@ -358,6 +358,26 @@ class SpecText(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual([r["found_in"] for r in body["passages"]], [["contracts/x.schema.json"]])
 
+    def test_with_no_head_the_not_found_line_names_the_working_tree(self):
+        self.change("docs/spec/x.md", "\n" + PASSAGE.replace("next task", "first task") + "\n")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual((code, body["head"]), (1, "working tree"), err)
+        self.assertIn("its merge base with main:", err)
+        code, body, err = self.run_cmd("0001-signed", "--base", "main", "--head", "HEAD")
+        self.assertEqual(code, 1, err)
+        self.assertIn("HEAD changes since main:", err)
+        self.assertNotIn("merge base", err)
+
+    def test_with_no_head_a_base_with_no_merge_base_exits_2(self):
+        empty = git(self.p.root, "hash-object", "-t", "tree", os.devnull)
+        orphan = git(self.p.root, "commit-tree", empty, "-m", "unrelated history")
+        git(self.p.root, "branch", "unrelated", orphan)
+        self.change("docs/spec/x.md", "\n" + PASSAGE + "\n")
+        code, body, err = self.run_cmd("0001-signed", "--base", "unrelated")
+        self.assertEqual(code, 2, err)
+        self.assertEqual(body["base"], "unrelated")
+        self.assertIn("unrelated", err)
+
     def test_with_head_given_an_uncommitted_spec_edit_is_not_read(self):
         x = self.p.root / "docs/spec/x.md"
         x.write_text(x.read_text() + "\n" + PASSAGE + "\n")  # written, not committed

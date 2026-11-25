@@ -1244,7 +1244,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         os.chdir(cfg.root)  # a named lane runs from the checkout's root, as a product script expects
     _reopen_closed_std_fds()
     wt_env = worktree_env(cfg, command, warn)
-    cold_env = for_child({COLD_VAR: "1"}) if getattr(a, "cold", False) else {}  # §14.2: the cold run, in every product
+    cold = bool(getattr(a, "cold", False))
+    cold_env = for_child({COLD_VAR: "1"}) if cold else {}  # §14.2: the cold run, in every product
     if envvar("CCP_SUITE_ID"):
         inner = {**(os.environ if caller_env is None else caller_env), **wt_env, **cold_env} \
             if wt_env or cold_env else caller_env
@@ -1285,7 +1286,9 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         warn(f"not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__}): running the tests anyway")
         q = started = None
     lane_fd: int | None = None
-    green = _green_from(cfg, q, started) if q is not None and started is not None and _exclusive(cfg, lane) else None
+    # §16.6: a run given --cold takes the lock as any other: no green tree, no cache probe
+    green = _green_from(cfg, q, started) \
+        if q is not None and started is not None and _exclusive(cfg, lane) and not cold else None
     if green and started is not None:
         # §16.6: a passing run of this tree in this lane is recorded; the product's test cache answers most of it
         started.update(lane_skipped=GREEN_TREE, green_from=green)
@@ -1303,7 +1306,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         try:
             lane_fd, holder = take_lane(q, mine)
             probe = cache_probe_argv(cfg, lane, stages) if lane_fd is None else None
-            if probe and not _cold_task(cfg, started):
+            if probe and not cold and not _cold_task(cfg, started):
                 # §16.6: once, before any wait, whatever the wait; its time counts against the wait (t_wait)
                 cached, why_not = run_cache_probe(probe, lane, {**(os.environ if caller_env is None else caller_env),
                                                                 **wt_env, **cold_env})
