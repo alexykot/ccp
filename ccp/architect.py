@@ -3,8 +3,8 @@
 One seat owns a product's structural health across four lenses (structure, docs, tests, process).
 A fresh, read-only `claude -p` runs the product's managed `architect` skill and returns one report;
 the task-log owner triages it under `docs/delivery/REVIEW-TRIAGE.md`. Everything after the call is
-§19's review kit (`ccp/architecture_review.py`), as a review *kind* with its own state
-(`architect.json`), lock (`architect.lock`) and id prefixes: `ar-` for a pass, `sh-` for a shape.
+§19's review kit (`ccp/architecture_review.py`), which holds the seat's state (`architect.json`), lock
+(`architect.lock`), id prefixes (`ar-` for a pass, `sh-` for a shape) and lenses.
 
 `ccp` computes when a pass is due, so no seat has to remember it (§19.6), from:
 
@@ -41,9 +41,10 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from ccp import architecture_review as ar  # review kinds, lock, validation, triage
+from ccp import architecture_review as ar  # the seat's state, lock, validation, triage
 from ccp import config, headless, health, parallel, pkgdocs, refs, rules, tasklog, wt
 from ccp.adr import find_file as find_adr_file
+from ccp.architecture_review import LENSES
 from ccp.config import ARCHITECT_DEFAULTS, Config
 from ccp.lib import fmt_dt, lock_is_stale, parse_dt, read_json, write_atomic, write_json
 from ccp.queue import spawn_detached
@@ -51,14 +52,6 @@ from ccp.queue import spawn_detached
 PLANE = Path(__file__).resolve().parent.parent
 OBS = PLANE / "scripts" / "observability"
 
-LENSES: dict[str, tuple[str, ...]] = {
-    "structure": ar.CATEGORIES,
-    "docs": ("doc-wrong", "doc-missing", "doc-aspirational", "doc-padding", "doc-history"),
-    "tests": ("test-cost", "test-brittle"),
-    "process": ("process-cost",),
-}
-ARCH = ar.Kind("architect", "Architect pass", "ar", "architect.json", "architect.lock", "architect",
-               tuple(c for cats in LENSES.values() for c in cats), "ccp architect triage", ("sh",))
 SKILL = ar.ARCHITECT_SKILL
 MAX_FINDINGS = {"pass": 25, "shape": 10}
 AWAITING = ("reported", "triaging", "triage_sent", "triage_failed")
@@ -135,7 +128,7 @@ def _drop_worktree(main: str | Path, path: str | Path) -> None:
 def _reap(q: Path, st: dict[str, Any], actor: str) -> None:
     """A `running` pass whose lock is gone or stale has died with its process: mark it failed, and
     remove its own worktree if it is still there."""
-    lock = q / ARCH.lock
+    lock = q / ar.LOCK
     try:
         cur = read_json(lock) if lock.is_file() else {}
     except (OSError, ValueError):
@@ -148,7 +141,7 @@ def _reap(q: Path, st: dict[str, Any], actor: str) -> None:
         alive = cur.get("review_id") == rid and not lock_is_stale(cur, now)
         if not alive and age > STALE_AFTER_S:
             rec["error"] = "its process ended without a result (lock gone or stale)"
-            ar.transition(q, st, rid, "failed", actor, ARCH)
+            ar.transition(q, st, rid, "failed", actor)
             if rec.get("worktree") and rec.get("main") and Path(rec["worktree"]).exists():
                 _drop_worktree(rec["main"], rec["worktree"])
 
@@ -156,7 +149,7 @@ def _reap(q: Path, st: dict[str, Any], actor: str) -> None:
 def load(q: Path, actor: str = "system", reap: bool = True) -> dict[str, Any]:
     """The state file. `reap=False` only reads: no dead pass is marked failed and no worktree is removed
     (the board's view)."""
-    st = ar.load_state(q, ARCH)
+    st = ar.load_state(q)
     st.setdefault("reviews", {})
     st.setdefault("seen", {})
     if reap:
@@ -261,7 +254,7 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
             def keep_baseline(fresh: dict[str, Any]) -> None:
                 if not fresh.get("last") and "budget_baseline" not in fresh:
                     fresh["budget_baseline"] = sorted(known)
-            ar.update_state(q, ARCH, keep_baseline)
+            ar.update_state(q, keep_baseline)
     skip = known | _tasked_rules(tasks)  # a breach a pending task already fixes calls no pass
     new_budgets = [b for b in budgets if b.split(":", 1)[0] not in skip]
     if new_budgets:
@@ -283,7 +276,7 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
             # Only if no pass finished meanwhile: a finished pass clears `seen`.
             if (fresh.get("last") or {}).get("review_id") == last.get("review_id"):
                 fresh["seen"] = seen
-        ar.update_state(q, ARCH, keep_seen)
+        ar.update_state(q, keep_seen)
     attempt = st.get("last_attempt") or {}
     restart = attempt.get("done_count") if attempt.get("review_id") != last.get("review_id") else None
     waited = [len(done) - max(at, restart if restart is not None else at) for _, _, at in reasons]
@@ -476,13 +469,27 @@ def prompt_for(cfg: Config, q: Path, rid: str, mode: str, lenses: list[str], hea
     return "\n".join(lines) + "\n"
 
 
-def validate(report: Any, rid: str, pid: str, mode: str, lenses: list[str],
-             ids: refs.Ids = refs.DEFAULT) -> list[str]:
-    """§19.7's checks with the lenses' categories, plus §19.7: mode, lenses, rule_changes, metrics."""
-    cats = tuple(c for lens in lenses for c in LENSES[lens])
-    errs = ar.validate_report(report, rid, pid, ARCH._replace(categories=cats), MAX_FINDINGS[mode])
+def as_written(report: dict[str, Any], rid: str, pid: str, head: str, base: str | None, mode: str,
+               lenses: list[str], adr: str | None) -> dict[str, Any]:
+    """The report as `ccp architect run` writes it (§19.7): the model's object with the fields the plane sets."""
+    written = {**report, "schema_version": 1, "review_id": rid, "project_id": pid, "head": head, "base": base,
+               "mode": mode, "lenses": lenses, "rule_changes": report.get("rule_changes") or []}
+    if adr:
+        written["adr"] = adr
+    return written
+
+
+def validate(report: Any, rid: str, pid: str, mode: str, lenses: list[str], ids: refs.Ids = refs.DEFAULT, *,
+             head: str, base: str | None = None, adr: str | None = None) -> list[str]:
+    """§19.7's checks: the report as written held to its contract with the lenses' categories and the product's
+    rule ids (`ar.validate_report`), and the model's own review id, mode, lenses, rule_changes, metrics and shape."""
     if not isinstance(report, dict):
-        return errs
+        return ["report is not an object"]
+    cats = tuple(c for lens in lenses for c in LENSES[lens])
+    errs = ar.validate_report(as_written(report, rid, pid, head, base, mode, lenses, adr), rid, pid, cats,
+                              MAX_FINDINGS[mode], ids)
+    if report.get("review_id") not in (None, rid):
+        errs.append(f"review_id {report.get('review_id')!r} != {rid}")
     if report.get("mode") not in (None, mode):
         errs.append(f"mode {report.get('mode')!r} != {mode}")
     got = report.get("lenses")
@@ -496,8 +503,6 @@ def validate(report: Any, rid: str, pid: str, mode: str, lenses: list[str],
         if not isinstance(c, dict):
             errs.append(f"rule_changes[{i}] is not an object")
             continue
-        if not ids.is_rule_id(c.get("rule")):
-            errs.append(f"rule_changes[{i}]: rule {c.get('rule')!r} is not a rule id ({ids.rule_shape})")
         if c.get("action") not in RULE_ACTIONS:
             errs.append(f"rule_changes[{i}]: action {c.get('action')!r} is not one of {', '.join(RULE_ACTIONS)}")
         if not str(c.get("check") or "").strip():
@@ -518,7 +523,7 @@ def validate(report: Any, rid: str, pid: str, mode: str, lenses: list[str],
 def render(report: dict[str, Any]) -> str:
     """§19's rendered report, with the rule changes and, for a shape, the ADR and its advice."""
     label = "Architect shape" if report.get("mode") == "shape" else "Architect pass"
-    md = ar.render_md(report, ARCH._replace(label=label))
+    md = ar.render_md(report, label)
     head, _, rest = md.partition("\n\n")
     extra = [f"mode `{report.get('mode')}` · lenses {', '.join(report.get('lenses') or [])}"]
     if report.get("adr"):
@@ -550,11 +555,11 @@ def _spawn(cfg: Config, q: Path, argv: list[str], many: bool = False) -> int:
     deadline = time.time() + 30
     status = None
     while time.time() < deadline:
-        status = (ar.load_state(q, ARCH).get("reviews", {}).get(rid) or {}).get("status")
+        status = (ar.load_state(q).get("reviews", {}).get(rid) or {}).get("status")
         if status not in (None, "none") or p.poll() is not None:
             break
         time.sleep(0.2)
-    status = (ar.load_state(q, ARCH).get("reviews", {}).get(rid) or {}).get("status")
+    status = (ar.load_state(q).get("reviews", {}).get(rid) or {}).get("status")
     if status in (None, "none") and p.poll() is not None:
         text = log.read_text() if log.is_file() else ""
         try:
@@ -662,7 +667,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
     rid = rid or _new_rid(mode)
     dirty = bool(ar.git(pr, "status", "--porcelain", "--untracked-files=no"))
     timeout_s = int(s["call_timeout_minutes"]) * 60
-    ok, cur = ar.lock_take(q, actor, rid, timeout_s + 600, ARCH)
+    ok, cur = ar.lock_take(q, actor, rid, timeout_s + 600)
     if not ok:
         return {"outcome": "locked", "lock": cur}, 3
     st = load(q, actor)
@@ -681,11 +686,11 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
         rec0.update(worktree=str(own), main=str(main))
 
     def move(to: str, **fields: Any) -> None:
-        ar.transition(q, {"reviews": {rid: {**rec0, **fields}}}, rid, to, actor, ARCH)
+        ar.transition(q, {"reviews": {rid: {**rec0, **fields}}}, rid, to, actor)
 
     try:
         if mode == "pass":
-            ar.update_state(q, ARCH, lambda f: f.__setitem__(
+            ar.update_state(q, lambda f: f.__setitem__(
                 "last_attempt", {"review_id": rid, "done_count": len(done), "at": rec0["started_at"]}))
         move("running")
         if own:
@@ -701,7 +706,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
         argv += [os.environ.get("DA_CLAUDE_BIN") or "claude", "-p", prompt, *ar.headless_flags(cfg), *ar.plugin_args(cfg.root),
                  "--output-format", "json", "--allowedTools", ",".join(tools), "--disallowedTools", ",".join(deny)]
         audit = subprocess.run(
-            ["bash", str(OBS / "write-prompt-audit.sh"), "--task-id", ARCH.audit_task, "--phase", f"architect-{mode}",
+            ["bash", str(OBS / "write-prompt-audit.sh"), "--task-id", ar.AUDIT_TASK, "--phase", f"architect-{mode}",
              "--prompt-file", "-", "--argv", json.dumps(argv), "--actor", actor, "--project-id", pid,
              "--worktree", cwd, "--git-head", head, "--notes", f"review_id={rid}"]
             + (["--keep-body"] if (cfg.prompts or {}).get("keep_body") else []),  # §23.8
@@ -710,7 +715,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
             raise RuntimeError(f"write-prompt-audit failed: {audit.stderr.strip()}")
         prompt_ref = audit.stdout.strip().splitlines()[-1]
         result["prompt_ref"] = prompt_ref
-        ar.emit(q, actor, "launch", {"review_id": rid, "phase": mode, "prompt_ref": prompt_ref}, ARCH)
+        ar.emit(q, actor, "launch", {"review_id": rid, "phase": mode, "prompt_ref": prompt_ref})
         env = headless.headless_env(pid, f"architect-{mode}")
         try:
             proc = subprocess.run(argv, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True,
@@ -720,7 +725,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
             so = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
             code, se = 124, "timeout"
         res = headless.parse_claude_json(so)
-        ar.emit(q, actor, "exit", {"review_id": rid, "phase": mode, "exit_code": code}, ARCH)
+        ar.emit(q, actor, "exit", {"review_id": rid, "phase": mode, "exit_code": code})
         from ccp import usage  # noqa: PLC0415
         usage.record_headless(q, f"architect-{mode}", rid, res)
         is_quota, qclass, resets = headless.detect_quota(res, so, se)
@@ -729,16 +734,14 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
             return {**result, "outcome": "quota_parked", "quota_class": qclass, "resets_at": resets,
                     "actions": [{"action": "retry_after_reset", "detail": "Run `ccp architect run --force` after the reset."}]}, 1
         report = ar.last_json_object(str(res.get("result") or ""))
-        errs = validate(report, rid, pid, mode, lenses, refs.ids(cfg)) if report is not None else ["no JSON report in the final message"]
+        errs = (validate(report, rid, pid, mode, lenses, refs.ids(cfg), head=head, base=base, adr=adr)
+                if report is not None else ["no JSON report in the final message"])
         if errs:
             write_atomic(ar.rdir(q) / f"{rid}.failed.txt", (str(res.get("result") or se or ""))[-20000:])
             move("failed", error="; ".join(errs)[:500])
             return {**result, "outcome": "failed", "errors": errs,
                     "actions": [{"action": "retry_next_due", "detail": f"Raw output kept in reviews/{rid}.failed.txt."}]}, 1
-        report.update({"schema_version": 1, "review_id": rid, "project_id": pid, "head": head, "base": base,
-                       "mode": mode, "lenses": lenses, "rule_changes": report.get("rule_changes") or []})
-        if adr:
-            report["adr"] = adr
+        report = as_written(report, rid, pid, head, base, mode, lenses, adr)
         write_json(ar.report_path(q, rid), report)
         write_atomic(ar.rdir(q) / f"{rid}.md", render(report))
         rec0.update(findings=len(report["findings"]), rule_changes=len(report["rule_changes"]),
@@ -749,7 +752,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
                              "head": head, "done": done, "health_drift": bool((info.get("health") or {}).get("drift")),
                              "budget_ids": sorted({b.split(":", 1)[0] for b in info.get("budget_failures") or []} - tasked)}
                 f["seen"] = {}
-            ar.update_state(q, ARCH, finish)
+            ar.update_state(q, finish)
         if mode == "pass" and not report["findings"] and not report["rule_changes"]:
             move("no_findings")
             return {**result, "outcome": "no_findings", "report": str(ar.report_path(q, rid))}, 0
@@ -763,7 +766,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
     finally:
         if own:
             _drop_worktree(main, own)
-        ar.lock_release(q, actor, rid, ARCH)
+        ar.lock_release(q, actor, rid)
 
 
 # ---------------------------------------------------------------- triage
@@ -816,7 +819,7 @@ def triage_extra(cfg: Config, report: dict[str, Any]) -> str:
 
 def cmd_triage_list(q: Path) -> int:
     """Reports awaiting triage, with their report and triage-file paths. No `claude -p`."""
-    st = ar.load_state(q, ARCH)
+    st = ar.load_state(q)
     rows = []
     for rid, rec in sorted((st.get("reviews") or {}).items()):
         if rec.get("status") in AWAITING:
@@ -855,7 +858,7 @@ def _same_commit(recorded: str, sha: str) -> bool:
 
 def cmd_backfill(cfg: Config, q: Path, rid: str, sha: str, actor: str) -> int:
     """Record the integration-branch sha for a triage that finalised with commit_sha pending."""
-    if not ARCH.rid_re.match(rid):
+    if not ar.RID_RE.match(rid):
         return ar.out({"outcome": "bad_review_id", "review_id": rid}, 2)
     if not ar.is_commit_sha(sha):
         return ar.out({"outcome": "invalid_sha", "review_id": rid,
@@ -863,7 +866,7 @@ def cmd_backfill(cfg: Config, q: Path, rid: str, sha: str, actor: str) -> int:
     if not _commit_exists(cfg.root, sha):
         return ar.out({"outcome": "unknown_commit", "review_id": rid, "commit_sha": sha,
                        "error": "that sha is not a commit in this checkout"}, 1)
-    st = ar.load_state(q, ARCH)
+    st = ar.load_state(q)
     rec = (st.get("reviews") or {}).get(rid) or {}
     if rec.get("status") != "triaged":
         return ar.out({"outcome": "not_triaged", "review_id": rid, "status": rec.get("status")}, 1)
@@ -890,7 +893,7 @@ def cmd_backfill(cfg: Config, q: Path, rid: str, sha: str, actor: str) -> int:
         row["commit_sha"] = full
         row["backfilled_at"] = t["backfilled_at"]
 
-    ar.update_state(q, ARCH, apply)
+    ar.update_state(q, apply)
     return ar.out({"outcome": "backfilled", "review_id": rid, "commit_sha": full,
                    "pending_change": rec.get("pending_change")})
 
@@ -909,7 +912,7 @@ def cmd_apply(cfg: Config, q: Path, rid: str, actor: str) -> int:
     `ccp architect triage <id>` asks the lead to write the file when it is missing. A file
     committed ahead of architect.json (status still triage_sent) is this path: do not send a prompt.
     """
-    if not ARCH.rid_re.match(rid):
+    if not ar.RID_RE.match(rid):
         return ar.out({"outcome": "bad_review_id", "review_id": rid}, 2)
     rp, tp = ar.report_path(q, rid), ar.triage_path(q, rid)
     if not rp.is_file():
@@ -926,12 +929,12 @@ def cmd_apply(cfg: Config, q: Path, rid: str, actor: str) -> int:
         errs = ["report is not an object"]
     if errs:
         return ar.out({"outcome": "invalid_triage", "review_id": rid, "errors": errs}, 1)
-    st = ar.load_state(q, ARCH)
+    st = ar.load_state(q)
     status = (st.get("reviews") or {}).get(rid, {}).get("status")
     index = _rebuild_index(cfg)
     if status == "triaged":
         return ar.out({"outcome": "already_triaged", "review_id": rid, "index": index})
-    result = ar.apply_triage(q, rid, actor, t, ARCH)
+    result = ar.apply_triage(q, rid, actor, t)
     return ar.out({**result, "outcome": "applied", "index": index})
 
 
@@ -939,7 +942,7 @@ def cmd_triage(cfg: Config, q: Path, rid: str, actor: str) -> int:
     s = _settings(cfg)
     rp = ar.report_path(q, rid)
     report = read_json(rp) if rp.is_file() else {}
-    return ar.triage(q, rid, actor, ARCH, max_new=s["max_new_tasks"],
+    return ar.triage(q, rid, actor, max_new=s["max_new_tasks"],
                      prompt_extra=triage_extra(cfg, report), extra_check=triage_check,
                      product_dir=str(cfg.root), ids=refs.ids(cfg))
 

@@ -1,5 +1,5 @@
-"""The ids the observability scripts check (SPEC §7, §17, §19): an architect pass's id (`Kind.rid_re`) and a spec
-question's (`spec_maintainer.QID_RE`) take their shape from ccp/refs.py."""
+"""The ids the observability scripts check (SPEC §7, §17, §19): an architect pass's id (`architecture_review.RID_RE`)
+and a spec question's (`spec_maintainer.QID_RE`) take their shape from ccp/refs.py."""
 from __future__ import annotations
 
 import secrets
@@ -8,6 +8,7 @@ import unittest
 from datetime import datetime, timezone
 
 from ccp import architect
+from ccp import architecture_review as ar
 from tests.helpers import PLANE_ROOT
 
 sys.path.insert(0, str(PLANE_ROOT / "scripts" / "observability"))
@@ -19,10 +20,10 @@ class PassId(unittest.TestCase):
     def test_a_fresh_pass_or_shape_id_matches(self):
         for mode in ("pass", "shape"):
             with self.subTest(mode=mode):
-                self.assertRegex(architect._new_rid(mode), architect.ARCH.rid_re)  # noqa: SLF001
+                self.assertRegex(architect._new_rid(mode), ar.RID_RE)  # noqa: SLF001
 
     def test_a_three_hex_digit_suffix_does_not(self):
-        self.assertNotRegex(architect._new_rid("pass")[:-1], architect.ARCH.rid_re)  # noqa: SLF001
+        self.assertNotRegex(architect._new_rid("pass")[:-1], ar.RID_RE)  # noqa: SLF001
 
 
 class QuestionId(unittest.TestCase):

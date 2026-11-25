@@ -51,7 +51,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^[0-9]{4}-[a-z0-9-]+$"
+        "description": "A task id, its number as wide as the product's ids.task.width (SPEC §7.1)"
       }
     },
     "dispositions": {
@@ -125,7 +125,7 @@
         "properties": {
           "rule": {
             "type": "string",
-            "pattern": "^E[0-9]+$"
+            "description": "A house-rule id, in the shape the product's ids.rule.pattern gives (SPEC §7.1)"
           },
           "action": {
             "enum": [

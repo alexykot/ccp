@@ -394,9 +394,10 @@ class TemplatesAndContracts(unittest.TestCase):
 
     def test_report_schema_categories_are_the_lenses(self):
         from ccp import architect
+        from ccp import architecture_review as ar
         schema = json.loads((PLANE_ROOT / "contracts/architect_report.schema.json").read_text())
         items = schema["properties"]["findings"]["items"]["properties"]
-        self.assertEqual(items["category"]["enum"], list(architect.ARCH.categories))
+        self.assertEqual(items["category"]["enum"], list(ar.CATEGORIES))
         self.assertEqual(schema["properties"]["lenses"]["items"]["enum"], list(architect.LENSES))
 
 
