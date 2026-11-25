@@ -52,7 +52,7 @@ PHASE_STATUS = {"implement": "implementing", "fix": "fixing", "merge": "fixing",
 # §14.1: the lane each worker labels its test runs with, by role; the names come from plane.json
 # suite.roles (`{full}`, `{gate}`, `{part}` below). A role whose lane plane.json `suite.lanes` declares is
 # written as that lane with nothing after `--`, save a part lane declared as an argv, written with that argv
-# and the module names after `--` (`{<role>_for}` and `{<role>_as}` fill in the form).
+# and the test modules after `--` (`{<role>_for}` and `{<role>_as}` fill in the form).
 SUITE_LANES = {
     "implement": "{full}{full_for}the product's full suite{full_as}, {part}{part_for}a subset of the tests{part_as}",
     "review": "{part}{part_for}the tests you run{part_as} ({full} if you run the whole suite)",
@@ -146,10 +146,11 @@ def suite_lanes(cfg: Config, phase: str) -> str:
     """§14.1: the phase's lanes, by role. A lane plane.json `suite.lanes` declares (an argv or stages) runs
     as `--lane <lane>` with nothing after `--`, so the worker runs what the product declares; a lane it does
     not declare takes the command after `--`. The part role's lane declared as an argv is given as two whole
-    commands, the lane with that argv and module names after `--`, or `ccp suite run --affected`, which takes no
-    `--lane` (§14.7): with nothing after it, the argv runs them all. The part role's lane declared with stages is
+    commands, the lane with that argv and test modules after `--` (with the language pack's example of one), or
+    `ccp suite run --affected`, which takes no `--lane` (§14.7): with nothing after it, the argv runs them all. The part role's lane declared with stages is
     also run by `ccp suite run --affected`, as declared (§14.7)."""
     from ccp.config import SUITE_ROLES, lane_for  # noqa: PLC0415
+    from ccp.doclang import for_tests  # noqa: PLC0415
     from ccp.suite import declared_part_argv  # noqa: PLC0415
     declared = (cfg.suite or {}).get("lanes") or {}
     ccp = ccp_command(cfg)  # the worker's own ccp, as every command the prompt gives
@@ -160,7 +161,9 @@ def suite_lanes(cfg: Config, phase: str) -> str:
         own = isinstance(declared, dict) and lane in declared
         argv = declared_part_argv(cfg) if r == "part" else None
         if argv is not None:
-            v[r] = f"`{ccp} suite run --lane {lane} -- {shlex.join(argv)} <module> …` (module names, not test ids)"
+            example = for_tests(cfg).module_example  # how the product's language names a test module
+            kind = f"test modules, such as `{example}`, not test ids" if example else "test modules, not test ids"
+            v[r] = f"`{ccp} suite run --lane {lane} -- {shlex.join(argv)} <module> …` ({kind})"
             v[f"{r}_for"], v[f"{r}_as"] = ": ", f", or {affected} (it picks the lane itself) for the modules a change touches"
             continue
         v[r] = f"`--lane {lane}`" + (" with nothing after `--`" if own else "")
@@ -199,6 +202,42 @@ def render_phase(phase: str, values: dict[str, Any]) -> str:
     flags = GATE_FLAGS[phase] if phase in runs.CHANGE_PHASES else None
     gate = render((TEMPLATES / "_gate.md").read_text(), {**values, **flags}).rstrip("\n") if flags else ""
     return render((TEMPLATES / f"{phase}.md").read_text(), {**values, "gate": gate})
+
+
+def phase_text(phase: str, values: dict[str, Any]) -> str:
+    """What `ccp prompt` writes before the end line (§13.2): the phase's template, then the shared part `_common.md`."""
+    return render_phase(phase, values).rstrip() + "\n\n" \
+        + render((TEMPLATES / "_common.md").read_text(), values).rstrip() + "\n"
+
+
+def template_names() -> tuple[set[str], set[str]]:
+    """The names the prompt templates use: (as a value or a section, as a section)."""
+    names: set[str] = set()
+    sections: set[str] = set()
+    for f in sorted(TEMPLATES.glob("*.md")):
+        t = f.read_text()
+        sections |= {m[1] for m in re.findall(r"\{\{([#^/])(\w+)\}\}", t)}
+        names |= set(VAR_RE.findall(t))
+    return names | sections, sections
+
+
+def placeholder_values(on: Any = ()) -> dict[str, Any]:
+    """The values `ccp prompt render` fills a template with: every name the templates use is `<name>`, save a
+    section, which is off (empty) unless `on` names it."""
+    names, sections = template_names()
+    on = set(on)
+    unknown = sorted(on - sections)
+    if unknown:
+        raise QueueError(f"--on names no template section: {', '.join(unknown)} (the sections are "
+                         f"{', '.join(sorted(sections))})", 2)
+    return {n: "" if n in sections and n not in on else f"<{n}>" for n in names}
+
+
+def render_placeholders(phase: str, on: Any = ()) -> str:
+    """§13.2: the phase's prompt as `ccp prompt` joins it, with placeholder values; it reads no task and writes nothing."""
+    if phase not in runs.PHASES:
+        raise QueueError(f"{phase!r} is not a phase: {', '.join(runs.PHASES)}", 2)
+    return phase_text(phase, placeholder_values(on))
 
 
 def ccp_command(cfg: Config) -> str:
@@ -916,8 +955,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         # §13.2, §21.1: the task's own stale-Context warning, for the implementer to re-measure at its base
         "stale_context": "\n".join(tasklog.stale_context(cfg, meta, cfg.rel(meta["_file"]))) if phase == "implement" else "",
     }
-    body = render_phase(phase, values).rstrip() + "\n\n" \
-        + render((TEMPLATES / "_common.md").read_text(), values).rstrip() + "\n"
+    body = phase_text(phase, values)
     token = prompt_token(run_id, body)  # §13.2: the last line proves the worker got the whole prompt
     body += f"\n{PROMPT_END}{token}\n"
     report.parent.mkdir(parents=True, exist_ok=True)

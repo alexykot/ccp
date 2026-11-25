@@ -5,7 +5,6 @@ mixin for a `TestCase` whose `page` runs the board page's script under node."""
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 
 from tests.helpers import PLANE_ROOT
@@ -31,13 +30,9 @@ PROMPT_TEMPLATES = PLANE_ROOT / "templates" / "prompts"
 
 
 def phase_values(**over) -> dict:
-    """Every name the templates use, set to a placeholder, with the given overrides."""
+    """Every name the templates use, set to a placeholder (the sections on), with the given overrides."""
     from ccp import prompt  # noqa: PLC0415
-    names = set()
-    for f in PROMPT_TEMPLATES.glob("*.md"):
-        t = f.read_text()
-        names |= set(prompt.VAR_RE.findall(t)) | {m[1] for m in re.findall(r"\{\{([#^/])(\w+)\}\}", t)}
-    v = {n: f"<{n}>" for n in names}
+    v = prompt.placeholder_values(prompt.template_names()[1])
     v.update(refactor=False, prior_reports="", note="", worker_env="", rules_doc="", fragment="", main_checkout="/m",
              accept_cache=False, review_cache=False, cold_gate=False, architect_checks="", pregate_lane="", cache_max_age_days="",
              budgets=False, resolution=False, resolved_verify=False, has_affected=False, has_old=False)

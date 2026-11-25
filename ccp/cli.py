@@ -1104,11 +1104,20 @@ def _prompt(cfg: config.Config, a: argparse.Namespace):
 
 def cmd_prompt(cfg: config.Config, a: argparse.Namespace) -> int:
     """`ccp prompt <phase> <task>`, or `ccp prompt env <worktree>`: the dry render of `prompts.worker_env`
-    (SPEC §13.3), plain lines on stdout, nothing written and no board refresh."""
-    if a.phase != "env":
+    (SPEC §13.3), plain lines on stdout, nothing written and no board refresh; or `ccp prompt render <phase>`:
+    the phase's prompt with placeholder values, on stdout, reading no task and writing nothing (SPEC §13.2)."""
+    if a.phase not in ("env", "render"):
         return _toolkit(_prompt)(cfg, a)
     from ccp import prompt  # noqa: PLC0415
     a.read_only = True
+    if a.phase == "render":
+        try:
+            text = prompt.render_placeholders(a.task, a.on or ())
+        except QueueError as e:
+            print(f"ccp prompt: {e}", file=sys.stderr)
+            return e.code
+        sys.stdout.write(text)
+        return 0
     try:
         text = prompt.env_lines(cfg, a.task)
     except QueueError as e:
@@ -1408,9 +1417,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("prompt", help="render a worker's prompt, audit it, open its run (SPEC §13.2; needs QUEUE_ROOT); "
                                       "`ccp prompt env <worktree>` prints the worker_env lines a worktree's workers "
-                                      "would get, opening nothing (SPEC §13.3)")
-    p.add_argument("phase", choices=(*runs.PHASES, "env"))
-    p.add_argument("task", help="task id or NNNN; for env, the worktree (its path or its recorded name)")
+                                      "would get, opening nothing (SPEC §13.3); `ccp prompt render <phase>` prints a "
+                                      "phase's prompt with placeholder values, writing nothing (SPEC §13.2)")
+    p.add_argument("phase", choices=(*runs.PHASES, "env", "render"))
+    p.add_argument("task", help="task id or NNNN; for env, the worktree (its path or its recorded name); "
+                                "for render, the phase")
+    p.add_argument("--on", action="append", metavar="SECTION",
+                   help="render only: switch a template section on (every section is off otherwise); repeatable")
     p.add_argument("--pr")
     p.add_argument("--head", help="the PR head this run works on (every phase but implement)")
     p.add_argument("--base", help="implement: the integration sha the branch starts from (default origin's)")

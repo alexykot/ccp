@@ -3,7 +3,6 @@ from the worker's own worktree and `ccp suite run --affected` since the merge ba
 the test modules a change touches, in every change round's pre-gate and the reviewer's part-lane run."""
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
 
@@ -18,16 +17,6 @@ CHANGE_ROUNDS = (("implement", ("--base", "abc1234")),
                  ("fix", ("--pr", "7", "--head", A)),
                  ("merge", ("--pr", "7", "--head", A)),
                  ("ruling", ("--pr", "7", "--head", A, "--note", "the field is optional")))
-
-
-# The one place a prompt names a mutation worktree: where the product declares no `mutate.command` and its
-# language pack no per-test runner, up to the clause's end (`;` or a sentence's `.`).
-FALLBACK = re.compile(r"Where the product declares no `mutate\.command` and its language pack no per-test runner"
-                      r".*?(?:;|\.(?=\s|$))")
-
-
-def outside_the_fallback(text: str) -> str:
-    return FALLBACK.sub("", text)
 
 
 class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
@@ -48,7 +37,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertIn(f"mutate --run {run_id} --test", text)
         self.assertIn("<test id> --revert <path>[:<lines>]", text)
         self.assertIn(str(self.main / config.WORKTREES_DIR / "ver-0002"), text)
-        self.assertNotIn("wt create --kind mut", outside_the_fallback(text))
+        self.assertEqual(text.count("wt create --kind mut"), 1)  # the one fallback line of the shared part
 
     def test_every_worker_prompt_names_how_to_run_one_check(self):
         for phase, args in (("implement", ("--base", "abc1234")), ("review", ("--pr", "7", "--head", A)),
@@ -65,32 +54,27 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
 
     def test_with_no_mutate_command_a_seat_breaks_code_in_a_mutation_worktree_it_removes(self):
         _run_id, text = self.render("verify", "--pr", "7", "--head", A)
-        fallbacks = FALLBACK.findall(text)
-        self.assertTrue(fallbacks)
-        for f in fallbacks:
-            self.assertIn("--kind mut --task 0002-second --sha ", f)
-            self.assertIn("wt remove <name>", f)
+        self.assertEqual(text.count("wt create --kind mut"), 1)
+        line = next(ln for ln in text.splitlines() if "wt create --kind mut" in ln)
+        for named in ("--task 0002-second --sha ", "wt remove <name>", "`--lane part`"):
+            self.assertIn(named, line)
         _impl_run, text_impl = self.render("implement", "--base", "abc1234")  # every seat, through the common rules
-        fallbacks = FALLBACK.findall(text_impl)
-        self.assertTrue(fallbacks)
-        for f in fallbacks:
-            for named in ("wt create --kind mut --task 0002-second --sha <head>`", "wt remove <name>`", "`--lane part`"):
-                self.assertIn(named, f)
-        self.assertNotIn("put the file back", text)
-        self.assertNotIn("put the file back", (PLANE_ROOT / "templates/prompts/verify.md").read_text())
+        self.assertEqual(text_impl.count("wt create --kind mut"), 1)
+        line = next(ln for ln in text_impl.splitlines() if "wt create --kind mut" in ln)
+        for named in ("wt create --kind mut --task 0002-second --sha <head>`", "wt remove <name>`", "`--lane part`"):
+            self.assertIn(named, line)
 
     def test_the_verify_prompt_asks_for_the_ran_false_reliance_and_the_ruling_id(self):
         _run_id, text = self.render("verify", "--pr", "7", "--head", A)
-        self.assertIn("whether your verdict relies on a check you record `ran: false`", text)
-        self.assertIn("A ruling the lead gave the runner by message has an id", text)
-        self.assertIn("cite that id in the check's `ruling`", text)
+        lines = text.splitlines()
+        self.assertTrue(any("`findings`" in ln and "`ran: false`" in ln for ln in lines))
+        self.assertTrue(any("`ruling`" in ln and "message" in ln for ln in lines))
 
     def test_the_change_rounds_name_mutate_and_suite_run_affected(self):
         for phase, args in CHANGE_ROUNDS:
             run_id, text = self.render(phase, *args)
             self.assertIn(f"mutate --run {run_id} --test <test id>", text, phase)
             self.assertIn("--affected --since origin/main...`", text, phase)
-            self.assertNotIn("dependent-modules", text, phase)
 
     def test_fix_ruling_and_merge_affected_since_the_tip(self):
         """After their catch-up merge, the round's own change is its diff from its merge base with the integration
@@ -139,7 +123,6 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
     def test_the_implementer_sends_rule_text_the_task_does_not_carry_to_a_follow_up(self):
         _run_id, text = self.render("implement", "--base", "abc1234")
         self.assertIn("`## Follow-ups`, not the PR", text)
-        self.assertNotIn("plane propose`), not the PR", text)
         self.assertIn("as a spec question", text)
 
     def test_the_verify_prompt_names_the_record_s_project_id_its_findings_list_and_an_example_that_exists(self):
@@ -158,10 +141,13 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
             self.assertIn("refuses one on a lane with stages", text, phase)
 
     def test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command(self):
+        """The mutation-worktree fallback is on one line of the shared part, `_common.md`, and of no other template."""
+        holding = [(f.name, ln) for f in sorted((PLANE_ROOT / "templates/prompts").glob("*.md"))
+                   for ln in f.read_text().splitlines() if "--kind mut" in ln]
+        self.assertEqual([name for name, _ln in holding], ["_common.md"])
         for phase in ("implement", "fix", "ruling", "merge", "verify", "_common", "_gate"):
-            text = outside_the_fallback((PLANE_ROOT / "templates/prompts" / f"{phase}.md").read_text())
-            for gone in ("dependent-modules command", "mut worktree", "--kind mut"):
-                self.assertNotIn(gone, text, (phase, gone))
+            text = (PLANE_ROOT / "templates/prompts" / f"{phase}.md").read_text()
+            self.assertNotIn("mut worktree", text, phase)
         self.assertEqual(prompt_mod.TEMPLATES, PLANE_ROOT / "templates/prompts")
 
 

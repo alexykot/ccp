@@ -151,4 +151,9 @@ Measured at `becb6417`:
 
 ## Implementation notes
 
+- `ccp prompt render <phase> [--on <name>]...` is `prompt.render_placeholders`: `placeholder_values(on)` (every template name `<name>`, a section off unless `--on` names it; an `--on` naming no section, or an unknown phase, is a `QueueError` of exit 2) through `phase_text`, which `build` now uses too (one join). `cmd_prompt` marks it `read_only`, so no board refresh.
+- `template_names()` is the one reader of the names the templates use; `tests/render_helpers.py`'s `phase_values` starts from `placeholder_values` with every section on, as it behaved before.
+- The Lanes line: `Pack.module_example` (Python `tests.test_x`, others empty); a declared part argv renders `(test modules, such as \`tests.test_x\`, not test ids)`, or `(test modules, not test ids)` for a pack with no example (the shared test fixture's `language: none`).
+- Narrowest readings: `--on` given to a non-render phase is ignored, as `--supersede` is for `env`; the two prompt-tool/lane tests that found a line by a sentence now require each line holding `mutate --run <run>/<phase> --test <test id>` to hold `QUEUE_ROOT=<q> `, and in a verify render there are two such lines (the shared evidence line and the verifier's own revert line). `test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command` keeps its `mut worktree` absence assertion, which the task does not list.
+
 ## Verification notes

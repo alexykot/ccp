@@ -20,18 +20,6 @@ from tests.report_helpers import done_report
 from tests.suite_fixture import CCP, FAILING_MODULE, PY, SuiteFixture, TALLY_SUMMARY, _start_log, ccp_proc
 
 
-def rule_item(text: str, marker: str) -> str:
-    """The prompt's list item holding `marker`: its line and the indented lines that continue it."""
-    lines = text.splitlines()
-    i = next((n for n, ln in enumerate(lines) if marker in ln), None)
-    if i is None:
-        return ""
-    end = i + 1
-    while end < len(lines) and lines[end].startswith("  "):
-        end += 1
-    return "\n".join(lines[i:end])
-
-
 def _kill(pid: int) -> None:
     try:
         os.kill(pid, signal.SIGKILL)
@@ -630,10 +618,10 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
             self.assertEqual(code, 0, out + err)
             texts[phase] = (self.q / f"prompts/0002-second/{phase}-prompt.md").read_text()
         for phase, text in texts.items():
-            rule = rule_item(text, "cite as evidence")
-            self.assertIn(f"QUEUE_ROOT={self.q} ", rule, phase)
-            self.assertIn(f"mutate --run 0002-second/{phase} --test <test id>", rule, phase)
-            self.assertIn("a bare test runner", rule, phase)
+            lines = [ln for ln in text.splitlines() if f"mutate --run 0002-second/{phase} --test <test id>" in ln]
+            self.assertTrue(lines, phase)  # the shared part's evidence line, and the verifier's own revert line
+            for line in lines:
+                self.assertIn(f"QUEUE_ROOT={self.q} ", line, phase)
 
 
 class Summary(SuiteFixture, unittest.TestCase):
@@ -1422,8 +1410,10 @@ class LaneRoles(SuiteFixture, unittest.TestCase):
         cfg.setdefault("suite", {})["roles"] = {"part": "subset"}
         p.write_text(json.dumps(cfg))
         self.ccp("tasks", "claim", "0002")
-        for phase, marker, lane in (("verify", "is a recorded one", "`--lane subset`"),):
+        for phase, lane in (("verify", "`--lane subset`"),):
             code, _, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", "a" * 40)
             self.assertEqual(code, 0, out + err)
             text = (self.q / f"prompts/0002-second/{phase}-prompt.md").read_text()
-            self.assertIn(lane, rule_item(text, marker), phase)
+            lines = [ln for ln in text.splitlines() if "wt create --kind mut" in ln]
+            self.assertEqual(len(lines), 1, phase)
+            self.assertIn(lane, lines[0], phase)
