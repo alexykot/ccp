@@ -162,8 +162,20 @@ class Adopt(InitCase):
         self.assertEqual((tasks / ".gitkeep").read_text(), "")
         self.assertIn("docs/delivery/tasks/.gitkeep", res["written"])
 
+    def test_a_task_log_holding_only_a_tracked_file_an_ignore_rule_covers_gets_no_gitkeep(self):
+        tasks = self.repo / "docs/delivery/tasks"
+        tasks.mkdir(parents=True)
+        (self.repo / ".gitignore").write_text(".DS_Store\n")
+        (tasks / ".DS_Store").write_text("x")
+        self.git("add", "-f", "docs/delivery/tasks/.DS_Store")  # git keeps what it tracks, whatever the ignore rule
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertFalse((tasks / ".gitkeep").exists())
+        self.assertNotIn("docs/delivery/tasks/.gitkeep", res["written"])
+
     def test_outside_a_git_work_tree_every_file_in_the_task_log_counts(self):
-        with tempfile.TemporaryDirectory() as d:
+        not_a_work_tree = subprocess.CompletedProcess([], 128, stdout="", stderr="fatal: not a git repository")
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(ccp_init.subprocess, "run", return_value=not_a_work_tree):
             root = Path(d).resolve()
             tasks = root / "docs/delivery/tasks"
             tasks.mkdir(parents=True)
