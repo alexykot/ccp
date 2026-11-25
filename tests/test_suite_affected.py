@@ -466,6 +466,66 @@ class AffectedMap(Scratch, unittest.TestCase):
         self.assertEqual(self.affected("--paths", "tests/test_names_conf.py"), ["tests.test_names_conf", *reads])
 
 
+class Exclude(Scratch, unittest.TestCase):
+    """The Python product, with two test modules its lanes do not run, both importing pkg/a.py, left out by
+    plane.json `suite.affected_exclude`."""
+
+    EXCLUDE = ["legacy/*", "ops/test_tool.py"]
+
+    def setUp(self):
+        super().setUp({"suite": {"affected_exclude": self.EXCLUDE}})
+        for rel in ("legacy/tests/test_x.py", "ops/test_tool.py"):
+            self.p.write(rel, "from pkg import a\n")
+        self.p.write("legacy/helpers.py", "Z = 1\n")
+        self.commit("modules the lanes do not run")
+
+    def without_the_key(self) -> None:
+        self.p.write("docs/delivery/plane.json", json.dumps(merged_plane({"language": "python"})))
+
+    def test_an_excluded_test_module_is_never_listed(self):
+        self.assertEqual(self.affected("--paths", "pkg/a.py"), ["tests.test_a"])
+        self.p.write("pkg/a.py", "X = 3\n")
+        with redirect_stderr(io.StringIO()):
+            code, lane, command = suite.affected_run(self.p.cfg, SimpleNamespace(since=None))
+        self.assertEqual((code, lane, command), (None, "part", ["python3", "-m", "unittest", "tests.test_a"]))
+        self.without_the_key()
+        self.assertEqual(self.affected("--paths", "pkg/a.py"),
+                         ["legacy.tests.test_x", "ops.test_tool", "tests.test_a"])
+
+    def test_excluded_modules_leave_the_suite_count(self):
+        # one kept module and the two excluded ones import pkg/a.py: 1 of 8, not 3 of 10
+        code, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual((code, lines), (0, ["tests.test_a"]), err)
+        self.assertIn("run them with: ccp suite run --lane part -- python3 -m unittest tests.test_a\n", err)
+        _, lines, err = self.run_cli("--paths", "pkg/a.py", *FILLERS[:2])
+        self.assertEqual(len(lines), 3)
+        self.assertIn("3 of 8 test modules: skip the pre-gate", err)
+        self.without_the_key()
+        _, _, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertIn("3 of 10 test modules: skip the pre-gate", err)
+
+    def test_a_changed_excluded_path_is_still_part_of_the_change(self):
+        self.p.write("tests/test_uses_legacy.py", "import unittest\nimport legacy.helpers\n")
+        self.assertEqual(self.affected("--paths", "legacy/helpers.py"), ["tests.test_uses_legacy"])
+        code, lines, err = self.run_cli("--paths", "legacy/tests/test_x.py")
+        self.assertEqual((code, lines), (0, []))
+        self.assertIn("no test module depends on the 1 changed path(s)", err)
+
+    def test_the_key_must_be_a_list_of_path_globs(self):
+        for bad in ("legacy/*", None, [""], [" "], [1], {"legacy/*": True}):
+            p = Product({"suite": {"affected_exclude": bad}})
+            try:
+                with self.assertRaisesRegex(config.ConfigError, r"suite\.affected_exclude must be a list of path globs",
+                                            msg=bad):
+                    p.cfg
+            finally:
+                p.cleanup()
+        plain = Product()
+        self.addCleanup(plain.cleanup)
+        self.assertEqual(plain.cfg.suite["affected_exclude"], [])
+        self.assertEqual(self.p.cfg.suite["affected_exclude"], self.EXCLUDE)
+
+
 class AffectedMapConfig(unittest.TestCase):
     def test_a_map_of_another_shape_fails_the_load_naming_the_key(self):
         for bad in (["scripts/*.sh"], {"scripts/*.sh": "tests.test_scripts"}, {"scripts/*.sh": []},

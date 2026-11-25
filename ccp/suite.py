@@ -2024,6 +2024,18 @@ def _tracked_files(root: Path) -> list[str]:
     return _git_lines(root, "ls-files", "--cached", "--others", "--exclude-standard")
 
 
+def _kept(files: list[str], globs: list[str]) -> list[str]:
+    """§14.7: `files` without the paths a plane.json `suite.affected_exclude` glob matches
+    (`fnmatch.fnmatchcase` on the root-relative path, so `*` crosses `/`), in their order."""
+    return [rel for rel in files if not any(fnmatch.fnmatchcase(rel, glob) for glob in globs)]
+
+
+def _walked_files(cfg: Config) -> list[str]:
+    """§14.7: what a pack's reader and counter walk: the files git tracks or would track, without the paths
+    the product's lanes do not run (plane.json `suite.affected_exclude`)."""
+    return _kept(_tracked_files(cfg.root), (getattr(cfg, "suite", None) or {}).get("affected_exclude") or [])
+
+
 def _mapped(amap: dict[str, list[str]], changed: list[str]) -> tuple[set[str], list[str]]:
     """§14.7: (the test ids plane.json `suite.affected_map` gives the changed paths, the changed paths no
     glob matches): every glob a path matches (`fnmatch.fnmatchcase` on the root-relative path, so `*`
@@ -2056,7 +2068,7 @@ def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[l
     if not changed:
         return changed, []
     mapped, unmatched = _mapped(amap, changed)
-    found = set(reader(cfg.root, changed, _tracked_files(cfg.root), named=unmatched)) if reader is not None else set()
+    found = set(reader(cfg.root, changed, _walked_files(cfg), named=unmatched)) if reader is not None else set()
     return changed, sorted(found | mapped)
 
 
@@ -2070,7 +2082,7 @@ def affected_modules(cfg: Config, since: str | None, paths: list[str] | None
     pack = doclang.for_tests(cfg)
     total = 0
     if mods and pack.suite_size is not None and _declared_part_lane(cfg) is None:
-        total = pack.suite_size(cfg.root, _tracked_files(cfg.root))
+        total = pack.suite_size(cfg.root, _walked_files(cfg))
     return changed, mods, total, pack.test_command
 
 

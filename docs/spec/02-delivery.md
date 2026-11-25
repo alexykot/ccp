@@ -882,8 +882,9 @@ slower than the full lane. A declared part lane, and a product that maps tests w
   working tree, plus the untracked files git does not ignore, so a branch behind `<ref>` lists only its
   own changes; a `<ref>` with no merge base with `HEAD` exits 2.
 - **The product's language pack reads the tests** (`language`, §8.1). A pack with no test reader (`none`) exits 2 unless plane.json `suite.affected_map` is set, which then reads the tests alone.
-- **Python.** A test module is a `test*.py` file git tracks or does not ignore, named by its dotted
-  path from the root (`tests/test_a.py` is `tests.test_a`). It is touched when it changed itself;
+- **Python.** A test module is a `test*.py` file git tracks or does not ignore and no
+  `suite.affected_exclude` glob matches (below), named by its dotted path from the root
+  (`tests/test_a.py` is `tests.test_a`). It is touched when it changed itself;
   when it imports a changed module directly (any `import` or `from … import`, a relative one or one
   inside a function too; importing `p.m` imports `p`, and `from p import m` imports `p.m`) or
   through one package level (it imports a package whose `__init__.py` imports the changed module);
@@ -894,6 +895,13 @@ slower than the full lane. A declared part lane, and a product that maps tests w
   and the ids of each match are added to what the pack reads. The pack does not match tests by the
   name of a changed path that a glob matches; a changed test module still counts for itself and a
   changed module's importers are still found. The list stays sorted, each id once.
+- **What the lanes do not run.** plane.json `suite.affected_exclude` lists globs of root-relative
+  paths the product's lanes do not run (a retired test tree, a tool's own self-tests), matched as
+  `suite.affected_map`'s are. The pack walks the product's files without the paths a glob matches:
+  such a file is never a test module, so it is never listed or run as touched and never counted in
+  the suite, and the share past which the line names the full lane is of the modules left. A changed
+  path a glob matches is still part of the change, and the ids `suite.affected_map` gives are added
+  as written. Default: none.
 - With nothing changed, or no test touched, it prints nothing, says so on stderr and exits 0. A ref
   git cannot read, or a path outside the root, exits 2.
 

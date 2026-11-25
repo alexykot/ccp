@@ -156,4 +156,15 @@ Measured at `41cabf26`:
 
 ## Implementation notes
 
+- `ccp/config.py`: `SUITE_DEFAULTS["affected_exclude"] = []`; a value that is not a list of non-blank strings
+  (`_str_list`, as the map's ids are checked) fails the load with `suite.affected_exclude must be a list of path
+  globs (§14.7)`.
+- `ccp/suite.py`: `_kept(files, globs)` (plain values) drops every path a glob matches with `fnmatch.fnmatchcase`;
+  `_walked_files(cfg)` applies it to `_tracked_files(cfg.root)`, and both callers (`affected`'s reader call and
+  `affected_modules`' `suite_size` call) take it in place of `_tracked_files`. `changed` and `named` are not
+  filtered, nor the map's ids.
+- Schema: `suite.affected_exclude`, array of `minLength: 1` strings, default `[]` (the schema says what `minLength`
+  can; the blank-string refusal is the loader's, as for `affected_map`).
+- Tests: class `Exclude` in `tests/test_suite_affected.py`, the four tests the task names.
+
 ## Verification notes
