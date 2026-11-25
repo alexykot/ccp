@@ -5,10 +5,10 @@ left room, and walk-throughs. The SPEC states the rules; nothing here overrides 
 
 ## How it is built
 
-- **One review kit.** `ccp/architecture_review.py` defines a `Kind` (state file,
-  lock, id prefix, event type, categories, triage command) and the lock, report and triage
-  validation, rendering and triage hand-off every kind shares. The architect (`ccp/architect.py`)
-  is its one kind.
+- **One review kit.** `ccp/architecture_review.py`
+  holds the architect's state file, lock, id prefixes, event type and lenses as module constants (`STATE`, `LOCK`,
+  `PREFIXES`, `EVENT`, `LENSES`), with the lock, report and triage validation, rendering and triage hand-off; the
+  architect (`ccp/architect.py`) is the seat it serves.
 - **Shared helpers.** The driver takes the lock check and the binding readers (project id, product
   root) from `ccp/lib.py`. The durable `done`
   count is the task log's: `ccp/architect.py` reads it with `tasklog.load`.
@@ -21,7 +21,7 @@ left room, and walk-throughs. The SPEC states the rules; nothing here overrides 
 - **Managed copies (before the plugin).** A sync used to put a skill's managed-copy header after its
   YAML frontmatter, because Claude Code reads the frontmatter first; `--check` found the header
   anywhere near the top. The plugin now ships the skills.
-- **Stub for tests:** `DA_CLAUDE_BIN` replaces `claude`.
+- **Stub for tests:** `CCP_ARCHITECT_CLAUDE_BIN` replaces `claude`.
   The loop was dry-run with the stub: due → run → reported → triage → triaged → the actions; the
   failure path (no JSON gives `failed`, raw output kept) and the board rebuild with the new events.
 
@@ -102,7 +102,7 @@ its first `next`. Switch on in this order:
 
 1. **A pass is enforced.** On a stub product with 4 merged tasks and no pass, `ccp tasks next` names
    a task. After one more merge, it exits 4 with "architect pass due: 5 task(s) done since none".
-   After `ccp architect run` (stubbed with `DA_CLAUDE_BIN`), `next` names a task again. Once 2 more
+   After `ccp architect run` (stubbed with `CCP_ARCHITECT_CLAUDE_BIN`), `next` names a task again. Once 2 more
    merges pass with the report untriaged, it exits 4 with "awaits triage".
 2. **Friction triggers a pass.** With one slot, worker notes on 3 distinct tasks
    (`ccp health note --task`) make `ccp architect due` exit 0 with a reason that names the noted

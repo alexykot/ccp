@@ -21,27 +21,27 @@ from tests.helpers import Product, binding
 
 
 STUB = """#!/usr/bin/env bash
-# Stub claude: answer with the report in $DA_STUB_REPORT, as `claude -p --output-format json` would.
+# Stub claude: answer with the report in $CCP_ARCHITECT_STUB_REPORT, as `claude -p --output-format json` would.
 python3 - "$@" <<'PY'
 import json, os, re, subprocess, sys, time
 prompt = sys.argv[sys.argv.index("-p") + 1]
-R = os.environ["DA_STUB_REPORT"]
+R = os.environ["CCP_ARCHITECT_STUB_REPORT"]
 open(R + ".argv", "w").write(json.dumps(sys.argv[1:]))
 open(R + ".cwd", "w").write(os.getcwd())
 open(R + ".head", "w").write(subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip())
-if os.environ.get("DA_STUB_LINK"):  # is this path a symlink in the pass's cwd
-    open(R + ".link", "w").write(str(os.path.islink(os.environ["DA_STUB_LINK"])))
-if os.environ.get("DA_STUB_WATCH"):  # read a file, wait for the test's go, read it again
-    first = open(os.environ["DA_STUB_WATCH"]).read()
+if os.environ.get("CCP_ARCHITECT_STUB_LINK"):  # is this path a symlink in the pass's cwd
+    open(R + ".link", "w").write(str(os.path.islink(os.environ["CCP_ARCHITECT_STUB_LINK"])))
+if os.environ.get("CCP_ARCHITECT_STUB_WATCH"):  # read a file, wait for the test's go, read it again
+    first = open(os.environ["CCP_ARCHITECT_STUB_WATCH"]).read()
     open(R + ".started", "w").write("")
     for _ in range(400):
         if os.path.exists(R + ".go"):
             break
         time.sleep(0.05)
-    open(R + ".reads", "w").write(json.dumps([first, open(os.environ["DA_STUB_WATCH"]).read()]))
-open(os.environ["DA_STUB_REPORT"] + ".otel", "w").write(os.environ.get("OTEL_RESOURCE_ATTRIBUTES", ""))
+    open(R + ".reads", "w").write(json.dumps([first, open(os.environ["CCP_ARCHITECT_STUB_WATCH"]).read()]))
+open(os.environ["CCP_ARCHITECT_STUB_REPORT"] + ".otel", "w").write(os.environ.get("OTEL_RESOURCE_ATTRIBUTES", ""))
 rid = re.search(r"review_id=(\\S+)", prompt).group(1)
-rep = json.loads(open(os.environ["DA_STUB_REPORT"]).read())
+rep = json.loads(open(os.environ["CCP_ARCHITECT_STUB_REPORT"]).read())
 rep["review_id"] = rid
 print(json.dumps({"type": "result", "subtype": "success", "is_error": False,
                   "result": "Done.\\n```json\\n" + json.dumps(rep) + "\\n```", "session_id": "stub"}))
@@ -78,7 +78,7 @@ class Harness(unittest.TestCase):
         stub.chmod(0o755)
         self.report = self.q / "stub-report.json"
         self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "PROJECT_YAML": str(self.q / "project.yaml"),
-                                                "DA_CLAUDE_BIN": str(stub), "DA_STUB_REPORT": str(self.report),
+                                                "CCP_ARCHITECT_CLAUDE_BIN": str(stub), "CCP_ARCHITECT_STUB_REPORT": str(self.report),
                                                 "ACTOR": lib.RUNNER})
         self.env.start()
         self.detached: list[subprocess.Popen] = []  # each detached pass's child, kept for tearDown to wait on

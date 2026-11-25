@@ -1,5 +1,5 @@
 """ccp architect (SPEC §19): triggers, enforcement at `ccp tasks next`, the run and its triage, end to end
-against a stub `claude` (DA_CLAUDE_BIN). Acceptance checks docs/design/architect.md #1, #2 and #6 are named below."""
+against a stub `claude` (CCP_ARCHITECT_CLAUDE_BIN). Acceptance checks docs/design/architect.md #1, #2 and #6 are named below."""
 from __future__ import annotations
 
 import hashlib
@@ -271,7 +271,7 @@ class RuleChangesAndShape(Harness):
         self.stub_report([], rule_changes=[{"rule": "E9", "action": "add", "text": "One registry for arms."}])
         code, res, _ = self.dpj("architect", "run", "--force")
         self.assertEqual(res["outcome"], "failed")
-        self.assertIn("rule_changes[0]: names no check", " ".join(res["errors"]))
+        self.assertIn("rule_changes[0]: missing check", " ".join(res["errors"]))
         self.stub_report([], rule_changes=[{"rule": "E9", "action": "add", "text": "One registry.", "check": "command"}])
         code, res, _ = self.dpj("architect", "run", "--force")
         self.assertEqual(res["outcome"], "reported")  # no findings, but a rule change to triage
@@ -460,7 +460,7 @@ class ThePassRunsInItsOwnWorktree(Harness):
         self.plane(worktrees={"links": ["deps"]})
         self.p.write("deps/lib.txt", "a dependency\n")  # untracked: only the link brings it in
         self.stub_report([])
-        with mock.patch.dict(os.environ, {"DA_STUB_LINK": "deps"}):
+        with mock.patch.dict(os.environ, {"CCP_ARCHITECT_STUB_LINK": "deps"}):
             code, res, _ = self.dpj("architect", "run", "--force")
         self.assertEqual(code, 0, res)
         self.assertEqual(self.stub("cwd"), str(self.own(res["review_id"])))
@@ -519,7 +519,7 @@ class ThePassRunsInItsOwnWorktree(Harness):
         mover = threading.Thread(target=move_the_checkout)
         mover.start()
         self.stub_report([])
-        with mock.patch.dict(os.environ, {"DA_STUB_WATCH": "app/watched.txt"}):
+        with mock.patch.dict(os.environ, {"CCP_ARCHITECT_STUB_WATCH": "app/watched.txt"}):
             code, res, _ = self.dpj("architect", "run", "--force")
         mover.join()
         self.assertEqual(code, 0, res)

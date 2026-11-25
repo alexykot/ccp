@@ -55,7 +55,6 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from ccp import config, doclang, refs
-from ccp.envvars import for_child
 from ccp.config import CONFIG_REL, WT_FIELDS, Config, ConfigError, fill
 from ccp.queue import QueueError, git, integration_branch, iso, load_task_state, read_json, write_json
 
@@ -179,8 +178,8 @@ def context(cfg: Config, st: dict[str, Any]) -> dict[str, str]:
 def env_fields(cfg: Config, st: dict[str, Any]) -> dict[str, str]:
     """The worktree's fields as the environment gives them, raw: `CCP_WT_<FIELD>` (§12.2), and its round
     as `CCP_WT_ROUND` (§12.1; not a hook template field)."""
-    return for_child({**{f"CCP_WT_{k.upper()}": v for k, v in context(cfg, st).items()},
-                      "CCP_WT_ROUND": str(_round(dict(st))["round"])})
+    return {**{f"CCP_WT_{k.upper()}": v for k, v in context(cfg, st).items()},
+            "CCP_WT_ROUND": str(_round(dict(st))["round"])}
 
 
 def recorded_at(q: Path, root: Path) -> dict[str, Any] | None:
@@ -1211,7 +1210,7 @@ def exec_ccp(exe: Path, args: list[str]) -> int:
     """Run `exe` with `args`, in the caller's working directory and environment, its output the caller's,
     with EXEC_CHILD set: the child runs a worktree's head on purpose, so it gives no checkout warning
     (§29.2). Returns its exit code (128 + N when signal N ended it)."""
-    code = subprocess.call([sys.executable, str(exe), *args], env={**os.environ, **for_child({EXEC_CHILD: "1"})})
+    code = subprocess.call([sys.executable, str(exe), *args], env={**os.environ, EXEC_CHILD: "1"})
     return code if code >= 0 else 128 - code
 
 

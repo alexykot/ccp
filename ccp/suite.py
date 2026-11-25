@@ -30,7 +30,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterator
 
-from ccp.envvars import envvar, for_child
+from ccp.envvars import envvar
 from ccp import config, doclang, runs
 from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, lane_stages, skip_rules_at
 from ccp.queue import QueueError, emit, iso, lib, root, seat_actor
@@ -241,7 +241,7 @@ def run_cache_probe(argv: list[str], lane: str, env: dict[str, str]) -> tuple[bo
     after CACHE_PROBE_TIMEOUT_S, or when `ccp` itself ends first: on an exception (SIGINT), and through a
     watchdog (WATCHDOG) in the probe's group when `ccp` dies (SIGTERM, SIGKILL, a harness killing its group)."""
     try:
-        proc = subprocess.Popen(argv, env={**env, **for_child({"CCP_SUITE_LANE": lane})}, stdin=subprocess.DEVNULL,
+        proc = subprocess.Popen(argv, env={**env, **{"CCP_SUITE_LANE": lane}}, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_group(0))
     except OSError as e:
         return False, f"lane {lane}: its cache probe could not start ({argv[0]}: {e.strerror or e}): taking the lock"
@@ -1079,7 +1079,7 @@ def worktree_env(cfg: Config | None, command: list[str] | None, warn: _Warn) -> 
         st = wt.recorded_at(Path(q), cfg.root)
         if not st:
             return {}
-        return {**wt.env_fields(cfg, st), **for_child({"CCP_TASK_ID": st["task_id"], "CCP_NNNN": st["nnnn"]})}
+        return {**wt.env_fields(cfg, st), "CCP_TASK_ID": st["task_id"], "CCP_NNNN": st["nnnn"]}
     except Exception as e:  # noqa: BLE001
         warn(f"the worktree's CCP_WT_* fields were not found ({type(e).__name__}): the stages run without them")
         return {}
@@ -1245,7 +1245,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     _reopen_closed_std_fds()
     wt_env = worktree_env(cfg, command, warn)
     cold = bool(getattr(a, "cold", False))
-    cold_env = for_child({COLD_VAR: "1"}) if cold else {}  # §14.2: the cold run, in every product
+    cold_env = {COLD_VAR: "1"} if cold else {}  # §14.2: the cold run, in every product
     if envvar("CCP_SUITE_ID"):
         inner = {**(os.environ if caller_env is None else caller_env), **wt_env, **cold_env} \
             if wt_env or cold_env else caller_env
@@ -1483,7 +1483,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             # same entries from a plain shell and from `ccp suite run`. Each stage writes its own result file.
             result_path = Path(tempfile.gettempdir()) / f"ccp-suite-result-{suite_id}{f'-{i}' if i else ''}.json"
             env = {**(os.environ if caller_env is None else caller_env), **wt_env, **cold_env,
-                   **for_child({"CCP_SUITE_ID": suite_id, "CCP_SUITE_RESULT": str(result_path)})}
+                   "CCP_SUITE_ID": suite_id, "CCP_SUITE_RESULT": str(result_path)}
             rc, s_secs = _run_stage(stage["argv"], env, log_fd, merged, own_group, counters, current, tee)
             code = 128 - rc if rc < 0 else rc
             results.append(read_result(result_path))

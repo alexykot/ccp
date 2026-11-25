@@ -45,3 +45,5 @@ atexit.register(shutil.rmtree, os.environ["CCP_SANDBOX_ROOT"], True)
 # tests mock the spawn and lift this.
 os.environ["CCP_NO_ESTIMATOR_SPAWN"] = "1"
 os.environ["CCP_ESTIMATOR_CLAUDE_BIN"] = "/nonexistent/claude-estimator-guard"
+# no test launches a real `claude -p` for the architect either: a test that forgets its stub fails.
+os.environ["CCP_ARCHITECT_CLAUDE_BIN"] = "/nonexistent/claude-architect-guard"

@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ccp.envvars import envvar, for_child
+from ccp.envvars import envvar
 from ccp import config, notify, prhost, queue, refs, runs, tasklog
 from ccp.queue import lib
 from ccp.config import Config
@@ -1815,8 +1815,8 @@ def _task_worktree_env(cfg: Config, q: Path, tid: str, path: Path) -> dict[str, 
         "run_id": "", "task_id": tid, "nnnn": nnnn, "phase": "verify", "kind": wt.MERGE_PREFIX, "seat": seat,
         "round": rnd, "worktree": str(path), "main_checkout": main, "queue_root": str(q),
         "project_id": cfg.project_id})
-    return {**worker, **for_child({**{f"CCP_WT_{k.upper()}": v for k, v in fields.items()}, "CCP_WT_ROUND": rnd,
-                                   "CCP_TASK_ID": tid, "CCP_NNNN": nnnn})}
+    return {**worker, **{f"CCP_WT_{k.upper()}": v for k, v in fields.items()}, "CCP_WT_ROUND": rnd,
+            "CCP_TASK_ID": tid, "CCP_NNNN": nnnn}
 
 
 def _catch_up_gate(q: Path, wt: Path, tid: str, lane: str, wt_env: dict[str, str]) -> tuple[str, int]:

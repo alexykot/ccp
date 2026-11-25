@@ -20,7 +20,7 @@ from typing import Any
 
 from ccp import refs
 from ccp.config import PR_HOST_DEFAULTS, Config, fill
-from ccp.envvars import envvar, for_child
+from ccp.envvars import envvar
 
 STATES = ("open", "merged", "closed")  # a PR's normalised state
 BODY_TIMEOUT_S = 60  # how long a body read waits on the host
@@ -470,7 +470,7 @@ def merge(cfg: Config, pr: str, head: str, task_id: str) -> MergeResult:
     cmd = (cfg.merge or {}).get("command")
     if cmd:
         r = _run(cfg, ["/bin/sh", "-c", fill(cmd, {"pr": pr, "head_sha": head, "task_id": task_id})],
-                 for_child({"CCP_GH_BIN": _gh()}))
+                 {"CCP_GH_BIN": _gh()})
         said = (r.stderr + r.stdout).lower()
         return MergeResult(r.returncode == 0, _words(r), "conflict" in said or "not mergeable" in said)
     return adapter(cfg).merge(str(pr), head, task_id)

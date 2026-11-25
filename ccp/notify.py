@@ -38,7 +38,6 @@ from pathlib import Path
 from typing import Any
 
 from ccp.config import Config
-from ccp.envvars import for_child
 
 TRIGGERS = ("blocker", "decision", "review_point_done", "allowance_checkpoint", "upgrade")
 # §29.3: recorded by a release for the lead to dispatch; `ccp` never runs the command channel for it
@@ -125,9 +124,9 @@ def send(cfg: Config, trigger: str, task_id: str = "", ident: str = "", reason: 
     if not cmd:
         return None
     from ccp import wt  # noqa: PLC0415  (wt imports the queue; notify stays light for its callers)
-    env = for_child({"CCP_NOTIFY_TRIGGER": trigger, "CCP_PROJECT_ID": cfg.project_id, "CCP_TASK_ID": task_id or "",
-                     "CCP_NOTIFY_ID": ident or "", "CCP_NOTIFY_REASON": reason or "",
-                     "CCP_NOTIFY_LINE": line(trigger, cfg.project_id, task_id, ident, reason)})
+    env = {"CCP_NOTIFY_TRIGGER": trigger, "CCP_PROJECT_ID": cfg.project_id, "CCP_TASK_ID": task_id or "",
+           "CCP_NOTIFY_ID": ident or "", "CCP_NOTIFY_REASON": reason or "",
+           "CCP_NOTIFY_LINE": line(trigger, cfg.project_id, task_id, ident, reason)}
     timeout = int((cfg.notify or {}).get("timeout_seconds") or 30)
     try:
         # an empty stdin: a channel that reads a body (`mail`) must not wait on ccp's own
