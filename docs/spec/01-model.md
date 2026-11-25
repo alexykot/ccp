@@ -468,7 +468,7 @@ plane knows GitHub by that host name only, and the warning does not stop the ado
   rule of the product's own house-rules doc that has no `check:` line (§20.1) and points at the
   starter rules (§20.5); it writes nothing. With `--adopt` it gives each such rule a `check: pass`
   line at the end of its item, and refuses (exit 1), writing nothing, when that would put the doc over
-  its 150-line cap (§20.1), or when the doc, parsed again with those lines, would have an adopted rule not
+  its line cap, `architect.rules_max_lines` (§20.1), or when the doc, parsed again with those lines, would have an adopted rule not
   reading `pass` or another rule's check changed (a fenced block left open, for one). The rules parser
   skips fenced code blocks: a line inside one opens no rule and is no rule's `check:`. The rule ids
   and the cap are the product's when its `plane.json` loads. It does not set `architect.rules_doc`,
@@ -769,8 +769,9 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 |---|---|---|
 | `ids` | id and reference patterns | §7 |
 | `spec_paths` | the SPEC files, read by the sign-off checks and the estimator | §3.5, §26 |
+| `task_log` | whether each check that runs a command must record a dry run (`task_log.dry_run`, default off) | §5.5, §21.1 |
 | `adr` | `dir`, `index` (or `null`), `strict`, `template` (or `null` for the plane's) | §6 |
-| `package_docs`, `docs` | doc checks, run when `language` names a pack (`claude_md_dirs`, `docstring_globs`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
+| `package_docs`, `docs` | doc checks, run when `language` names a pack (`claude_md_dirs`, `docstring_globs`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`) and how many run at once (`docs.workers`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
 | `worktrees`, `env`, `merge`, `auth_check` | worktree links and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |
 | `pr_host` | the PR host's adapter (`adapter`: `github`, the default, or `local`, ADR-0040 D5) | §4.5, §15.5 |
